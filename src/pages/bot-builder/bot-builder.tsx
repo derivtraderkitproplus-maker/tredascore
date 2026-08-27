@@ -27,13 +27,11 @@ const BotBuilder = observer(() => {
     const { onMount, onUnmount } = app;
     const el_ref = React.useRef<HTMLInputElement | null>(null);
 
-    // TODO: fix
-    // const isMounted = useIsMounted();
-    // const { data: remote_config_data } = useRemoteConfig(isMounted());
     let deleted_block_id: null | string = null;
 
     React.useEffect(() => {
         onMount();
+
         return () => onUnmount();
     }, [onMount, onUnmount]);
 
@@ -52,6 +50,7 @@ const BotBuilder = observer(() => {
                 removeBlockChangeListener();
             }
         };
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_running]);
 
@@ -135,12 +134,12 @@ const BotBuilder = observer(() => {
 
             {active_tab === 1 && <BotBuilderTourHandler is_mobile={!isDesktop} />}
 
-            {/* removed this outside from toolbar becuase it needs to loaded seperately without dependency */}
+            {/* removed this outside from toolbar because it needs to be loaded separately without dependency */}
             <LoadModal />
             <SaveModal />
             {is_open && <QuickStrategy1 />}
 
-            <FloatingAI />
+            {active_tab === 1 && !is_preview_on_popup && <FloatingAI />}
         </>
     );
 });
