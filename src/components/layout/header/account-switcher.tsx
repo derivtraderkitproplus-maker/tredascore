@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
-import {
-    addComma,
-    getCurrencyDisplayCode,
-    getDecimalPlaces,
-} from '@/components/shared';
+import { addComma, getCurrencyDisplayCode, getDecimalPlaces } from '@/components/shared';
 import Text from '@/components/shared_ui/text';
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import { useApiBase } from '@/hooks/useApiBase';
 import { useStore } from '@/hooks/useStore';
 import { isDemoAccount } from '@/utils/account-helpers';
+import { Localize } from '@deriv-com/translations';
 import { TAccountSwitcher } from './common/types';
 import AccountInfoWrapper from './account-info-wrapper';
 import './account-switcher.scss';
@@ -18,33 +15,21 @@ import './account-switcher.scss';
 const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
-
     const { accountList, activeLoginid } = useApiBase();
     const { client, run_panel } = useStore() ?? {};
 
-    /*
-     * Prevent account switching while the bot is running.
-     * We are deliberately NOT using the old isSingleAccount restriction
-     * during this diagnostic stage.
-     */
-    const is_bot_running = Boolean(
-        run_panel?.is_running || api_base.is_running
-    );
+    const is_bot_running = run_panel?.is_running || api_base.is_running;
+    const isSingleAccount = !accountList || accountList.length <= 1;
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (
-                wrapperRef.current &&
-                !wrapperRef.current.contains(e.target as Node)
-            ) {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
                 setIsOpen(false);
             }
         };
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                setIsOpen(false);
-            }
+            if (e.key === 'Escape') setIsOpen(false);
         };
 
         document.addEventListener('mousedown', handleClickOutside);
@@ -56,57 +41,22 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
         };
     }, []);
 
-    /*
-     * The account switcher is now allowed to open whenever
-     * the bot is not running.
-     */
-    const toggleDropdown = useCallback(
-        (e?: React.MouseEvent | React.KeyboardEvent) => {
-            e?.preventDefault();
-            e?.stopPropagation();
+    const toggleDropdown = useCallback(() => {
+        if (is_bot_running || isSingleAccount) return;
+        setIsOpen(prev => !prev);
+    }, [is_bot_running, isSingleAccount]);
 
-            if (is_bot_running) {
-                return;
-            }
-
-            setIsOpen(prev => !prev);
-        },
-        [is_bot_running]
-    );
-
-    /*
-     * Account selection.
-     *
-     * Keep the existing WebSocket regeneration flow for now.
-     * We will verify this separately after confirming that
-     * the Real account is actually present in accountList.
-     */
     const handleAccountSelect = useCallback(
         (loginid: string) => {
-            if (loginid === activeLoginid) {
-                setIsOpen(false);
-                return;
-            }
-
             localStorage.setItem('active_loginid', loginid);
-
-            setIsOpen(false);
-
             client?.checkAndRegenerateWebSocket();
+            setIsOpen(false);
         },
-        [activeLoginid, client]
+        [client]
     );
 
-    /*
-     * Format every account supplied by accountList.
-     *
-     * We are not filtering Demo or Real accounts here.
-     * Every account returned by the API will be displayed.
-     */
     const formattedAccounts = useMemo(() => {
-        if (!accountList) {
-            return [];
-        }
+        if (!accountList) return [];
 
         return accountList
             .map(account => ({
@@ -120,35 +70,16 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                 isVirtual: isDemoAccount(account.loginid),
                 isActive: account.loginid === activeLoginid,
             }))
-            .sort((a, b) => {
-                if (a.isActive) return -1;
-                if (b.isActive) return 1;
-                return 0;
-            });
+            .sort((a, b) => (a.isActive ? -1 : b.isActive ? 1 : 0));
     }, [accountList, activeLoginid]);
 
-    if (!activeAccount) {
-        return null;
-    }
+    if (!activeAccount) return null;
 
     const { currency, balance } = activeAccount;
-
-    /*
-     * IMPORTANT:
-     * There is intentionally NO isSingleAccount check here.
-     *
-     * This allows us to determine whether accountList actually
-     * contains the Real account.
-     */
-    const showChevron = !is_bot_running;
+    const showChevron = !isSingleAccount && !is_bot_running;
 
     return (
-        <div
-            className={classNames('acc-info__wrapper', {
-                'acc-info__wrapper--open': isOpen,
-            })}
-            ref={wrapperRef}
-        >
+        <div className='acc-info__wrapper' ref={wrapperRef}>
             <AccountInfoWrapper>
                 <div
                     data-testid='dt_acc_info'
@@ -158,31 +89,18 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                     aria-expanded={showChevron ? isOpen : undefined}
                     aria-haspopup={showChevron ? 'listbox' : undefined}
                     className={classNames('acc-info', {
+                        'acc-info--is-virtual': activeAccount.isVirtual,
                         'acc-info--interactive': showChevron,
                     })}
-                    onMouseDown={e => {
-                        if (showChevron) {
-                            e.preventDefault();
-                        }
-                    }}
-                    onClick={e => {
-                        if (showChevron) {
-                            toggleDropdown(e);
-                        }
-                    }}
+                    onClick={toggleDropdown}
                     onKeyDown={e => {
-                        if (
-                            showChevron &&
-                            (e.key === 'Enter' || e.key === ' ')
-                        ) {
-                            toggleDropdown(e);
+                        if (showChevron && (e.key === 'Enter' || e.key === ' ')) {
+                            e.preventDefault();
+                            toggleDropdown();
                         }
                     }}
                 >
-                    <span
-                        className='acc-info__id'
-                        aria-hidden='true'
-                    ></span>
+                    <span className='acc-info__id' aria-hidden='true'></span>
 
                     <div className='acc-info__content'>
                         <div className='acc-info__account-type-header'>
@@ -199,8 +117,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                     className={classNames(
                                         'acc-info__select-arrow',
                                         {
-                                            'acc-info__select-arrow--invert':
-                                                isOpen,
+                                            'acc-info__select-arrow--invert': isOpen,
                                         }
                                     )}
                                 >
@@ -209,7 +126,6 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                         height='12'
                                         viewBox='0 0 12 12'
                                         fill='none'
-                                        aria-hidden='true'
                                     >
                                         <path
                                             d='M2 4L6 8L10 4'
@@ -227,19 +143,16 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                             <div className='acc-info__balance-section'>
                                 <p
                                     data-testid='dt_balance'
-                                    className={classNames(
-                                        'acc-info__balance',
-                                        {
-                                            'acc-info__balance--no-currency':
-                                                !currency,
-                                        }
-                                    )}
+                                    className={classNames('acc-info__balance', {
+                                        'acc-info__balance--no-currency':
+                                            !currency && !activeAccount.isVirtual,
+                                    })}
                                 >
-                                    {!currency
-                                        ? 'No currency assigned'
-                                        : `${balance} ${getCurrencyDisplayCode(
-                                              currency
-                                          )}`}
+                                    {!currency ? (
+                                        <Localize i18n_default_text='No currency assigned' />
+                                    ) : (
+                                        `${balance} ${getCurrencyDisplayCode(currency)}`
+                                    )}
                                 </p>
                             </div>
                         )}
@@ -247,88 +160,60 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                 </div>
             </AccountInfoWrapper>
 
-            {/*
-             * Diagnostic dropdown:
-             *
-             * We deliberately removed:
-             *     && !isSingleAccount
-             *
-             * If accountList contains only one account, the dropdown
-             * will still open and show the diagnostic message below.
-             */}
-            {isOpen && !is_bot_running && (
-                <div
-                    className='acc-dropdown'
-                    role='listbox'
-                    aria-label='Select trading account'
-                >
-                    {formattedAccounts.length > 0 ? (
-                        formattedAccounts.map(account => (
-                            <div
-                                key={account.loginid}
-                                role='option'
-                                aria-selected={account.isActive}
-                                tabIndex={account.isActive ? -1 : 0}
+            {isOpen && (
+                <div className='acc-dropdown' role='listbox'>
+                    {formattedAccounts.map(account => (
+                        <div
+                            key={account.loginid}
+                            role='option'
+                            aria-selected={account.isActive}
+                            tabIndex={0}
+                            className={classNames('acc-dropdown__account', {
+                                'acc-dropdown__account--selected': account.isActive,
+                                'acc-dropdown__account--virtual': account.isVirtual,
+                            })}
+                            onClick={() =>
+                                !account.isActive &&
+                                handleAccountSelect(account.loginid)
+                            }
+                            onKeyDown={e => {
+                                if (
+                                    !account.isActive &&
+                                    (e.key === 'Enter' || e.key === ' ')
+                                ) {
+                                    e.preventDefault();
+                                    handleAccountSelect(account.loginid);
+                                }
+                            }}
+                        >
+                            <Text
+                                size='xxxs'
                                 className={classNames(
-                                    'acc-dropdown__account',
+                                    'acc-dropdown__account-type',
                                     {
-                                        'acc-dropdown__account--selected':
-                                            account.isActive,
-                                        'acc-dropdown__account--virtual':
+                                        'acc-dropdown__account-type--virtual':
                                             account.isVirtual,
                                     }
                                 )}
-                                onMouseDown={e => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                }}
-                                onClick={e => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-
-                                    if (!account.isActive) {
-                                        handleAccountSelect(account.loginid);
-                                    }
-                                }}
-                                onKeyDown={e => {
-                                    if (
-                                        !account.isActive &&
-                                        (e.key === 'Enter' ||
-                                            e.key === ' ')
-                                    ) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleAccountSelect(account.loginid);
-                                    }
-                                }}
                             >
-                                <Text
-                                    size='xxxs'
-                                    className='acc-dropdown__account-type'
-                                >
-                                    {account.loginid}
-                                </Text>
+                                {account.loginid}
+                            </Text>
 
-                                <Text
-                                    size='xs'
-                                    weight='bold'
-                                    className='acc-dropdown__balance'
-                                >
-                                    {account.currency
-                                        ? `${account.balance} ${getCurrencyDisplayCode(
-                                              account.currency
-                                          )}`
-                                        : 'No currency assigned'}
-                                </Text>
-                            </div>
-                        ))
-                    ) : (
-                        <div className='acc-dropdown__account'>
-                            <Text size='xs'>
-                                No other trading accounts available
+                            <Text
+                                size='xs'
+                                weight='bold'
+                                className='acc-dropdown__balance'
+                            >
+                                {account.currency ? (
+                                    `${account.balance} ${getCurrencyDisplayCode(
+                                        account.currency
+                                    )}`
+                                ) : (
+                                    <Localize i18n_default_text='No currency assigned' />
+                                )}
                             </Text>
                         </div>
-                    )}
+                    ))}
                 </div>
             )}
         </div>
