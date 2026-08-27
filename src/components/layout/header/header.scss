@@ -547,3 +547,123 @@
 
     pointer-events: none;
 }
+/* =========================================================
+   TREDASCORE — COMPACT MOBILE HEADER HEIGHT
+   ========================================================= */
+
+.app-header {
+    @include mobile-or-tablet-screen {
+        height: 56px;
+        min-height: 56px;
+        padding-block: 0;
+        padding-inline: 10px;
+
+        background: #11151d;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+}
+
+/* Keep the header's internal wrappers vertically compact */
+.app-header > * {
+    @include mobile-or-tablet-screen {
+        height: 56px;
+        min-height: 56px;
+        display: flex;
+        align-items: center;
+    }
+}
+
+/* Account / authentication area */
+.auth-actions {
+    @include mobile-or-tablet-screen {
+        height: 56px;
+        min-height: 56px;
+        padding-block: 0;
+        gap: 6px;
+        display: flex;
+        align-items: center;
+    }
+}
+
+/* Compact Transfer button */
+.auth-actions > button {
+    @include mobile-or-tablet-screen {
+        height: 38px;
+        min-height: 38px;
+        padding: 0 14px;
+        margin-inline-end: 0;
+
+        border-radius: 9px;
+
+        font-size: 14px;
+        line-height: 18px;
+        font-weight: 600;
+    }
+}
+
+/* Compact account switcher */
+.deriv-account-switcher {
+    @include mobile-or-tablet-screen {
+        &__button {
+            height: 44px;
+            min-height: 44px;
+            padding: 0 4px;
+            margin-inline-end: 0;
+
+            display: flex;
+            align-items: center;
+        }
+
+        &__balance {
+            padding: 0;
+        }
+
+        &__currency {
+            margin-bottom: 0;
+            font-size: 12px;
+            line-height: 15px;
+        }
+    }
+}
+
+/* Keep the account information from adding unnecessary height */
+.account-info {
+    @include mobile-or-tablet-screen {
+        height: 44px;
+        min-height: 44px;
+
+        display: flex;
+        align-items: center;
+
+        min-width: 0;
+        max-width: 175px;
+        overflow: hidden;
+    }
+}
+
+/* Compact account avatar/icon */
+.deriv-account-switcher {
+    @include mobile-or-tablet-screen {
+        &__icon {
+            margin-inline-end: 7px;
+        }
+    }
+}
+
+/* Loading state should occupy the same compact height */
+.auth-actions--loading {
+    @include mobile-or-tablet-screen {
+        height: 56px;
+        min-height: 56px;
+        margin-inline-end: 0;
+        padding: 0;
+    }
+}
+
+/* Slightly smaller spinner */
+.auth-actions__spinner {
+    @include mobile-or-tablet-screen {
+        width: 18px;
+        height: 18px;
+    }
+}
