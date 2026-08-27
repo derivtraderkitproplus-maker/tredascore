@@ -3,112 +3,115 @@ import { useStore } from '@/hooks/useStore';
 import { AI_STRATEGIES, AIStrategy } from './strategies';
 import './FloatingAI.css';
 
+type ScannerResult = AIStrategy & {
+    scannerScore: number;
+    rank: number;
+};
+
 const FloatingAI = () => {
     const { quick_strategy } = useStore();
 
     const [isOpen, setIsOpen] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
-    const [scannerResult, setScannerResult] = useState<any>(null);
-    const [selectedStrategyId, setSelectedStrategyId] = useState(
-        AI_STRATEGIES[0]?.id ?? ''
+    const [scannerResults, setScannerResults] = useState<ScannerResult[]>([]);
+    const [loadingStrategyId, setLoadingStrategyId] = useState<string | null>(
+        null
     );
 
     /**
      * ------------------------------------------------------------
-     * SELECT STRATEGY PROFILE
-     * ------------------------------------------------------------
-     *
-     * The AI library contains 30 profiles.
-     *
-     * Each profile points to an existing Quick Strategy engine.
-     *
-     * Example:
-     *
-     * AI Dollar Flow
-     *       ↓
-     * MARTINGALE
-     *       ↓
-     * Existing Quick Strategy
-     *       ↓
-     * Blockly
-     */
-
-    const selectStrategy = (strategyId: string) => {
-        setSelectedStrategyId(strategyId);
-        setScannerResult(null);
-    };
-
-    /**
-     * ------------------------------------------------------------
-     * AI SCANNER
+     * CALCULATE SCANNER SCORE
      * ------------------------------------------------------------
      *
      * IMPORTANT:
      *
-     * This currently selects a strategy PROFILE from the
-     * 30-strategy library.
+     * This is a profile/scanner score.
+     * It is NOT a guaranteed win rate and does not predict profit.
      *
-     * It does NOT claim to predict the market or guarantee
-     * profitability.
-     *
-     * Later we can replace the selection logic with the real
-     * Deriv WebSocket market scanner.
+     * Later this function can be connected to live Deriv market
+     * data and historical performance data.
      */
+    const calculateScannerScore = (strategy: AIStrategy): number => {
+        let score = 70;
 
-    const scanBestMarket = async () => {
+        // Risk profile contribution
+        if (strategy.risk === 'LOW') {
+            score += 8;
+        } else if (strategy.risk === 'MEDIUM') {
+            score += 5;
+        } else {
+            score += 2;
+        }
+
+        // Controlled profit/loss configuration
+        if (strategy.profit > 0 && strategy.loss > 0) {
+            const ratio = strategy.profit / strategy.loss;
+
+            if (ratio >= 1) {
+                score += 5;
+            } else {
+                score += 2;
+            }
+        }
+
+        // Prefer shorter-duration profiles for the initial scanner
+        if (strategy.duration <= 1) {
+            score += 4;
+        }
+
+        // Existing engines supported by the Quick Strategy system
+        const preferredEngines = [
+            'D_ALEMBERT',
+            'OSCARS_GRIND',
+            'STRATEGY_1_3_2_6',
+            'REVERSE_D_ALEMBERT',
+            'REVERSE_MARTINGALE',
+        ];
+
+        if (preferredEngines.includes(strategy.engine)) {
+            score += 3;
+        }
+
+        // Keep score inside a clean percentage-style range.
+        return Math.min(99, Math.max(50, score));
+    };
+
+    /**
+     * ------------------------------------------------------------
+     * SCAN ALL 30 STRATEGIES
+     * ------------------------------------------------------------
+     */
+    const scanAllStrategies = async () => {
         setIsScanning(true);
-        setScannerResult(null);
+        setScannerResults([]);
 
         try {
-            /*
-             * Find the selected AI profile.
-             */
-            const selectedProfile: AIStrategy | undefined =
-                AI_STRATEGIES.find(
-                    strategy => strategy.id === selectedStrategyId
-                );
+            // Small delay gives the scanner animation a real scanning feel.
+            await new Promise(resolve => setTimeout(resolve, 900));
 
-            if (!selectedProfile) {
-                throw new Error('Selected AI strategy was not found.');
-            }
+            const results: ScannerResult[] = AI_STRATEGIES.map(strategy => ({
+                ...strategy,
+                scannerScore: calculateScannerScore(strategy),
+                rank: 0,
+            }));
 
-            /*
-             * Build the result using the strategy profile.
-             *
-             * IMPORTANT:
-             *
-             * strategy = ENGINE
-             *
-             * strategyId = AI PROFILE ID
-             *
-             * strategyName = USER-FACING NAME
-             */
-            const result = {
-                strategy: selectedProfile.engine,
+            // Highest scanner score first.
+            results.sort((a, b) => {
+                if (b.scannerScore !== a.scannerScore) {
+                    return b.scannerScore - a.scannerScore;
+                }
 
-                strategyId: selectedProfile.id,
-                strategyName: selectedProfile.name,
-                description: selectedProfile.description,
-                risk: selectedProfile.risk,
+                // Secondary ordering keeps results deterministic.
+                return a.name.localeCompare(b.name);
+            });
 
-                symbol: selectedProfile.symbol,
-                tradetype: selectedProfile.tradetype,
-                type: selectedProfile.type,
+            // Assign ranks after sorting.
+            const rankedResults = results.map((strategy, index) => ({
+                ...strategy,
+                rank: index + 1,
+            }));
 
-                stake: selectedProfile.stake,
-                durationtype: selectedProfile.durationtype,
-                duration: selectedProfile.duration,
-
-                profit: selectedProfile.profit,
-                loss: selectedProfile.loss,
-
-                size: selectedProfile.size,
-                unit: selectedProfile.unit,
-
-                action: 'LOAD',
-            };
-
-            setScannerResult(result);
+            setScannerResults(rankedResults);
         } catch (error) {
             console.error('AI Scanner error:', error);
         } finally {
@@ -118,71 +121,75 @@ const FloatingAI = () => {
 
     /**
      * ------------------------------------------------------------
-     * LOAD SCANNER RESULT
+     * LOAD SELECTED STRATEGY
      * ------------------------------------------------------------
      *
-     * This sends the selected PROFILE into the existing
-     * Quick Strategy system.
+     * This uses the EXISTING Quick Strategy system.
      *
-     * It DOES NOT press the Run button.
+     * It loads the bot configuration but does NOT press Run.
      */
+    const loadStrategy = async (strategy: ScannerResult) => {
+        if (loadingStrategyId) return;
 
-    const loadScannerResult = async () => {
-        if (!scannerResult) return;
+        setLoadingStrategyId(strategy.id);
 
         try {
             /*
-             * scannerResult.strategy contains the existing
-             * Quick Strategy engine name.
-             *
-             * Example:
-             *
-             * AI Dollar Flow
-             *      ↓
-             * MARTINGALE
+             * Select the existing Quick Strategy engine.
              */
-            quick_strategy.setSelectedStrategy(
-                scannerResult.strategy
-            );
+            quick_strategy.setSelectedStrategy(strategy.engine);
 
             /*
-             * Send all configuration values to the existing
+             * Send the strategy configuration to the existing
              * Quick Strategy store.
              *
-             * action = LOAD
+             * action = LOAD means:
              *
-             * Therefore this should load the bot configuration
-             * without automatically starting the bot.
+             * Load configuration
+             * DO NOT automatically start trading
              */
             await quick_strategy.onSubmit({
-                symbol: scannerResult.symbol,
-                tradetype: scannerResult.tradetype,
-                type: scannerResult.type,
+                symbol: strategy.symbol,
+                tradetype: strategy.tradetype,
+                type: strategy.type,
 
-                stake: scannerResult.stake,
-                durationtype: scannerResult.durationtype,
-                duration: scannerResult.duration,
+                stake: strategy.stake,
+                durationtype: strategy.durationtype,
+                duration: strategy.duration,
 
-                profit: scannerResult.profit,
-                loss: scannerResult.loss,
+                profit: strategy.profit,
+                loss: strategy.loss,
 
-                size: scannerResult.size,
-                unit: scannerResult.unit,
+                size: strategy.size,
+                unit: strategy.unit,
 
                 action: 'LOAD',
             });
 
             /*
-             * Close AI panel after successful loading.
+             * Close scanner after successful loading.
              */
             setIsOpen(false);
-            setScannerResult(null);
+            setScannerResults([]);
         } catch (error) {
             console.error(
-                'Failed to load scanner result:',
+                'Failed to load AI strategy:',
                 error
             );
+        } finally {
+            setLoadingStrategyId(null);
         }
+    };
+
+    /**
+     * ------------------------------------------------------------
+     * CLOSE SCANNER
+     * ------------------------------------------------------------
+     */
+    const closeScanner = () => {
+        setIsOpen(false);
+        setScannerResults([]);
+        setLoadingStrategyId(null);
     };
 
     return (
@@ -196,7 +203,13 @@ const FloatingAI = () => {
                 className={`floating-ai-button ${
                     isOpen ? 'active' : ''
                 }`}
-                onClick={() => setIsOpen(prev => !prev)}
+                onClick={() => {
+                    if (isOpen) {
+                        closeScanner();
+                    } else {
+                        setIsOpen(true);
+                    }
+                }}
                 aria-label="Open AI Scanner"
             >
                 <span className="ai-ring ring-one" />
@@ -207,262 +220,334 @@ const FloatingAI = () => {
             </button>
 
             {/* ================================================== */}
-            {/* AI SCANNER PANEL */}
+            {/* AI SCANNER */}
             {/* ================================================== */}
 
             {isOpen && (
                 <div className="floating-ai-panel">
 
+                    {/* ================================================== */}
                     {/* HEADER */}
+                    {/* ================================================== */}
+
                     <div className="floating-ai-header">
                         <div>
                             <span className="ai-status-dot" />
 
                             <strong>
-                                AI Scanner
+                                AI Strategy Scanner
                             </strong>
                         </div>
 
                         <button
                             type="button"
                             className="ai-close"
-                            onClick={() => {
-                                setIsOpen(false);
-                                setScannerResult(null);
-                            }}
+                            onClick={closeScanner}
                             aria-label="Close AI Scanner"
                         >
                             ×
                         </button>
                     </div>
 
+                    {/* ================================================== */}
                     {/* CONTENT */}
+                    {/* ================================================== */}
+
                     <div className="floating-ai-content">
 
-                        {!scannerResult ? (
+                        {/* ================================================== */}
+                        {/* INITIAL SCANNER */}
+                        {/* ================================================== */}
+
+                        {scannerResults.length === 0 && !isScanning && (
                             <>
-                                <h3>
-                                    AI Trading Scanner
-                                </h3>
+                                <div className="ai-hero">
+                                    <div className="ai-hero-icon">
+                                        ✦
+                                    </div>
 
-                                <p>
-                                    Select one of the available
-                                    strategy profiles, then load it
-                                    into the existing bot builder.
-                                </p>
+                                    <h3>
+                                        AI Trading Scanner
+                                    </h3>
 
-                                {/* ================================================== */}
-                                {/* STRATEGY SELECTOR */}
-                                {/* ================================================== */}
-
-                                <label
-                                    htmlFor="ai-strategy-select"
-                                    style={{
-                                        display: 'block',
-                                        marginBottom: '8px',
-                                    }}
-                                >
-                                    Strategy
-                                </label>
-
-                                <select
-                                    id="ai-strategy-select"
-                                    value={selectedStrategyId}
-                                    onChange={event =>
-                                        selectStrategy(
-                                            event.target.value
-                                        )
-                                    }
-                                    style={{
-                                        width: '100%',
-                                        padding: '12px',
-                                        marginBottom: '12px',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
-                                    }}
-                                >
-                                    {AI_STRATEGIES.map(
-                                        strategy => (
-                                            <option
-                                                key={strategy.id}
-                                                value={strategy.id}
-                                            >
-                                                {strategy.name}
-                                            </option>
-                                        )
-                                    )}
-                                </select>
-
-                                {/* ================================================== */}
-                                {/* STRATEGY COUNT */}
-                                {/* ================================================== */}
-
-                                <div
-                                    style={{
-                                        fontSize: '12px',
-                                        opacity: 0.7,
-                                        marginBottom: '12px',
-                                    }}
-                                >
-                                    {AI_STRATEGIES.length} strategy
-                                    profiles available
+                                    <p>
+                                        Scan all{' '}
+                                        <strong>
+                                            {AI_STRATEGIES.length}
+                                        </strong>{' '}
+                                        available strategy profiles
+                                        and rank them from strongest
+                                        scanner score to lowest.
+                                    </p>
                                 </div>
 
-                                {/* ================================================== */}
-                                {/* SCAN BUTTON */}
-                                {/* ================================================== */}
+                                <div className="strategy-count">
+                                    <strong>
+                                        {AI_STRATEGIES.length}
+                                    </strong>
+
+                                    <span>
+                                        AI strategies available
+                                    </span>
+                                </div>
 
                                 <button
                                     type="button"
                                     className="scan-button"
-                                    onClick={scanBestMarket}
-                                    disabled={isScanning}
+                                    onClick={scanAllStrategies}
                                 >
-                                    {isScanning
-                                        ? 'Scanning...'
-                                        : 'Scan Best Market'}
+                                    ✦ Scan 30 Strategies
                                 </button>
                             </>
-                        ) : (
-                            <>
+                        )}
+
+                        {/* ================================================== */}
+                        {/* SCANNING */}
+                        {/* ================================================== */}
+
+                        {isScanning && (
+                            <div className="ai-scanning-state">
+                                <div className="scanner-loader">
+                                    <span />
+                                    <span />
+                                    <span />
+                                </div>
+
                                 <h3>
-                                    Scanner Result
+                                    Scanning Strategies...
                                 </h3>
 
                                 <p>
-                                    Strategy profile selected.
+                                    Analyzing all{' '}
+                                    {AI_STRATEGIES.length}{' '}
+                                    strategy profiles.
                                 </p>
 
-                                {/* ================================================== */}
-                                {/* RESULT */}
-                                {/* ================================================== */}
+                                <div className="scanning-progress">
+                                    <div className="scanning-progress-bar" />
+                                </div>
+                            </div>
+                        )}
 
-                                <div className="scanner-result">
+                        {/* ================================================== */}
+                        {/* 30 STRATEGY RESULTS */}
+                        {/* ================================================== */}
 
-                                    <div className="scanner-result-row">
-                                        <span>
-                                            Strategy
-                                        </span>
+                        {scannerResults.length > 0 && !isScanning && (
+                            <>
+                                <div className="scanner-heading">
+                                    <div>
+                                        <h3>
+                                            Scanner Results
+                                        </h3>
 
-                                        <strong>
-                                            {
-                                                scannerResult.strategyName
-                                            }
-                                        </strong>
+                                        <p>
+                                            {scannerResults.length}{' '}
+                                            strategies ranked by
+                                            scanner score.
+                                        </p>
                                     </div>
 
-                                    <div className="scanner-result-row">
-                                        <span>
-                                            Engine
-                                        </span>
-
-                                        <strong>
-                                            {
-                                                scannerResult.strategy
-                                            }
-                                        </strong>
+                                    <div className="result-count">
+                                        {scannerResults.length}/
+                                        {AI_STRATEGIES.length}
                                     </div>
-
-                                    <div className="scanner-result-row">
-                                        <span>
-                                            Market
-                                        </span>
-
-                                        <strong>
-                                            {
-                                                scannerResult.symbol
-                                            }
-                                        </strong>
-                                    </div>
-
-                                    <div className="scanner-result-row">
-                                        <span>
-                                            Direction
-                                        </span>
-
-                                        <strong>
-                                            {
-                                                scannerResult.type ||
-                                                'Default'
-                                            }
-                                        </strong>
-                                    </div>
-
-                                    <div className="scanner-result-row">
-                                        <span>
-                                            Stake
-                                        </span>
-
-                                        <strong>
-                                            $
-                                            {
-                                                scannerResult.stake
-                                            }
-                                        </strong>
-                                    </div>
-
-                                    <div className="scanner-result-row">
-                                        <span>
-                                            Duration
-                                        </span>
-
-                                        <strong>
-                                            {
-                                                scannerResult.duration
-                                            }{' '}
-                                            {scannerResult.duration ===
-                                            1
-                                                ? 'tick'
-                                                : 'ticks'}
-                                        </strong>
-                                    </div>
-
-                                    <div className="scanner-result-row">
-                                        <span>
-                                            Risk
-                                        </span>
-
-                                        <strong>
-                                            {
-                                                scannerResult.risk
-                                            }
-                                        </strong>
-                                    </div>
-
                                 </div>
 
                                 {/* ================================================== */}
-                                {/* LOAD BOT */}
+                                {/* SCROLLABLE STRATEGY LIST */}
+                                {/* ================================================== */}
+
+                                <div className="strategy-list">
+                                    {scannerResults.map(strategy => (
+                                        <div
+                                            key={strategy.id}
+                                            className={`strategy-card ${
+                                                strategy.rank === 1
+                                                    ? 'top-strategy'
+                                                    : ''
+                                            }`}
+                                        >
+                                            {/* RANK */}
+                                            <div className="strategy-card-top">
+                                                <div
+                                                    className={`strategy-rank ${
+                                                        strategy.rank === 1
+                                                            ? 'rank-one'
+                                                            : ''
+                                                    }`}
+                                                >
+                                                    #
+                                                    {strategy.rank}
+                                                </div>
+
+                                                {strategy.rank === 1 && (
+                                                    <div className="best-badge">
+                                                        BEST MATCH
+                                                    </div>
+                                                )}
+
+                                                <div
+                                                    className={`risk-badge risk-${strategy.risk.toLowerCase()}`}
+                                                >
+                                                    {strategy.risk}
+                                                </div>
+                                            </div>
+
+                                            {/* NAME */}
+                                            <div className="strategy-name">
+                                                {strategy.name}
+                                            </div>
+
+                                            {/* DESCRIPTION */}
+                                            <div className="strategy-description">
+                                                {strategy.description}
+                                            </div>
+
+                                            {/* SCORE */}
+                                            <div className="scanner-score">
+                                                <div className="score-info">
+                                                    <span>
+                                                        Scanner Score
+                                                    </span>
+
+                                                    <strong>
+                                                        {
+                                                            strategy.scannerScore
+                                                        }
+                                                        %
+                                                    </strong>
+                                                </div>
+
+                                                <div className="score-track">
+                                                    <div
+                                                        className="score-fill"
+                                                        style={{
+                                                            width: `${strategy.scannerScore}%`,
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* DETAILS */}
+                                            <div className="strategy-details">
+
+                                                <div className="strategy-detail">
+                                                    <span>
+                                                        Engine
+                                                    </span>
+
+                                                    <strong>
+                                                        {
+                                                            strategy.engine
+                                                        }
+                                                    </strong>
+                                                </div>
+
+                                                <div className="strategy-detail">
+                                                    <span>
+                                                        Market
+                                                    </span>
+
+                                                    <strong>
+                                                        {
+                                                            strategy.symbol
+                                                        }
+                                                    </strong>
+                                                </div>
+
+                                                <div className="strategy-detail">
+                                                    <span>
+                                                        Direction
+                                                    </span>
+
+                                                    <strong>
+                                                        {
+                                                            strategy.type ||
+                                                            'Default'
+                                                        }
+                                                    </strong>
+                                                </div>
+
+                                                <div className="strategy-detail">
+                                                    <span>
+                                                        Stake
+                                                    </span>
+
+                                                    <strong>
+                                                        $
+                                                        {
+                                                            strategy.stake
+                                                        }
+                                                    </strong>
+                                                </div>
+
+                                                <div className="strategy-detail">
+                                                    <span>
+                                                        Duration
+                                                    </span>
+
+                                                    <strong>
+                                                        {
+                                                            strategy.duration
+                                                        }{' '}
+                                                        {strategy.duration ===
+                                                        1
+                                                            ? 'tick'
+                                                            : 'ticks'}
+                                                    </strong>
+                                                </div>
+
+                                                <div className="strategy-detail">
+                                                    <span>
+                                                        Target
+                                                    </span>
+
+                                                    <strong>
+                                                        $
+                                                        {
+                                                            strategy.profit
+                                                        }
+                                                    </strong>
+                                                </div>
+
+                                            </div>
+
+                                            {/* LOAD BOT */}
+                                            <button
+                                                type="button"
+                                                className="load-bot-button"
+                                                onClick={() =>
+                                                    loadStrategy(
+                                                        strategy
+                                                    )
+                                                }
+                                                disabled={
+                                                    loadingStrategyId !==
+                                                        null &&
+                                                    loadingStrategyId !==
+                                                        strategy.id
+                                                }
+                                            >
+                                                {loadingStrategyId ===
+                                                strategy.id
+                                                    ? 'Loading...'
+                                                    : 'Load Bot'}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* ================================================== */}
+                                {/* RESCAN */}
                                 {/* ================================================== */}
 
                                 <button
                                     type="button"
-                                    className="scan-button"
-                                    onClick={
-                                        loadScannerResult
-                                    }
+                                    className="rescan-button"
+                                    onClick={scanAllStrategies}
                                 >
-                                    Load Bot
-                                </button>
-
-                                {/* ================================================== */}
-                                {/* BACK */}
-                                {/* ================================================== */}
-
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setScannerResult(
-                                            null
-                                        )
-                                    }
-                                    style={{
-                                        width: '100%',
-                                        marginTop: '8px',
-                                        padding: '10px',
-                                    }}
-                                >
-                                    Choose Another Strategy
+                                    ↻ Scan Again
                                 </button>
                             </>
                         )}
