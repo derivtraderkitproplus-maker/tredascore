@@ -1,0 +1,239 @@
+.floating-ai-button {
+    position: fixed;
+    right: 24px;
+    bottom: 90px;
+    width: 64px;
+    height: 64px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 9999;
+    background: #111827;
+    box-shadow:
+        0 0 0 2px rgba(139, 92, 246, 0.5),
+        0 8px 30px rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.floating-ai-button:hover {
+    transform: scale(1.08);
+}
+
+.floating-ai-button:active {
+    transform: scale(0.94);
+}
+
+.ai-core {
+    position: relative;
+    z-index: 5;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.7);
+}
+
+.ai-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(139, 92, 246, 0.55);
+    pointer-events: none;
+}
+
+.ring-one {
+    width: 64px;
+    height: 64px;
+    animation: aiPulse 2s infinite;
+}
+
+.ring-two {
+    width: 64px;
+    height: 64px;
+    animation: aiPulse 2s infinite 0.65s;
+}
+
+.ring-three {
+    width: 64px;
+    height: 64px;
+    animation: aiPulse 2s infinite 1.3s;
+}
+
+@keyframes aiPulse {
+    0% {
+        transform: scale(0.9);
+        opacity: 0.9;
+    }
+
+    70% {
+        transform: scale(1.55);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1.55);
+        opacity: 0;
+    }
+}
+
+.floating-ai-panel {
+    position: fixed;
+    right: 20px;
+    bottom: 170px;
+    width: min(360px, calc(100vw - 40px));
+    z-index: 9998;
+    overflow: hidden;
+    border-radius: 20px;
+    background: #111827;
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+    color: #ffffff;
+    animation: aiPanelIn 0.25s ease-out;
+}
+
+@keyframes aiPanelIn {
+    from {
+        opacity: 0;
+        transform: translateY(15px) scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.floating-ai-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.floating-ai-header > div {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.ai-status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+    animation: statusPulse 1.8s infinite;
+}
+
+@keyframes statusPulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.45;
+    }
+}
+
+.ai-close {
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.ai-close:hover {
+    color: #ffffff;
+}
+
+.floating-ai-content {
+    padding: 22px 18px 20px;
+}
+
+.floating-ai-content h3 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.floating-ai-content p {
+    margin: 0 0 20px;
+    color: #9ca3af;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.scan-button {
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    padding: 13px 16px;
+    cursor: pointer;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.scan-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 28px rgba(124, 58, 237, 0.45);
+}
+
+.scan-button:active {
+    transform: translateY(1px);
+}
+
+.floating-ai-button.active {
+    box-shadow:
+        0 0 0 2px rgba(139, 92, 246, 0.7),
+        0 0 30px rgba(124, 58, 237, 0.45),
+        0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 600px) {
+    .floating-ai-button {
+        right: 16px;
+        bottom: 78px;
+        width: 58px;
+        height: 58px;
+    }
+
+    .ai-core {
+        width: 40px;
+        height: 40px;
+        font-size: 23px;
+    }
+
+    .ring-one,
+    .ring-two,
+    .ring-three {
+        width: 58px;
+        height: 58px;
+    }
+
+    .floating-ai-panel {
+        right: 12px;
+        bottom: 150px;
+        width: calc(100vw - 24px);
+        border-radius: 18px;
+    }
+  }
