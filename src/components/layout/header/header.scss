@@ -1,636 +1,677 @@
 @use 'components/shared/styles/constants' as *;
 @use 'components/shared/styles/mixins' as *;
 
-/** @define acc-info */
-.acc-info {
-    align-items: center;
-    cursor: default;
-    display: flex;
-    flex-direction: row;
-    height: 100%;
-    justify-content: center;
-    padding: 8px 1.6rem;
-    width: max-content;
+/* =========================================================
+   APP HEADER
+   ========================================================= */
 
-    &:hover {
-        background: transparent !important;
+.app-header {
+    position: relative;
+    z-index: 100;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(24, 29, 39, 0.98) 0%,
+            rgba(15, 18, 26, 0.98) 100%
+        ) !important;
+
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.025),
+        0 8px 24px rgba(0, 0, 0, 0.18);
+
+    transition:
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+
+    &__account-settings {
+        padding-inline-end: 1.2rem;
+        border-inline-end: 0.1rem solid var(--general-section-1);
     }
 
-    &__preloader {
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 37rem;
-        height: 4rem;
-        z-index: 2;
-        background: var(--general-main-1);
-
-        &:before {
-            content: '';
-            position: absolute;
-            left: -8rem;
-            width: 8rem;
-            height: 3.5rem;
-            top: 0;
-            background: var(--general-main-1);
-        }
-
-        &--no-currency:before {
-            left: -9rem;
-            width: 9rem;
-        }
-
-        @include mobile-screen {
-            width: 14rem;
-            height: 4rem;
-            top: -0.3rem;
-
-            &:before {
-                display: none;
-            }
-
-            &--is-crypto {
-                width: 100%;
-            }
+    &__account-settings,
+    .notifications__wrapper,
+    &__menu {
+        svg > path,
+        svg > g > path {
+            fill: var(--text-prominent);
         }
     }
 
-    &__preloader__dtrader {
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 37rem;
-        height: 4rem;
-        z-index: 2;
-        background: var(--general-main-1);
-
-        &:before {
-            content: '';
-            position: absolute;
-            left: -8rem;
-            width: 8rem;
-            height: 3.5rem;
-            top: 0;
-            background: var(--general-main-1);
-        }
-
-        &--no-currency:before {
-            left: -9rem;
-            width: 9rem;
-        }
-
-        @include mobile-screen {
-            width: 14rem;
-            height: 4rem;
-            top: -0.3rem;
-
-            &:before {
-                display: none;
-            }
-
-            &--is-crypto {
-                width: 100%;
-            }
-        }
-
-        &--wallets {
-            width: 47rem;
-
-            @include mobile-screen {
-                width: auto;
-            }
-        }
-    }
-
-    &__container {
+    .deriv-header__left,
+    .deriv-header__right {
+        min-height: 56px;
         align-items: center;
-        -webkit-box-align: center;
-        display: flex;
     }
+}
 
-    &__wrapper {
-        align-items: center;
-        display: flex;
-        flex-direction: row;
-        height: 100%;
-        justify-content: center;
-        position: relative;
-        margin-right: 0.8rem;
-        user-select: none;
-        -webkit-touch-callout: none;
-        -webkit-tap-highlight-color: transparent;
+/* =========================================================
+   ACCOUNT AREA
+   ========================================================= */
 
-        /*
-         * IMPORTANT:
-         * The account dropdown is positioned relative to this wrapper.
-         * Keep it above surrounding header elements.
-         */
-        z-index: 100000;
-        overflow: visible;
-    }
-
-    &__content {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        margin-inline-start: 1rem;
-    }
-
-    &__account-type-header {
+.app-header {
+    .account-info {
         display: flex;
         align-items: center;
-        gap: 0.4rem;
-        margin-bottom: 0.2rem;
+        min-height: 44px;
+        padding-inline: 4px;
     }
 
-    &__account-type {
-        @include typeface(--xxsmall-left-normal-green);
-
-        line-height: 1;
-        margin: 0;
-        font-size: var(--text-size-xxs);
-    }
-
-    &--is-virtual {
-        .acc-info__account-type {
-            color: $color-yellow;
-        }
-    }
-
-    &__balance-section {
+    .deriv-account-switcher {
         display: flex;
         align-items: center;
     }
 
-    &__balance {
-        @include typeface(--paragraph-left-bold-black);
+    .deriv-account-switcher__button {
+        min-height: 44px;
+        padding: 6px 10px;
+        border-radius: 10px;
 
-        line-height: 1.4;
-        pointer-events: none;
-        margin: 0;
-        font-size: 1.4rem;
-        color: var(--status-success);
-
-        &--no-currency {
-            @include typeface(--small-left-normal-grey);
-
-            white-space: nowrap;
-        }
-    }
-
-    &__id {
-        pointer-events: none;
-        display: flex;
-        align-items: center;
-
-        &-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 0.8rem;
-        }
-    }
-
-    &__separator {
-        border-right: 1px solid var(--general-section-1);
-        height: 3.2rem;
-        margin-right: -0.1rem;
-    }
-
-    &__account-type-and-balance {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        padding: 0 1rem 0.1rem 0;
-        pointer-events: none;
-    }
-
-    &__select-arrow {
-        pointer-events: none;
-        display: flex;
-        align-items: center;
-        transform: rotate(0);
-        transform-origin: 50% 50%;
-        transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-
-        svg path {
-            stroke: var(--text-general);
-        }
-
-        &--invert {
-            transform: rotate(180deg);
-        }
-    }
-
-    @include desktop-screen {
-        &:hover:not(.show, &--is-disabled) {
-            background: var(--state-hover);
-
-            .symbols {
-                background: transparent;
-            }
-        }
-    }
-
-    @include mobile-screen {
-        padding: 0 1rem;
-        margin-right: -0.8rem;
-
-        &__balance {
-            font-size: 1.4rem;
-
-            &--no-currency {
-                white-space: nowrap;
-            }
-        }
-    }
-
-    .acc-info__balance {
-        @include typeface(--paragraph-left-bold-black);
-    }
-
-    &--is-disabled {
-        cursor: not-allowed;
-    }
-
-    &--interactive {
-        cursor: pointer !important;
+        transition:
+            background-color 0.18s ease,
+            transform 0.18s ease;
 
         &:hover {
-            background: var(--state-hover) !important;
+            background-color: rgba(255, 255, 255, 0.055) !important;
+        }
+
+        &:active {
+            transform: scale(0.98);
         }
     }
 
-    &__button {
-        margin: 0 1.6em 0 0 !important;
+    .deriv-account-switcher__currency {
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 500;
+        color: var(--text-general);
+        margin-bottom: 2px;
+    }
 
-        &:not(:last-child) {
-            margin-right: 1em;
+    .deriv-account-switcher__balance {
+        padding-right: 0;
+        font-size: 15px;
+        line-height: 20px;
+        font-weight: 700;
+        color: var(--text-prominent);
+    }
+}
+
+/* =========================================================
+   ACCOUNT SWITCHER ITEM
+   ========================================================= */
+
+.account-switcher {
+    &__item {
+        .deriv-account-switcher-item {
+            padding: 0.6rem 1.6rem;
+
+            &__detail {
+                .deriv-account-switcher-item__currency {
+                    margin-bottom: 2px;
+                    font-size: 1.4rem;
+                }
+            }
+
+            &__icon {
+                margin-right: unset;
+                margin-inline-end: 10px;
+            }
         }
 
-        @include mobile-screen {
-            height: 2.8rem !important;
+        &--disabled {
+            opacity: 0.32;
         }
     }
 
-    &__wallets {
-        padding: 1.2rem 1.6rem;
-        gap: 0.8rem;
+    &__separator:after {
+        background-color: var(--general-section-2);
+        content: '';
+        height: 4px;
+        position: absolute;
+        width: 100%;
+        z-index: 1;
+    }
 
-        &-notification-icon {
-            margin-right: 1rem;
-        }
+    &-footer {
+        background: var(--general-main-1);
 
-        &-container {
+        &__actions {
+            display: flex;
+            justify-content: right;
             align-items: center;
-            display: flex;
-            gap: 0.8rem;
-        }
+            background-color: var(--du-general-main-2);
+            padding: 1.6rem 0.8rem;
 
-        &-account-type-and-balance {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 0;
-            pointer-events: none;
-        }
+            &--hide-manage-button {
+                justify-content: flex-end;
+            }
 
-        &-balance {
-            color: var(--text-general);
-            margin-right: 0;
+            .manage-button {
+                background: none;
+                border: 1px solid var(--button-secondary-default);
+                margin-inline-end: 0.7rem;
+                height: auto;
+                padding: 0.4rem 1.2rem;
+                white-space: break-spaces;
+
+                &:hover {
+                    background-color: unset !important;
+                }
+
+                span {
+                    color: var(--text-prominent);
+                    font-size: var(--text-size-xs);
+                    cursor: pointer;
+                    font-weight: 700;
+                }
+            }
         }
     }
 }
 
-/* @define acc-switcher; weak */
-.acc-switcher {
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    margin: 0 0.8rem;
-    height: 4rem;
-    position: relative;
+/* =========================================================
+   SECONDARY NAVIGATION TABS
+   ========================================================= */
 
-    &--is-loading {
-        position: absolute;
-        height: 100%;
-        width: 100%;
-        top: 0;
-        left: 0;
-        background: var(--general-main-2);
+.derivs-secondary-tabs {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--general-main-1);
+
+    .derivs-text__size--md {
+        font-size: 14px;
+        line-height: 18px;
+    }
+}
+
+/* =========================================================
+   DERIV ACCOUNT SWITCHER
+   ========================================================= */
+
+.deriv-account-switcher {
+    &-item {
+        &__balance {
+            button {
+                border-width: 1px;
+                height: 2.4rem;
+                min-width: 4.8rem;
+
+                span {
+                    color: var(--text-prominent) !important;
+                }
+            }
+        }
     }
 
-    &__wrapper {
-        border-radius: $BORDER_RADIUS;
-        position: absolute;
-        z-index: 100000;
-        transition:
-            transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1),
-            opacity 0.25s linear;
-        box-shadow: 0 8px 16px 0 var(--shadow-menu);
-        right: 0;
-        top: calc(100% + 4px);
-        width: 320px;
-        background-color: var(--general-main-2);
-
-        @include tablet-screen {
-            position: unset;
-        }
-
-        &--wallets {
-            width: 32rem;
-            right: -3.2rem;
-        }
-
-        &--enter-done {
-            opacity: 1;
-            transform: translate3d(0, 0, 0);
-        }
-
-        &--enter,
-        &--exit {
-            opacity: 0;
-            transform: translate3d(0, -20px, 0);
-        }
-
-        .acc-switcher__button {
-            max-width: calc(100% - 1.6rem);
-            margin: 0.2rem 0.8rem 0.8rem;
-            height: 4rem;
-        }
+    &__button {
+        margin-inline-end: 0.8rem;
 
         @include mobile-or-tablet-screen {
-            position: relative;
-            top: unset;
-            left: unset;
-            right: unset;
-            width: 100%;
-            box-shadow: none;
-            height: 100%;
-            border-radius: 0;
+            margin-inline-end: 0;
         }
 
-        .dc-themed-scrollbars {
-            scrollbar-color: var(--text-less-prominent) transparent;
+        .deriv-context-menu {
+            box-shadow: 0 0 2px 0 var(--du-shadow-box, #00000014);
+        }
 
-            &::-webkit-scrollbar-thumb {
-                background-color: var(--text-less-prominent);
-            }
+        .deriv-account-switcher__balance + svg > path {
+            fill: var(--text-general);
+        }
+
+        &:hover {
+            background-color: unset;
         }
     }
 
-    &__new-account {
-        display: flex;
-        align-items: center;
-        padding: 1rem 1.6rem 1.8rem;
-        font-size: var(--text-size-xs);
-
-        &-text {
-            margin-left: 0.8rem;
-        }
-
-        &-btn {
-            margin-left: auto;
-        }
-
-        &--disabled {
-            opacity: 0.5;
-            cursor: default;
-        }
+    &__currency {
+        margin-bottom: 2px;
     }
 
-    &__reset-account {
-        &-btn {
-            margin-left: auto;
-        }
-    }
-
-    &__list {
-        border-radius: $BORDER_RADIUS;
-        display: flex;
-        flex-flow: column nowrap;
-        height: 100%;
-        background: var(--general-main-2);
-
-        &-wrapper {
-            padding: 0.4rem 0.8rem 0;
-        }
-
-        &-title {
-            flex: 1;
-        }
-
-        &-container {
-            height: auto;
-            overflow-x: hidden;
-            overflow-y: auto;
-        }
-    }
-
-    &__help-icon {
-        cursor: pointer;
-        margin-left: 0.8rem;
-        vertical-align: middle;
-    }
-
-    &__accounts {
-        border-radius: $BORDER_RADIUS;
-        background: var(--general-main-2);
-        position: relative;
-
-        .acc-switcher__account {
-            margin-bottom: 2px;
-            background: var(--general-main-2);
-
-            &:hover:not(.acc-switcher__account--selected) {
-                background-color: var(--state-hover);
-                border-radius: 4px;
-            }
-
-            &.acc-switcher__account--disabled:hover {
-                background-color: var(--general-main-2);
-            }
-
-            .acc-switcher__id {
-                color: var(--text-general);
-                width: 100%;
-                line-height: 1.43;
-            }
-
-            &--selected {
-                background: var(--state-active);
-
-                .acc-switcher__id {
-                    color: var(--text-prominent);
-                    font-weight: 700;
-
-                    &--virtual:before {
-                        color: var(--text-prominent);
-                        border: 1px solid var(--text-prominent);
-                    }
-                }
-            }
-
-            &--disabled {
-                opacity: 0.5;
-                cursor: default;
-            }
-
-            &:only-child {
-                border-radius: 4px;
-            }
-
-            &:last-child {
-                margin-bottom: 8px;
-            }
-        }
-
-        &--is-loading {
-            padding-bottom: 0.8rem;
-        }
-    }
-
-    &__account {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        cursor: pointer;
-        padding: 0.3rem 1.6rem;
-        position: relative;
-        background: var(--general-main-2);
-        text-decoration: none;
-
-        .acc-switcher__id {
-            @include typeface(--paragraph-left-normal-black);
-
-            align-items: center;
-            display: flex;
-            color: var(--text-prominent);
-
-            &-icon {
-                @include toEm(margin-right, 8px, 1em);
-            }
-        }
-
-        &:hover:not(.acc-switcher__account--selected) {
-            background: var(--state-hover);
-        }
-
-        &--selected {
-            background: var(--state-active);
-            border-radius: 4px;
-
-            .acc-switcher {
-                &__id {
-                    @include typeface(--paragraph-left-bold-active);
-
-                    &--virtual:before {
-                        color: var(--text-prominent);
-                        border: 1px solid var(--text-prominent);
-                    }
-                }
-
-                &__loginid-text {
-                    color: var(--text-prominent);
-                    font-weight: normal;
-                }
-            }
-
-            .no-currency {
-                color: var(--text-prominent);
-            }
-        }
-    }
-
-    &__footer {
-        align-items: center;
-        display: grid;
-        grid-template-columns: auto auto;
-        justify-content: space-between;
-        padding-left: 1.3rem;
-    }
-
-    &__compare {
-        justify-self: end;
-        grid-column: 1 / 2;
-    }
-
-    &__logout {
-        grid-column: 2 / 3;
-        align-items: center;
-        display: flex;
-        justify-content: flex-end;
-        justify-self: start;
-        padding: 1.6em 1.3em;
-
-        &-text {
-            cursor: pointer;
-        }
-
-        &-icon {
-            margin-left: 8px;
-            cursor: pointer;
-        }
+    &__icon {
+        margin-right: 7px;
     }
 
     &__balance {
-        margin-left: auto;
-        text-align: right;
+        padding: 0 1rem 0.1rem 0;
     }
 
-    &__separator {
-        display: block;
-        position: relative;
+    &__list {
+        &.account-switcher-panel {
+            padding: 0.4rem 0.8rem 0;
 
-        &:after {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 4px;
-            background-color: var(--general-section-2);
-            z-index: 1;
-        }
+            .account-switcher-panel__no-eu-accounts {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
 
-        &--no-padding {
-            &:after {
-                width: calc(100% + 0.4rem);
+                .add-button {
+                    background: none;
+
+                    span {
+                        color: #000;
+                        font-size: 12px;
+                        border: solid 2px var(--text-disabled-1);
+                        padding: 0.1rem 1.6rem;
+                        border-radius: 0.5em;
+                        cursor: pointer;
+                    }
+                }
+
+                .deriv-account-switcher-item {
+                    background: none;
+                }
             }
         }
 
-        &--auto-margin {
-            margin-top: auto;
+        .deriv-accordion {
+            &__content {
+                background: unset;
+                overflow: auto;
+            }
+
+            &__text {
+                margin-top: 0;
+            }
+
+            &__icon {
+                margin-left: unset;
+                margin-inline-start: auto;
+            }
         }
     }
 
-    &__total {
-        height: 2.6rem;
-        margin: 0.4rem 1.6rem;
-        align-items: center;
+    &__title {
+        height: 4rem;
+        margin: 0 auto;
+        padding: 1.2rem 0.6rem;
+    }
+
+    &__container--mobile {
+        min-height: auto;
+        max-width: 600px;
+    }
+
+    &__container {
+        max-height: 80vh;
+        overflow: auto;
+        background: var(--general-main-2);
+        border-radius: 4px;
+        box-shadow: 0 8px 16px 0 var(--shadow-menu) !important;
+        position: absolute;
+        transition:
+            transform 0.3s ease,
+            opacity 0.25s linear;
+        width: 320px;
+        top: 55px;
+        right: unset;
+        inset-inline-end: 0;
+    }
+
+    &__tradershub-link {
+        background: var(--du-general-main-2);
+        color: var(--text-prominent);
+        padding: 1rem;
         display: flex;
+        justify-content: center;
+    }
 
-        &-subtitle {
-            margin: 0 1.6rem 1.2rem;
+    &__footer {
+        padding: 0;
+        display: block;
+    }
+}
+
+/* =========================================================
+   TRANSFER / AUTH ACTIONS
+   ========================================================= */
+
+.auth-actions {
+    display: flex;
+    padding-block: 6px;
+    align-items: center;
+    gap: 8px;
+
+    button {
+        font-weight: 400;
+        margin-inline-end: 0;
+        border-radius: 12px;
+
+        &:disabled,
+        &[disabled] {
+            opacity: 1;
         }
     }
 
-    &__loginid-text {
-        font-size: 1rem;
-        color: var(--text-less-prominent);
-        line-height: 1.4;
+    &--loading {
+        align-items: center;
+        margin-inline-end: 0;
+    }
 
-        &--disabled {
-            color: var(--text-disabled);
+    &__spinner {
+        width: 2rem;
+        height: 2rem;
+        color: var(--text-prominent);
+        animation: auth-spinner-rotate 0.8s linear infinite;
+    }
+
+    /* Authenticated header — Transfer button */
+    > button:only-child {
+        height: 40px !important;
+        min-height: 40px !important;
+        min-width: 104px !important;
+
+        padding: 0 18px !important;
+
+        border-radius: 12px !important;
+
+        font-size: 14px !important;
+        font-weight: 650 !important;
+        letter-spacing: 0.01em;
+
+        box-shadow:
+            0 4px 12px rgba(59, 130, 246, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+        transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            filter 0.18s ease;
+
+        &:hover {
+            filter: brightness(1.06);
+            transform: translateY(-1px);
+
+            box-shadow:
+                0 6px 18px rgba(59, 130, 246, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14);
+        }
+
+        &:active {
+            transform: translateY(0) scale(0.98);
         }
     }
 
-    &__loader {
-        margin: 1rem auto !important;
-        font-size: 0.8rem;
+    /* Login / Sign up */
+    > button {
+        min-height: 40px;
+        border-radius: 11px !important;
+        padding-inline: 16px;
+
+        transition:
+            transform 0.18s ease,
+            background-color 0.18s ease,
+            box-shadow 0.18s ease;
+
+        &:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        &:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+    }
+}
+
+/* =========================================================
+   MOBILE HEADER
+   ========================================================= */
+
+.app-header--mobile {
+    min-height: 56px;
+
+    .deriv-header__left,
+    .deriv-header__right {
+        min-height: 56px;
     }
 
-    &__btn {
-        width: calc(100% - 32px);
-        margin: 0 16px 8px;
+    .auth-actions {
+        height: 56px;
+        min-height: 56px;
+        padding-block: 0;
+        gap: 6px;
+    }
 
-        &--traders_hub {
-            margin: 1.
+    .deriv-account-switcher__button {
+        min-height: 44px;
+        padding-inline: 8px;
+        border-radius: 10px;
+    }
+
+    .deriv-account-switcher__currency {
+        font-size: 11px;
+    }
+
+    .deriv-account-switcher__balance {
+        font-size: 14px;
+    }
+
+    .auth-actions > button:only-child {
+        height: 38px !important;
+        min-height: 38px !important;
+        min-width: 92px !important;
+
+        padding-inline: 14px !important;
+        margin-inline-end: 4px;
+
+        border-radius: 10px !important;
+
+        font-size: 13px !important;
+    }
+}
+
+/* =========================================================
+   COMPACT MOBILE/TABLET HEADER
+   ========================================================= */
+
+.app-header {
+    @include mobile-or-tablet-screen {
+        height: 56px;
+        min-height: 56px;
+        padding-block: 0;
+        padding-inline: 10px;
+
+        background: #11151d !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+}
+
+.app-header > * {
+    @include mobile-or-tablet-screen {
+        height: 56px;
+        min-height: 56px;
+
+        display: flex;
+        align-items: center;
+    }
+}
+
+/* =========================================================
+   MOBILE ACCOUNT AREA
+   ========================================================= */
+
+.account-info {
+    @include mobile-or-tablet-screen {
+        height: 44px;
+        min-height: 44px;
+
+        display: flex;
+        align-items: center;
+
+        min-width: 0;
+        max-width: 175px;
+        overflow: hidden;
+    }
+}
+
+.deriv-account-switcher {
+    @include mobile-or-tablet-screen {
+        &__button {
+            height: 44px;
+            min-height: 44px;
+
+            padding: 0 4px;
+            margin-inline-end: 0;
+
+            display: flex;
+            align-items: center;
+        }
+
+        &__balance {
+            padding: 0;
+        }
+
+        &__currency {
+            margin-bottom: 0;
+            font-size: 12px;
+            line-height: 15px;
+        }
+
+        &__icon {
+            margin-inline-end: 7px;
+        }
+    }
+}
+
+/* =========================================================
+   LOADING STATE
+   ========================================================= */
+
+.auth-actions--loading {
+    @include mobile-or-tablet-screen {
+        height: 56px;
+        min-height: 56px;
+
+        margin-inline-end: 0;
+        padding: 0;
+    }
+}
+
+.auth-actions__spinner {
+    @include mobile-or-tablet-screen {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+/* =========================================================
+   ACCOUNT DROPDOWN / PANEL
+   ========================================================= */
+
+.deriv-account-switcher__container {
+    border: 1px solid rgba(148, 163, 184, 0.14) !important;
+    border-radius: 12px !important;
+
+    box-shadow:
+        0 18px 45px rgba(0, 0, 0, 0.42),
+        0 2px 8px rgba(0, 0, 0, 0.2) !important;
+
+    overflow: hidden;
+}
+
+.account-switcher__item {
+    .deriv-account-switcher-item {
+        border-radius: 9px;
+
+        transition: background-color 0.15s ease;
+
+        &:hover {
+            background-color: rgba(255, 255, 255, 0.045);
+        }
+    }
+}
+
+/* =========================================================
+   LANGUAGES MODAL
+   ========================================================= */
+
+.languages-modal {
+    background: var(--general-section-1);
+
+    .deriv-modal__header {
+        border-bottom: 2px solid var(--general-section-5);
+    }
+
+    .deriv-modal__close-icon {
+        path {
+            fill: var(--text-prominent);
+        }
+    }
+
+    .deriv-text {
+        color: var(--text-prominent) !important;
+    }
+}
+
+/* =========================================================
+   ACCORDION
+   ========================================================= */
+
+.deriv-accordion--underline {
+    border-bottom: none;
+}
+
+/* =========================================================
+   LOGOUT BUTTON
+   ========================================================= */
+
+.header {
+    &__logout-button {
+        margin-right: 0.8rem;
+        margin-left: 1.6rem;
+
+        &:hover {
+            background: transparent !important;
+        }
+
+        .dc-text {
+            color: var(--text-general) !important;
+        }
+    }
+}
+
+/* =========================================================
+   HEADER BOTTOM ACCENT
+   ========================================================= */
+
+.app-header::after {
+    content: '';
+
+    position: absolute;
+
+    left: 0;
+    right: 0;
+    bottom: -1px;
+
+    height: 1px;
+
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(59, 130, 246, 0.16) 35%,
+        rgba(139, 92, 246, 0.18) 65%,
+        transparent 100%
+    );
+
+    pointer-events: none;
+}
+
+/* =========================================================
+   SPINNER
+   ========================================================= */
+
+@keyframes auth-spinner-rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
