@@ -14,10 +14,11 @@ import './account-switcher.scss';
 const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
+
     const { accountList, activeLoginid } = useApiBase();
     const { client, run_panel } = useStore() ?? {};
 
-    const is_bot_running = run_panel?.is_running || api_base.is_running;
+    const is_bot_running = Boolean(run_panel?.is_running || api_base.is_running);
     const isSingleAccount = !accountList || accountList.length <= 1;
 
     useEffect(() => {
@@ -42,19 +43,34 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
         };
     }, []);
 
-    const toggleDropdown = useCallback(() => {
-        if (is_bot_running || isSingleAccount) return;
+    const toggleDropdown = useCallback(
+        (e?: React.MouseEvent | React.KeyboardEvent) => {
+            e?.preventDefault();
+            e?.stopPropagation();
 
-        setIsOpen(prev => !prev);
-    }, [is_bot_running, isSingleAccount]);
+            if (is_bot_running || isSingleAccount) {
+                return;
+            }
+
+            setIsOpen(prev => !prev);
+        },
+        [is_bot_running, isSingleAccount]
+    );
 
     const handleAccountSelect = useCallback(
         (loginid: string) => {
+            if (loginid === activeLoginid) {
+                setIsOpen(false);
+                return;
+            }
+
             localStorage.setItem('active_loginid', loginid);
-            client?.checkAndRegenerateWebSocket();
+
             setIsOpen(false);
+
+            client?.checkAndRegenerateWebSocket();
         },
-        [client]
+        [activeLoginid, client]
     );
 
     const formattedAccounts = useMemo(() => {
@@ -65,7 +81,9 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                 loginid: account.loginid,
                 currency: account.currency,
                 balance: addComma(
-                    Number(account.balance ?? 0).toFixed(getDecimalPlaces(account.currency))
+                    Number(account.balance ?? 0).toFixed(
+                        getDecimalPlaces(account.currency)
+                    )
                 ),
                 isVirtual: isDemoAccount(account.loginid),
                 isActive: account.loginid === activeLoginid,
@@ -76,10 +94,16 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
     if (!activeAccount) return null;
 
     const { currency, balance } = activeAccount;
+
     const showChevron = !isSingleAccount && !is_bot_running;
 
     return (
-        <div className='acc-info__wrapper' ref={wrapperRef}>
+        <div
+            className={classNames('acc-info__wrapper', {
+                'acc-info__wrapper--open': isOpen,
+            })}
+            ref={wrapperRef}
+        >
             <AccountInfoWrapper>
                 <div
                     data-testid='dt_acc_info'
@@ -91,11 +115,22 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                     className={classNames('acc-info', {
                         'acc-info--interactive': showChevron,
                     })}
-                    onClick={toggleDropdown}
-                    onKeyDown={e => {
-                        if (showChevron && (e.key === 'Enter' || e.key === ' ')) {
+                    onMouseDown={e => {
+                        if (showChevron) {
                             e.preventDefault();
-                            toggleDropdown();
+                        }
+                    }}
+                    onClick={e => {
+                        if (showChevron) {
+                            toggleDropdown(e);
+                        }
+                    }}
+                    onKeyDown={e => {
+                        if (
+                            showChevron &&
+                            (e.key === 'Enter' || e.key === ' ')
+                        ) {
+                            toggleDropdown(e);
                         }
                     }}
                 >
@@ -103,15 +138,23 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
 
                     <div className='acc-info__content'>
                         <div className='acc-info__account-type-header'>
-                            <Text as='p' size='xs' className='acc-info__account-type'>
+                            <Text
+                                as='p'
+                                size='xs'
+                                className='acc-info__account-type'
+                            >
                                 {activeLoginid}
                             </Text>
 
                             {showChevron && (
                                 <span
-                                    className={classNames('acc-info__select-arrow', {
-                                        'acc-info__select-arrow--invert': isOpen,
-                                    })}
+                                    className={classNames(
+                                        'acc-info__select-arrow',
+                                        {
+                                            'acc-info__select-arrow--invert':
+                                                isOpen,
+                                        }
+                                    )}
                                 >
                                     <svg
                                         width='12'
@@ -135,13 +178,19 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                             <div className='acc-info__balance-section'>
                                 <p
                                     data-testid='dt_balance'
-                                    className={classNames('acc-info__balance', {
-                                        'acc-info__balance--no-currency': !currency,
-                                    })}
+                                    className={classNames(
+                                        'acc-info__balance',
+                                        {
+                                            'acc-info__balance--no-currency':
+                                                !currency,
+                                        }
+                                    )}
                                 >
                                     {!currency
                                         ? 'No currency assigned'
-                                        : `${balance} ${getCurrencyDisplayCode(currency)}`}
+                                        : `${balance} ${getCurrencyDisplayCode(
+                                              currency
+                                          )}`}
                                 </p>
                             </div>
                         )}
@@ -149,27 +198,46 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                 </div>
             </AccountInfoWrapper>
 
-            {isOpen && (
-                <div className='acc-dropdown' role='listbox'>
+            {isOpen && !is_bot_running && !isSingleAccount && (
+                <div
+                    className='acc-dropdown'
+                    role='listbox'
+                    aria-label='Select trading account'
+                >
                     {formattedAccounts.map(account => (
                         <div
                             key={account.loginid}
                             role='option'
                             aria-selected={account.isActive}
-                            tabIndex={0}
-                            className={classNames('acc-dropdown__account', {
-                                'acc-dropdown__account--selected': account.isActive,
-                                'acc-dropdown__account--virtual': account.isVirtual,
-                            })}
-                            onClick={() =>
-                                !account.isActive && handleAccountSelect(account.loginid)
-                            }
+                            tabIndex={account.isActive ? -1 : 0}
+                            className={classNames(
+                                'acc-dropdown__account',
+                                {
+                                    'acc-dropdown__account--selected':
+                                        account.isActive,
+                                    'acc-dropdown__account--virtual':
+                                        account.isVirtual,
+                                }
+                            )}
+                            onMouseDown={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }}
+                            onClick={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+
+                                if (!account.isActive) {
+                                    handleAccountSelect(account.loginid);
+                                }
+                            }}
                             onKeyDown={e => {
                                 if (
                                     !account.isActive &&
                                     (e.key === 'Enter' || e.key === ' ')
                                 ) {
                                     e.preventDefault();
+                                    e.stopPropagation();
                                     handleAccountSelect(account.loginid);
                                 }
                             }}
