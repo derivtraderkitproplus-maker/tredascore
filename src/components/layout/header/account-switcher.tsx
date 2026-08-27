@@ -27,11 +27,14 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                 setIsOpen(false);
             }
         };
+
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') setIsOpen(false);
         };
+
         document.addEventListener('mousedown', handleClickOutside);
         document.addEventListener('keydown', handleKeyDown);
+
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('keydown', handleKeyDown);
@@ -54,11 +57,14 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
 
     const formattedAccounts = useMemo(() => {
         if (!accountList) return [];
+
         return accountList
             .map(account => ({
                 loginid: account.loginid,
                 currency: account.currency,
-                balance: addComma(Number(account.balance ?? 0).toFixed(getDecimalPlaces(account.currency))),
+                balance: addComma(
+                    Number(account.balance ?? 0).toFixed(getDecimalPlaces(account.currency))
+                ),
                 isVirtual: isDemoAccount(account.loginid),
                 isActive: account.loginid === activeLoginid,
             }))
@@ -67,7 +73,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
 
     if (!activeAccount) return null;
 
-    const { currency, isVirtual, balance } = activeAccount;
+    const { currency, balance } = activeAccount;
     const showChevron = !isSingleAccount && !is_bot_running;
 
     return (
@@ -81,7 +87,6 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                     aria-expanded={showChevron ? isOpen : undefined}
                     aria-haspopup={showChevron ? 'listbox' : undefined}
                     className={classNames('acc-info', {
-                        'acc-info--is-virtual': isVirtual,
                         'acc-info--interactive': showChevron,
                     })}
                     onClick={toggleDropdown}
@@ -93,22 +98,25 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                     }}
                 >
                     <span className='acc-info__id' aria-hidden='true'></span>
+
                     <div className='acc-info__content'>
                         <div className='acc-info__account-type-header'>
                             <Text as='p' size='xs' className='acc-info__account-type'>
-                                {isVirtual ? (
-                                    <Localize i18n_default_text='Demo account' />
-                                ) : (
-                                    <Localize i18n_default_text='Real account' />
-                                )}
+                                {activeLoginid}
                             </Text>
+
                             {showChevron && (
                                 <span
                                     className={classNames('acc-info__select-arrow', {
                                         'acc-info__select-arrow--invert': isOpen,
                                     })}
                                 >
-                                    <svg width='12' height='12' viewBox='0 0 12 12' fill='none'>
+                                    <svg
+                                        width='12'
+                                        height='12'
+                                        viewBox='0 0 12 12'
+                                        fill='none'
+                                    >
                                         <path
                                             d='M2 4L6 8L10 4'
                                             stroke='currentColor'
@@ -120,12 +128,13 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                 </span>
                             )}
                         </div>
+
                         {(typeof balance !== 'undefined' || !currency) && (
                             <div className='acc-info__balance-section'>
                                 <p
                                     data-testid='dt_balance'
                                     className={classNames('acc-info__balance', {
-                                        'acc-info__balance--no-currency': !currency && !isVirtual,
+                                        'acc-info__balance--no-currency': !currency,
                                     })}
                                 >
                                     {!currency ? (
@@ -139,6 +148,7 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                     </div>
                 </div>
             </AccountInfoWrapper>
+
             {isOpen && (
                 <div className='acc-dropdown' role='listbox'>
                     {formattedAccounts.map(account => (
@@ -151,7 +161,9 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                 'acc-dropdown__account--selected': account.isActive,
                                 'acc-dropdown__account--virtual': account.isVirtual,
                             })}
-                            onClick={() => !account.isActive && handleAccountSelect(account.loginid)}
+                            onClick={() =>
+                                !account.isActive && handleAccountSelect(account.loginid)
+                            }
                             onKeyDown={e => {
                                 if (!account.isActive && (e.key === 'Enter' || e.key === ' ')) {
                                     e.preventDefault();
@@ -165,13 +177,14 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
                                     'acc-dropdown__account-type--virtual': account.isVirtual,
                                 })}
                             >
-                                {account.isVirtual ? (
-                                    <Localize i18n_default_text='Demo account' />
-                                ) : (
-                                    <Localize i18n_default_text='Real account' />
-                                )}
+                                {account.loginid}
                             </Text>
-                            <Text size='xs' weight='bold' className='acc-dropdown__balance'>
+
+                            <Text
+                                size='xs'
+                                weight='bold'
+                                className='acc-dropdown__balance'
+                            >
                                 {account.currency ? (
                                     `${account.balance} ${getCurrencyDisplayCode(account.currency)}`
                                 ) : (
