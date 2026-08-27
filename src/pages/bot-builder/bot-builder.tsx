@@ -8,6 +8,7 @@ import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import { TBlocklyEvents } from 'Types';
+import FloatingAI from '@/ai-scanner/floating-ai/FloatingAI';
 import LoadModal from '../../components/load-modal';
 import SaveModal from '../dashboard/bot-list/save-modal';
 import BotBuilderTourHandler from '../tutorials/dbot-tours/bot-builder-tour';
@@ -38,6 +39,7 @@ const BotBuilder = observer(() => {
 
     React.useEffect(() => {
         const workspace = window.Blockly?.derivWorkspace;
+
         if (workspace && is_running && !is_blockly_listener_registered.current) {
             is_blockly_listener_registered.current = true;
             workspace.addChangeListener(handleBlockChangeOnBotRun);
@@ -55,6 +57,7 @@ const BotBuilder = observer(() => {
 
     const handleBlockChangeOnBotRun = (e: Event) => {
         const { is_reset_button_clicked } = toolbar;
+
         if (e.type !== 'selected' && !is_reset_button_clicked) {
             botNotification(notification_message().workspace_change);
             removeBlockChangeListener();
@@ -67,8 +70,10 @@ const BotBuilder = observer(() => {
         is_blockly_listener_registered.current = false;
         window.Blockly?.derivWorkspace?.removeChangeListener(handleBlockChangeOnBotRun);
     };
+
     React.useEffect(() => {
         const workspace = window.Blockly?.derivWorkspace;
+
         if (workspace && !is_blockly_delete_listener_registered.current) {
             is_blockly_delete_listener_registered.current = true;
             workspace.addChangeListener(handleBlockDelete);
@@ -79,17 +84,21 @@ const BotBuilder = observer(() => {
 
     const handleBlockDelete = (e: TBlocklyEvents) => {
         const { is_reset_button_clicked, setResetButtonState } = toolbar;
+
         if (e.type === 'undo') {
             deleted_block_id = null;
             return;
         }
+
         if (e.type === 'delete' && !is_reset_button_clicked) {
             deleted_block_id = e.blockId;
         }
+
         if (e.type === 'selected' && deleted_block_id === e.oldElementId) {
             handleBlockDeleteNotification();
             deleted_block_id = null;
         }
+
         if (
             e.type === 'change' &&
             e.name === 'AMOUNT_LIMITS' &&
@@ -123,11 +132,15 @@ const BotBuilder = observer(() => {
                     <WorkspaceWrapper />
                 </div>
             </div>
+
             {active_tab === 1 && <BotBuilderTourHandler is_mobile={!isDesktop} />}
+
             {/* removed this outside from toolbar becuase it needs to loaded seperately without dependency */}
             <LoadModal />
             <SaveModal />
             {is_open && <QuickStrategy1 />}
+
+            <FloatingAI />
         </>
     );
 });
