@@ -119,6 +119,13 @@
         user-select: none;
         -webkit-touch-callout: none;
         -webkit-tap-highlight-color: transparent;
+
+        /*
+         * Keep the account selector and dropdown above
+         * surrounding header/navigation layers.
+         */
+        z-index: 10000;
+        overflow: visible;
     }
 
     &__content {
@@ -561,8 +568,6 @@
 
         &-icon {
             margin-left: 8px;
-
-            // @extend %inline-icon;
             cursor: pointer;
         }
     }
@@ -726,17 +731,34 @@
     position: absolute;
     top: calc(100% + 4px);
     right: 0;
-    z-index: 3;
-    min-width: 16rem;
+    z-index: 100000;
+
+    min-width: 24rem;
+    width: max-content;
+    max-width: 32rem;
+
     background-color: var(--general-main-2);
+    border: 1px solid var(--general-section-1);
     border-radius: $BORDER_RADIUS;
-    box-shadow: 0 8px 16px 0 var(--shadow-menu);
+
+    box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.25),
+        0 16px 32px rgba(0, 0, 0, 0.18);
+
     overflow: hidden;
+    pointer-events: auto;
 
     &__account {
         display: flex;
         flex-direction: column;
-        padding: .8rem 1.6rem;
+        align-items: flex-start;
+        justify-content: center;
+
+        width: 100%;
+        min-height: 5.6rem;
+
+        padding: 0.8rem 1.6rem;
+
         cursor: pointer;
         background: var(--general-main-2);
 
@@ -748,6 +770,10 @@
             background: var(--state-hover);
         }
 
+        &:active:not(.acc-dropdown__account--selected) {
+            background: var(--state-active);
+        }
+
         &--selected {
             background: var(--state-active);
             cursor: default;
@@ -756,9 +782,10 @@
 
     &__account-type {
         color: var(--status-success);
-        margin-bottom: 0.1rem;
+        margin-bottom: 0.2rem;
         line-height: 1.2;
         font-size: 1.4rem;
+        white-space: nowrap;
 
         &--virtual {
             color: $color-yellow;
@@ -769,6 +796,13 @@
         color: var(--text-prominent);
         line-height: 1.4;
         font-size: 1.2rem;
+        white-space: nowrap;
+    }
+
+    @include mobile-screen {
+        min-width: 22rem;
+        max-width: calc(100vw - 2rem);
+        right: 0;
     }
 }
 
