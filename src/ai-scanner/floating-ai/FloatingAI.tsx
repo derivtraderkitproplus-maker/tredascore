@@ -37,16 +37,8 @@ type ScannerResult = AIStrategy & {
     marketDirection: MarketAnalysis['direction'];
     marketConfidence: number;
 
-    /*
-     * True when the live market confidence satisfies
-     * this strategy's configured minimumConfidence.
-     */
     confidenceQualified: boolean;
 
-    /*
-     * Number of live ticks currently available for
-     * this strategy's market.
-     */
     liveTickCount: number;
 };
 
@@ -58,13 +50,6 @@ type ScannerResult = AIStrategy & {
 
 const MAX_TICKS_PER_SYMBOL = 100;
 
-/*
- * Minimum number of ticks before the scanner considers
- * the market buffer sufficiently populated.
- *
- * scannerLogic.ts remains the authority on whether the
- * market itself has sufficient data.
- */
 const MIN_TICKS_FOR_LIVE_SCANNER = 20;
 
 const LIVE_TICK_RETRY_MS = 1000;
@@ -101,34 +86,16 @@ const FloatingAI = () => {
      * ------------------------------------------------------------
      * LIVE TICK STORAGE
      * ------------------------------------------------------------
-     *
-     * One independent rolling buffer per symbol.
-     *
-     * Example:
-     *
-     * 1HZ100V -> [tick, tick, tick...]
-     *
-     * If more symbols are added later:
-     *
-     * R_100 -> [tick, tick, tick...]
-     * R_75  -> [tick, tick, tick...]
      */
 
     const tickBuffersRef = useRef<
         Record<string, number[]>
     >({});
 
-    /*
-     * Last received tick timestamp for each symbol.
-     */
     const lastTickTimeRef = useRef<
         Record<string, number>
     >({});
 
-    /*
-     * Number of rejected/invalid ticks is useful during
-     * development without affecting scanner calculations.
-     */
     const invalidTickCountRef = useRef(0);
 
     /*
@@ -150,31 +117,27 @@ const FloatingAI = () => {
             null
         );
 
-    /*
-     * Prevent callbacks from continuing after unmount.
-     */
     const isMountedRef = useRef(true);
 
     /*
      * ------------------------------------------------------------
      * SCAN CONTROL
      * ------------------------------------------------------------
-     *
-     * Prevent overlapping scans.
      */
+
     const scanInProgressRef = useRef(false);
 
     /*
-     * Gives every scan a unique generation.
+     * Every scan receives a unique generation.
      *
-     * If an old asynchronous scan finishes after a newer
-     * scan has started, its result is ignored.
+     * Any asynchronous operation belonging to an older
+     * generation is ignored.
      */
     const scanGenerationRef = useRef(0);
 
     /*
      * ------------------------------------------------------------
-     * MARKET ANALYSIS DISPLAY
+     * MARKET ANALYSIS
      * ------------------------------------------------------------
      */
 
@@ -257,10 +220,6 @@ const FloatingAI = () => {
 
         const symbols = getStrategySymbols();
 
-        /*
-         * If there are no symbols configured, there is
-         * nothing to subscribe to.
-         */
         if (symbols.length === 0) {
             console.warn(
                 '[AI Scanner] No valid strategy symbols found.'
@@ -270,7 +229,7 @@ const FloatingAI = () => {
         }
 
         /*
-         * Deriv API connection not ready yet.
+         * API connection may not be ready immediately.
          *
          * Retry safely.
          */
@@ -295,8 +254,7 @@ const FloatingAI = () => {
         }
 
         /*
-         * API is available, so any pending retry is no
-         * longer necessary.
+         * API is available.
          */
         if (
             tickRetryTimerRef.current !== null
@@ -327,11 +285,6 @@ const FloatingAI = () => {
                     api_base.subscribeToTicks(
                         symbol,
                         tick => {
-                            /*
-                             * Component may have unmounted
-                             * while the WebSocket callback was
-                             * still active.
-                             */
                             if (
                                 !isMountedRef.current
                             ) {
@@ -339,7 +292,7 @@ const FloatingAI = () => {
                             }
 
                             /*
-                             * Defensive tick validation.
+                             * Defensive validation.
                              */
                             if (
                                 !tick ||
@@ -359,17 +312,11 @@ const FloatingAI = () => {
                                     symbol
                                 ] || [];
 
-                            /*
-                             * Add newest quote.
-                             */
                             const updatedTicks = [
                                 ...currentTicks,
                                 tick.quote,
                             ];
 
-                            /*
-                             * Maintain rolling window.
-                             */
                             tickBuffersRef.current[
                                 symbol
                             ] =
@@ -377,26 +324,16 @@ const FloatingAI = () => {
                                     -MAX_TICKS_PER_SYMBOL
                                 );
 
-                            /*
-                             * Track freshness.
-                             */
                             lastTickTimeRef.current[
                                 symbol
                             ] = Date.now();
                         }
                     );
 
-                /*
-                 * Mark as subscribed only after
-                 * subscribeToTicks succeeds.
-                 */
                 subscribedSymbolsRef.current.add(
                     symbol
                 );
 
-                /*
-                 * Only store a valid cleanup function.
-                 */
                 if (
                     typeof unsubscribe ===
                     'function'
@@ -429,9 +366,6 @@ const FloatingAI = () => {
 
     const cleanupLiveTickBridge =
         useCallback(() => {
-            /*
-             * Stop retry timer.
-             */
             if (
                 tickRetryTimerRef.current !== null
             ) {
@@ -442,9 +376,6 @@ const FloatingAI = () => {
                 tickRetryTimerRef.current = null;
             }
 
-            /*
-             * Unsubscribe every active listener.
-             */
             tickUnsubscribersRef.current.forEach(
                 unsubscribe => {
                     try {
@@ -478,7 +409,7 @@ const FloatingAI = () => {
             isMountedRef.current = false;
 
             /*
-             * Invalidate any active scan.
+             * Invalidate all active asynchronous work.
              */
             scanGenerationRef.current += 1;
 
@@ -496,11 +427,10 @@ const FloatingAI = () => {
      * PROFILE SCORE
      * ============================================================
      *
-     * This measures the static strategy profile.
+     * Static strategy profile score.
      *
-     * IMPORTANT:
-     * This is NOT a win rate.
-     * This is NOT a profit prediction.
+     * NOT a win rate.
+     * NOT a profit prediction.
      */
 
     const calculateProfileScore = (
@@ -508,9 +438,6 @@ const FloatingAI = () => {
     ): number => {
         let score = 70;
 
-        /*
-         * Risk profile.
-         */
         if (strategy.risk === 'LOW') {
             score += 8;
         } else if (
@@ -521,9 +448,6 @@ const FloatingAI = () => {
             score += 2;
         }
 
-        /*
-         * Profit / loss configuration.
-         */
         if (
             strategy.profit > 0 &&
             strategy.loss > 0
@@ -539,17 +463,10 @@ const FloatingAI = () => {
             }
         }
 
-        /*
-         * Short duration.
-         */
         if (strategy.duration <= 1) {
             score += 4;
         }
 
-        /*
-         * Existing engines with stronger compatibility
-         * with the scanner's progressive profiles.
-         */
         const preferredEngines = [
             'D_ALEMBERT',
             'OSCARS_GRIND',
@@ -595,9 +512,6 @@ const FloatingAI = () => {
                 analysis
             );
 
-        /*
-         * No live data.
-         */
         if (
             analysis.state ===
             'INSUFFICIENT_DATA'
@@ -609,29 +523,15 @@ const FloatingAI = () => {
             };
         }
 
-        /*
-         * Respect each strategy's minimum confidence.
-         */
         const confidenceQualified =
             analysis.confidence >=
             strategy.marketProfile
                 .minimumConfidence;
 
-        /*
-         * Live market receives 60%.
-         * Static profile receives 40%.
-         */
         let finalScore =
             profileScore * 0.4 +
             marketCompatibility * 0.6;
 
-        /*
-         * Confidence is a qualification gate.
-         *
-         * We do not artificially claim a strategy is
-         * strongly suitable when its own confidence
-         * requirement has not been met.
-         */
         if (!confidenceQualified) {
             finalScore *= 0.65;
         }
@@ -708,7 +608,7 @@ const FloatingAI = () => {
 
     const scanAllStrategies = async () => {
         /*
-         * Prevent double-click / overlapping scans.
+         * Prevent overlapping scans.
          */
         if (scanInProgressRef.current) {
             return;
@@ -716,6 +616,9 @@ const FloatingAI = () => {
 
         scanInProgressRef.current = true;
 
+        /*
+         * Create a completely new scan generation.
+         */
         const currentScanGeneration =
             ++scanGenerationRef.current;
 
@@ -725,13 +628,12 @@ const FloatingAI = () => {
 
         try {
             /*
-             * Ensure live subscriptions exist.
+             * Make sure live subscriptions exist.
              */
             subscribeToLiveTicks();
 
             /*
-             * Give incoming ticks a short opportunity
-             * to settle before analysis.
+             * Give incoming ticks time to settle.
              */
             await new Promise(resolve =>
                 setTimeout(
@@ -741,8 +643,12 @@ const FloatingAI = () => {
             );
 
             /*
-             * If the component disappeared or another
-             * scan replaced this one, stop.
+             * ----------------------------------------------------
+             * GENERATION SAFETY CHECK #1
+             * ----------------------------------------------------
+             *
+             * If the scanner was closed, unmounted, or
+             * replaced by another generation, stop immediately.
              */
             if (
                 !isMountedRef.current ||
@@ -776,9 +682,6 @@ const FloatingAI = () => {
                             analysis
                         );
 
-                    const liveTickCount =
-                        liveTicks.length;
-
                     return {
                         ...strategy,
 
@@ -802,7 +705,8 @@ const FloatingAI = () => {
                         confidenceQualified:
                             scores.confidenceQualified,
 
-                        liveTickCount,
+                        liveTickCount:
+                            liveTicks.length,
                     };
                 });
 
@@ -825,20 +729,9 @@ const FloatingAI = () => {
              * ----------------------------------------------------
              * RANK RESULTS
              * ----------------------------------------------------
-             *
-             * Priority:
-             *
-             * 1. Usable confidence
-             * 2. Scanner score
-             * 3. Market compatibility
-             * 4. Market confidence
              */
 
             results.sort((a, b) => {
-                /*
-                 * If live data exists, qualified strategies
-                 * are preferred over unqualified strategies.
-                 */
                 if (
                     hasUsableLiveData &&
                     a.confidenceQualified !==
@@ -900,6 +793,21 @@ const FloatingAI = () => {
 
             /*
              * ----------------------------------------------------
+             * GENERATION SAFETY CHECK #2
+             * ----------------------------------------------------
+             *
+             * Do this BEFORE any result-related state update.
+             */
+            if (
+                !isMountedRef.current ||
+                currentScanGeneration !==
+                    scanGenerationRef.current
+            ) {
+                return;
+            }
+
+            /*
+             * ----------------------------------------------------
              * DISPLAY TOP STRATEGY MARKET ANALYSIS
              * ----------------------------------------------------
              */
@@ -915,15 +823,51 @@ const FloatingAI = () => {
                         topStrategy.symbol
                     ] || [];
 
-                setMarketAnalysis(
+                const topAnalysis =
                     analyzeMarket(
                         topTicks
-                    )
+                    );
+
+                /*
+                 * Generation safety before state update.
+                 */
+                if (
+                    !isMountedRef.current ||
+                    currentScanGeneration !==
+                        scanGenerationRef.current
+                ) {
+                    return;
+                }
+
+                setMarketAnalysis(
+                    topAnalysis
                 );
             } else {
+                if (
+                    !isMountedRef.current ||
+                    currentScanGeneration !==
+                        scanGenerationRef.current
+                ) {
+                    return;
+                }
+
                 setMarketAnalysis(
                     analyzeMarket([])
                 );
+            }
+
+            /*
+             * ----------------------------------------------------
+             * GENERATION SAFETY CHECK #3
+             * ----------------------------------------------------
+             */
+
+            if (
+                !isMountedRef.current ||
+                currentScanGeneration !==
+                    scanGenerationRef.current
+            ) {
+                return;
             }
 
             /*
@@ -938,10 +882,13 @@ const FloatingAI = () => {
 
             /*
              * ----------------------------------------------------
-             * FINAL SAFETY CHECK
+             * GENERATION SAFETY CHECK #4
              * ----------------------------------------------------
+             *
+             * This is intentionally AFTER the editable-value
+             * initialization as a final guard before results
+             * are displayed.
              */
-
             if (
                 !isMountedRef.current ||
                 currentScanGeneration !==
@@ -951,20 +898,38 @@ const FloatingAI = () => {
             }
 
             /*
-             * Display results.
+             * ----------------------------------------------------
+             * DISPLAY RESULTS
+             * ----------------------------------------------------
              */
+
             setScannerResults(
                 rankedResults
             );
         } catch (error) {
-            console.error(
-                '[AI Scanner] Scanner error:',
-                error
-            );
+            /*
+             * Ignore stale/unmounted scans.
+             */
+            if (
+                isMountedRef.current &&
+                currentScanGeneration ===
+                    scanGenerationRef.current
+            ) {
+                console.error(
+                    '[AI Scanner] Scanner error:',
+                    error
+                );
+            }
         } finally {
             /*
-             * Only clear scanning state for the
-             * currently active scan.
+             * ----------------------------------------------------
+             * FINAL GENERATION-SAFE CLEANUP
+             * ----------------------------------------------------
+             *
+             * CRITICAL:
+             *
+             * An old scan is NEVER allowed to clear the
+             * state of a newer scan.
              */
             if (
                 isMountedRef.current &&
@@ -972,9 +937,10 @@ const FloatingAI = () => {
                     scanGenerationRef.current
             ) {
                 setIsScanning(false);
-            }
 
-            scanInProgressRef.current = false;
+                scanInProgressRef.current =
+                    false;
+            }
         }
     };
 
@@ -988,16 +954,6 @@ const FloatingAI = () => {
         strategyId: string,
         value: string
     ) => {
-        /*
-         * Allow:
-         *
-         * 1
-         * 1.
-         * 1.5
-         * .5
-         *
-         * but reject letters and multiple decimals.
-         */
         if (
             !/^\d*\.?\d*$/.test(value)
         ) {
@@ -1042,24 +998,15 @@ const FloatingAI = () => {
      * This ONLY loads the existing Quick Strategy.
      *
      * It does NOT execute the bot.
-     *
-     * The user must still use the existing Run mechanism.
      */
 
     const loadStrategy = async (
         strategy: ScannerResult
     ) => {
-        /*
-         * Prevent loading while another strategy is
-         * being loaded.
-         */
         if (loadingStrategyId !== null) {
             return;
         }
 
-        /*
-         * Do not load a strategy while a scan is running.
-         */
         if (scanInProgressRef.current) {
             return;
         }
@@ -1114,11 +1061,8 @@ const FloatingAI = () => {
 
         /*
          * --------------------------------------------------------
-         * SAFETY CHECK FOR INSUFFICIENT DATA
+         * LIVE DATA SAFETY CHECK
          * --------------------------------------------------------
-         *
-         * Do not load a strategy that was selected only
-         * because there was no live data.
          */
 
         if (
@@ -1140,18 +1084,14 @@ const FloatingAI = () => {
 
         try {
             /*
-             * Select the EXISTING Quick Strategy engine.
+             * Select the existing Quick Strategy engine.
              */
             quick_strategy.setSelectedStrategy(
                 strategy.engine
             );
 
             /*
-             * Load configuration into the existing
-             * Quick Strategy.
-             *
-             * IMPORTANT:
-             * action remains LOAD.
+             * LOAD ONLY.
              *
              * This does NOT execute a trade.
              */
@@ -1232,10 +1172,16 @@ const FloatingAI = () => {
 
     const closeScanner = () => {
         /*
-         * Invalidate any scan currently awaiting completion.
+         * IMPORTANT:
+         *
+         * Incrementing the generation immediately invalidates
+         * every asynchronous scan currently waiting.
          */
         scanGenerationRef.current += 1;
 
+        /*
+         * Mark scan as no longer active.
+         */
         scanInProgressRef.current = false;
 
         setIsScanning(false);
@@ -1280,10 +1226,6 @@ const FloatingAI = () => {
                     } else {
                         setIsOpen(true);
 
-                        /*
-                         * Make sure subscriptions are
-                         * available when opened.
-                         */
                         subscribeToLiveTicks();
                     }
                 }}
