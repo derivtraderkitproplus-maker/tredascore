@@ -4,6 +4,9 @@
 // IMPORTANT:
 // These are strategy PROFILES. They reuse the existing bot engines.
 // They do not create new Blockly blocks.
+//
+// The marketProfile section describes the type of market condition
+// the AI Scanner should prefer for each profile.
 
 export type AIStrategy = {
     id: string;
@@ -31,6 +34,32 @@ export type AIStrategy = {
 
     // Scanner metadata
     risk: 'LOW' | 'MEDIUM' | 'HIGH';
+
+    // AI Scanner market preferences
+    marketProfile: {
+        bias:
+            | 'MOMENTUM'
+            | 'TREND'
+            | 'REVERSAL'
+            | 'RANGE'
+            | 'ACCUMULATION'
+            | 'RECOVERY'
+            | 'BALANCED';
+
+        preferredDirection:
+            | 'UP'
+            | 'DOWN'
+            | 'BOTH'
+            | 'NEUTRAL';
+
+        preferredVolatility:
+            | 'LOW'
+            | 'MEDIUM'
+            | 'HIGH'
+            | 'ANY';
+
+        minimumConfidence: number;
+    };
 };
 
 export const AI_STRATEGIES: AIStrategy[] = [
@@ -54,6 +83,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         size: 2,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'RECOVERY',
+            preferredDirection: 'UP',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 70,
+        },
     },
 
     {
@@ -71,6 +107,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         unit: 1,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'BALANCED',
+            preferredDirection: 'UP',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 65,
+        },
     },
 
     {
@@ -87,6 +130,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         profit: 10,
         loss: 10,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'BALANCED',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 65,
+        },
     },
 
     {
@@ -104,6 +154,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         size: 2,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'MOMENTUM',
+            preferredDirection: 'UP',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 72,
+        },
     },
 
     {
@@ -121,6 +178,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         unit: 1,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'TREND',
+            preferredDirection: 'UP',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 68,
+        },
     },
 
     {
@@ -137,6 +201,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         profit: 10,
         loss: 10,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'BALANCED',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 68,
+        },
     },
 
     // ============================================================
@@ -158,6 +229,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         size: 2,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'ACCUMULATION',
+            preferredDirection: 'NEUTRAL',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 72,
+        },
     },
 
     {
@@ -175,6 +253,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         unit: 1,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'ACCUMULATION',
+            preferredDirection: 'NEUTRAL',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 68,
+        },
     },
 
     {
@@ -192,6 +277,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         size: 2,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'MOMENTUM',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 72,
+        },
     },
 
     {
@@ -209,6 +301,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         unit: 1,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'TREND',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 68,
+        },
     },
 
     {
@@ -226,6 +325,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         size: 2,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'RECOVERY',
+            preferredDirection: 'NEUTRAL',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 75,
+        },
     },
 
     {
@@ -243,6 +349,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         unit: 1,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'BALANCED',
+            preferredDirection: 'NEUTRAL',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 70,
+        },
     },
 
     {
@@ -260,6 +373,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         size: 2,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'MOMENTUM',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 75,
+        },
     },
 
     {
@@ -277,12 +397,17 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 10,
         unit: 1,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'TREND',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 70,
+        },
     },
 
     // ============================================================
     // AI PROFILES
-    // These are different selectable profiles using the existing
-    // engines with different configurations.
     // ============================================================
 
     {
@@ -300,6 +425,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         size: 1.5,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'RECOVERY',
+            preferredDirection: 'UP',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 72,
+        },
     },
 
     {
@@ -317,6 +449,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         size: 1.5,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'TREND',
+            preferredDirection: 'UP',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 75,
+        },
     },
 
     {
@@ -334,6 +473,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         size: 1.5,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'MOMENTUM',
+            preferredDirection: 'UP',
+            preferredVolatility: 'HIGH',
+            minimumConfidence: 78,
+        },
     },
 
     {
@@ -351,6 +497,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         unit: 1,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'REVERSAL',
+            preferredDirection: 'DOWN',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 75,
+        },
     },
 
     {
@@ -368,6 +521,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 3,
         unit: 1,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'TREND',
+            preferredDirection: 'UP',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 72,
+        },
     },
 
     {
@@ -385,6 +545,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 3,
         unit: 1,
         risk: 'LOW',
+
+        marketProfile: {
+            bias: 'RANGE',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 65,
+        },
     },
 
     {
@@ -401,6 +568,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         profit: 5,
         loss: 5,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'BALANCED',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 68,
+        },
     },
 
     {
@@ -418,6 +592,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         size: 1.5,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'RECOVERY',
+            preferredDirection: 'UP',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 75,
+        },
     },
 
     {
@@ -435,6 +616,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         size: 1.5,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'TREND',
+            preferredDirection: 'UP',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 75,
+        },
     },
 
     {
@@ -451,6 +639,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         profit: 3,
         loss: 3,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'MOMENTUM',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'HIGH',
+            minimumConfidence: 72,
+        },
     },
 
     {
@@ -468,6 +663,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         unit: 1,
         risk: 'LOW',
+
+        marketProfile: {
+            bias: 'RANGE',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 65,
+        },
     },
 
     {
@@ -485,6 +687,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         size: 2,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'MOMENTUM',
+            preferredDirection: 'UP',
+            preferredVolatility: 'HIGH',
+            minimumConfidence: 80,
+        },
     },
 
     {
@@ -502,6 +711,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         size: 1.5,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'RECOVERY',
+            preferredDirection: 'NEUTRAL',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 78,
+        },
     },
 
     {
@@ -519,6 +735,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         unit: 1,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'ACCUMULATION',
+            preferredDirection: 'NEUTRAL',
+            preferredVolatility: 'LOW',
+            minimumConfidence: 72,
+        },
     },
 
     {
@@ -536,6 +759,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         loss: 5,
         size: 1.5,
         risk: 'HIGH',
+
+        marketProfile: {
+            bias: 'MOMENTUM',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'MEDIUM',
+            minimumConfidence: 75,
+        },
     },
 
     {
@@ -552,6 +782,13 @@ export const AI_STRATEGIES: AIStrategy[] = [
         profit: 5,
         loss: 5,
         risk: 'MEDIUM',
+
+        marketProfile: {
+            bias: 'BALANCED',
+            preferredDirection: 'BOTH',
+            preferredVolatility: 'ANY',
+            minimumConfidence: 70,
+        },
     },
 ];
 
@@ -559,19 +796,27 @@ export const AI_STRATEGIES: AIStrategy[] = [
 // HELPERS
 // ============================================================
 
-export const getAIStrategy = (id: string): AIStrategy | undefined => {
-    return AI_STRATEGIES.find(strategy => strategy.id === id);
+export const getAIStrategy = (
+    id: string
+): AIStrategy | undefined => {
+    return AI_STRATEGIES.find(
+        strategy => strategy.id === id
+    );
 };
 
 export const getAIStrategiesByRisk = (
     risk: AIStrategy['risk']
 ): AIStrategy[] => {
-    return AI_STRATEGIES.filter(strategy => strategy.risk === risk);
+    return AI_STRATEGIES.filter(
+        strategy => strategy.risk === risk
+    );
 };
 
 export const getRandomAIStrategy = (): AIStrategy => {
     return AI_STRATEGIES[
-        Math.floor(Math.random() * AI_STRATEGIES.length)
+        Math.floor(
+            Math.random() * AI_STRATEGIES.length
+        )
     ];
 };
 
