@@ -6,7 +6,10 @@
 // - Analyze a sequence of Deriv market ticks.
 // - Detect market conditions.
 // - Measure direction, momentum, trend, volatility and reversal.
-// - Score the 30 AI strategy profiles against the current market.
+// - Detect choppy/noisy conditions.
+// - Score the 30 AI strategy profiles.
+// - Require sufficient confidence AND strategy separation
+//   before declaring a strategy confirmed.
 //
 // IMPORTANT:
 // - This file does NOT connect directly to Deriv.
@@ -20,9 +23,13 @@
 //      ↓
 // FloatingAI.tsx
 //      ↓
+// scanMarket()
+//      ↓
 // analyzeMarket()
 //      ↓
 // rankStrategies()
+//      ↓
+// confidence + eligibility + winner margin
 //      ↓
 // best matching AIStrategy
 //
@@ -65,6 +72,8 @@ export type MarketAnalysis = {
 
     momentum: number;
 
+    recentMomentum: number;
+
     trendStrength: number;
 
     volatility: number;
@@ -75,6 +84,8 @@ export type MarketAnalysis = {
 
     priceChange: number;
 
+    normalizedPriceChange: number;
+
     confidence: number;
 
     volatilityLevel: VolatilityLevel;
@@ -83,7 +94,15 @@ export type MarketAnalysis = {
 
     directionalConsistency: number;
 
+    recentDirectionalConsistency: number;
+
     reversalStrength: number;
+
+    marketQuality: number;
+
+    isChoppy: boolean;
+
+    isConfirmed: boolean;
 
     reasons: string[];
 };
@@ -107,7 +126,15 @@ export type ScannerResult = {
 
     bestScore: number;
 
+    secondBestScore: number;
+
+    winnerMargin: number;
+
+    strategyConfidence: number;
+
     scanReady: boolean;
+
+    winnerConfirmed: boolean;
 };
 
 // ============================================================
@@ -117,6 +144,8 @@ export type ScannerResult = {
 const MINIMUM_TICKS = 10;
 
 const MAX_ANALYSIS_TICKS = 100;
+
+const RECENT_WINDOW = 12;
 
 const TREND_THRESHOLD = 55;
 
@@ -130,6 +159,12 @@ const HIGH_VOLATILITY_MIN = 70;
 
 const MINIMUM_SCAN_CONFIDENCE = 50;
 
+const MINIMUM_WINNER_MARGIN = 8;
+
+const MINIMUM_STRATEGY_SCORE = 55;
+
+const MINIMUM_MARKET_QUALITY = 45;
+
 // ============================================================
 // BASIC HELPERS
 // ============================================================
@@ -138,12 +173,11 @@ const clamp = (
     value: number,
     minimum: number,
     maximum: number
-): number => {
-    return Math.min(
+): number =>
+    Math.min(
         maximum,
         Math.max(minimum, value)
     );
-};
 
 const average = (
     values: number[]
@@ -174,11 +208,6 @@ const safeNumber = (
 // ============================================================
 // CLEAN TICKS
 // ============================================================
-//
-// Removes invalid values and prevents the scanner from being
-// poisoned by malformed WebSocket data.
-//
-// ============================================================
 
 const cleanTicks = (
     ticks: number[]
@@ -193,7 +222,8 @@ const cleanTicks = (
             (
                 value
             ): value is number =>
-                value !== null
+                value !== null &&
+                Number.isFinite(value)
         )
         .slice(-MAX_ANALYSIS_TICKS);
 };
@@ -213,7 +243,58 @@ const getPriceChanges = (
         i += 1
     ) {
         changes.push(
-            ticks[i] - ticks[i - 1]
+            ticks[i] -
+                ticks[i - 1]
+        );
+    }
+
+    return changes;
+};
+
+// ============================================================
+// NORMALIZED CHANGES
+// ============================================================
+//
+// Prevents instruments with different price scales from
+// producing wildly different scanner readings.
+//
+// Example:
+//
+// A 0.1 move on a price of 10
+// is very different from
+// a 0.1 move on a price of 1000.
+//
+// ============================================================
+
+const getNormalizedChanges = (
+    ticks: number[]
+): number[] => {
+    const changes: number[] = [];
+
+    for (
+        let i = 1;
+        i < ticks.length;
+        i += 1
+    ) {
+        const previous =
+            ticks[i - 1];
+
+        const current =
+            ticks[i];
+
+        if (
+            previous === 0 ||
+            !Number.isFinite(previous) ||
+            !Number.isFinite(current)
+        ) {
+            changes.push(0);
+            continue;
+        }
+
+        changes.push(
+            (current -
+                previous) /
+                Math.abs(previous)
         );
     }
 
@@ -252,11 +333,13 @@ const calculateConsecutiveMovement = (
     let down = 0;
 
     for (
-        let i = changes.length - 1;
+        let i =
+            changes.length - 1;
         i >= 0;
         i -= 1
     ) {
-        const change = changes[i];
+        const change =
+            changes[i];
 
         if (change > 0) {
             if (down > 0) {
@@ -284,21 +367,14 @@ const calculateConsecutiveMovement = (
 // ============================================================
 // DIRECTIONAL CONSISTENCY
 // ============================================================
-//
-// Measures how consistently ticks move in the dominant
-// direction.
-//
-// 0   = completely mixed
-// 100 = completely one-sided
-//
-// ============================================================
 
 const calculateDirectionalConsistency = (
     changes: number[]
 ): number => {
     const directionalMoves =
         changes.filter(
-            change => change !== 0
+            change =>
+                change !== 0
         );
 
     if (!directionalMoves.length) {
@@ -307,12 +383,14 @@ const calculateDirectionalConsistency = (
 
     const positive =
         directionalMoves.filter(
-            change => change > 0
+            change =>
+                change > 0
         ).length;
 
     const negative =
         directionalMoves.filter(
-            change => change < 0
+            change =>
+                change < 0
         ).length;
 
     const dominant =
@@ -322,9 +400,10 @@ const calculateDirectionalConsistency = (
         );
 
     return clamp(
-        (dominant /
-            directionalMoves.length) *
-            100,
+        (
+            dominant /
+            directionalMoves.length
+        ) * 100,
         0,
         100
     );
@@ -343,36 +422,43 @@ const calculateMomentum = (
 
     const directionalMoves =
         changes.filter(
-            change => change !== 0
+            change =>
+                change !== 0
         );
 
     if (!directionalMoves.length) {
         return 0;
     }
 
-    const absoluteMovement =
-        directionalMoves.map(
-            Math.abs
-        );
-
     const totalMovement =
-        absoluteMovement.reduce(
-            (sum, value) =>
-                sum + value,
-            0
-        );
+        directionalMoves
+            .map(Math.abs)
+            .reduce(
+                (
+                    sum,
+                    value
+                ) =>
+                    sum + value,
+                0
+            );
 
-    if (totalMovement === 0) {
+    if (
+        totalMovement === 0
+    ) {
         return 0;
     }
 
     const positiveMovement =
         directionalMoves
             .filter(
-                change => change > 0
+                change =>
+                    change > 0
             )
             .reduce(
-                (sum, value) =>
+                (
+                    sum,
+                    value
+                ) =>
                     sum + value,
                 0
             );
@@ -380,11 +466,18 @@ const calculateMomentum = (
     const negativeMovement =
         directionalMoves
             .filter(
-                change => change < 0
+                change =>
+                    change < 0
             )
             .reduce(
-                (sum, value) =>
-                    sum + Math.abs(value),
+                (
+                    sum,
+                    value
+                ) =>
+                    sum +
+                    Math.abs(
+                        value
+                    ),
                 0
             );
 
@@ -395,25 +488,41 @@ const calculateMomentum = (
         );
 
     return clamp(
-        (dominantMovement /
-            totalMovement) *
-            100,
+        (
+            dominantMovement /
+            totalMovement
+        ) * 100,
         0,
         100
     );
 };
 
 // ============================================================
-// TREND STRENGTH
+// RECENT MOMENTUM
 // ============================================================
-//
-// Combines:
-// - net price displacement
-// - directional consistency
-// - second-half confirmation
-//
-// This is more robust than simply comparing two halves.
-//
+
+const calculateRecentMomentum = (
+    changes: number[]
+): number => {
+    if (!changes.length) {
+        return 0;
+    }
+
+    const recent =
+        changes.slice(
+            -Math.min(
+                RECENT_WINDOW,
+                changes.length
+            )
+        );
+
+    return calculateMomentum(
+        recent
+    );
+};
+
+// ============================================================
+// TREND STRENGTH
 // ============================================================
 
 const calculateTrendStrength = (
@@ -421,14 +530,20 @@ const calculateTrendStrength = (
     changes: number[],
     consistency: number
 ): number => {
-    if (ticks.length < 4) {
+    if (
+        ticks.length < 4 ||
+        !changes.length
+    ) {
         return 0;
     }
 
-    const firstPrice = ticks[0];
+    const firstPrice =
+        ticks[0];
 
     const lastPrice =
-        ticks[ticks.length - 1];
+        ticks[
+            ticks.length - 1
+        ];
 
     const netMovement =
         Math.abs(
@@ -440,20 +555,26 @@ const calculateTrendStrength = (
         changes
             .map(Math.abs)
             .reduce(
-                (sum, value) =>
+                (
+                    sum,
+                    value
+                ) =>
                     sum + value,
                 0
             );
 
-    if (absoluteMovement === 0) {
+    if (
+        absoluteMovement === 0
+    ) {
         return 0;
     }
 
     const efficiency =
         clamp(
-            (netMovement /
-                absoluteMovement) *
-                100,
+            (
+                netMovement /
+                absoluteMovement
+            ) * 100,
             0,
             100
         );
@@ -470,12 +591,15 @@ const calculateTrendStrength = (
         );
 
     const secondHalf =
-        ticks.slice(midpoint);
+        ticks.slice(
+            midpoint
+        );
 
     const firstChange =
         firstHalf.length >= 2
             ? firstHalf[
-                  firstHalf.length - 1
+                  firstHalf.length -
+                      1
               ] -
               firstHalf[0]
             : 0;
@@ -483,7 +607,8 @@ const calculateTrendStrength = (
     const secondChange =
         secondHalf.length >= 2
             ? secondHalf[
-                  secondHalf.length - 1
+                  secondHalf.length -
+                      1
               ] -
               secondHalf[0]
             : 0;
@@ -491,8 +616,12 @@ const calculateTrendStrength = (
     const sameDirection =
         firstChange !== 0 &&
         secondChange !== 0 &&
-        Math.sign(firstChange) ===
-            Math.sign(secondChange);
+        Math.sign(
+            firstChange
+        ) ===
+            Math.sign(
+                secondChange
+            );
 
     const continuationBonus =
         sameDirection
@@ -509,40 +638,125 @@ const calculateTrendStrength = (
 };
 
 // ============================================================
+// RECENT TREND CONFIRMATION
+// ============================================================
+
+const calculateRecentTrendStrength = (
+    changes: number[]
+): number => {
+    if (
+        changes.length < 4
+    ) {
+        return 0;
+    }
+
+    const recent =
+        changes.slice(
+            -Math.min(
+                RECENT_WINDOW,
+                changes.length
+            )
+        );
+
+    const consistency =
+        calculateDirectionalConsistency(
+            recent
+        );
+
+    const net =
+        recent.reduce(
+            (
+                sum,
+                value
+            ) =>
+                sum + value,
+            0
+        );
+
+    const movement =
+        recent
+            .map(Math.abs)
+            .reduce(
+                (
+                    sum,
+                    value
+                ) =>
+                    sum + value,
+                0
+            );
+
+    if (
+        movement === 0
+    ) {
+        return 0;
+    }
+
+    const efficiency =
+        clamp(
+            (
+                Math.abs(net) /
+                movement
+            ) * 100,
+            0,
+            100
+        );
+
+    return clamp(
+        efficiency * 0.55 +
+            consistency * 0.45,
+        0,
+        100
+    );
+};
+
+// ============================================================
 // VOLATILITY
 // ============================================================
 //
-// Measures movement intensity relative to the observation
-// window.
-//
-// This is a scanner score, not ATR.
+// Uses normalized percentage-like movement rather than raw
+// price movement.
 //
 // ============================================================
 
 const calculateVolatility = (
-    changes: number[]
+    ticks: number[]
 ): number => {
-    if (!changes.length) {
+    const normalized =
+        getNormalizedChanges(
+            ticks
+        );
+
+    const movements =
+        normalized
+            .map(Math.abs)
+            .filter(
+                value =>
+                    Number.isFinite(
+                        value
+                    )
+            );
+
+    if (!movements.length) {
         return 0;
     }
 
-    const absoluteChanges =
-        changes.map(Math.abs);
-
     const mean =
         average(
-            absoluteChanges
+            movements
         );
 
-    if (mean === 0) {
+    if (
+        mean === 0
+    ) {
         return 0;
     }
 
     const squaredDeviation =
-        absoluteChanges.map(
+        movements.map(
             value =>
                 Math.pow(
-                    value - mean,
+                    value -
+                        mean,
                     2
                 )
         );
@@ -561,9 +775,17 @@ const calculateVolatility = (
         standardDeviation /
         mean;
 
+    // Normalize movement intensity.
+    //
+    // 0.00001 = approximately 1 point
+    // 0.00010 = approximately 10 points
+    // etc.
+    //
+    // This is intentionally a scanner score rather than ATR.
+
     const intensity =
         clamp(
-            mean * 100000,
+            mean * 1000000,
             0,
             100
         );
@@ -577,8 +799,8 @@ const calculateVolatility = (
 
     return Math.round(
         clamp(
-            intensity * 0.7 +
-                irregularity * 0.3,
+            intensity * 0.70 +
+                irregularity * 0.30,
             0,
             100
         )
@@ -619,7 +841,9 @@ const calculateReversalStrength = (
     up: number;
     down: number;
 } => {
-    if (changes.length < 6) {
+    if (
+        changes.length < 6
+    ) {
         return {
             up: 0,
             down: 0,
@@ -637,14 +861,20 @@ const calculateReversalStrength = (
 
     const firstMovement =
         firstHalf.reduce(
-            (sum, value) =>
+            (
+                sum,
+                value
+            ) =>
                 sum + value,
             0
         );
 
     const secondMovement =
         secondHalf.reduce(
-            (sum, value) =>
+            (
+                sum,
+                value
+            ) =>
                 sum + value,
             0
         );
@@ -653,7 +883,10 @@ const calculateReversalStrength = (
         firstHalf
             .map(Math.abs)
             .reduce(
-                (sum, value) =>
+                (
+                    sum,
+                    value
+                ) =>
                     sum + value,
                 0
             );
@@ -662,7 +895,10 @@ const calculateReversalStrength = (
         secondHalf
             .map(Math.abs)
             .reduce(
-                (sum, value) =>
+                (
+                    sum,
+                    value
+                ) =>
                     sum + value,
                 0
             );
@@ -670,6 +906,25 @@ const calculateReversalStrength = (
     if (
         firstMagnitude === 0 ||
         secondMagnitude === 0
+    ) {
+        return {
+            up: 0,
+            down: 0,
+        };
+    }
+
+    const directionChange =
+        (
+            Math.sign(
+                firstMovement
+            ) !==
+            Math.sign(
+                secondMovement
+            )
+        );
+
+    if (
+        !directionChange
     ) {
         return {
             up: 0,
@@ -717,13 +972,84 @@ const calculateReversalStrength = (
 };
 
 // ============================================================
+// CHOPPY / NOISE SCORE
+// ============================================================
+
+const calculateChoppiness = (
+    changes: number[]
+): number => {
+    if (
+        changes.length < 4
+    ) {
+        return 0;
+    }
+
+    const directional =
+        changes.filter(
+            change =>
+                change !== 0
+        );
+
+    if (
+        directional.length < 4
+    ) {
+        return 0;
+    }
+
+    let directionChanges = 0;
+
+    for (
+        let i = 1;
+        i < directional.length;
+        i += 1
+    ) {
+        if (
+            Math.sign(
+                directional[i]
+            ) !==
+            Math.sign(
+                directional[i - 1]
+            )
+        ) {
+            directionChanges += 1;
+        }
+    }
+
+    const flipRate =
+        (
+            directionChanges /
+            (
+                directional.length -
+                1
+            )
+        ) * 100;
+
+    const consistency =
+        calculateDirectionalConsistency(
+            directional
+        );
+
+    return clamp(
+        flipRate * 0.65 +
+            (
+                100 -
+                consistency
+            ) * 0.35,
+        0,
+        100
+    );
+};
+
+// ============================================================
 // MARKET BIAS
 // ============================================================
 
 const getMarketBias = (
     analysis: MarketAnalysis
 ): AIStrategy['marketProfile']['bias'] => {
-    switch (analysis.state) {
+    switch (
+        analysis.state
+    ) {
         case 'MOMENTUM_UP':
         case 'MOMENTUM_DOWN':
             return 'MOMENTUM';
@@ -755,7 +1081,9 @@ export const analyzeMarket = (
     rawTicks: number[]
 ): MarketAnalysis => {
     const ticks =
-        cleanTicks(rawTicks);
+        cleanTicks(
+            rawTicks
+        );
 
     if (
         ticks.length <
@@ -765,9 +1093,12 @@ export const analyzeMarket = (
             state:
                 'INSUFFICIENT_DATA',
 
-            direction: 'FLAT',
+            direction:
+                'FLAT',
 
             momentum: 0,
+
+            recentMomentum: 0,
 
             trendStrength: 0,
 
@@ -778,6 +1109,8 @@ export const analyzeMarket = (
             consecutiveDown: 0,
 
             priceChange: 0,
+
+            normalizedPriceChange: 0,
 
             confidence: 0,
 
@@ -790,7 +1123,16 @@ export const analyzeMarket = (
             directionalConsistency:
                 0,
 
+            recentDirectionalConsistency:
+                0,
+
             reversalStrength: 0,
+
+            marketQuality: 0,
+
+            isChoppy: false,
+
+            isConfirmed: false,
 
             reasons: [
                 `Waiting for at least ${MINIMUM_TICKS} valid ticks.`,
@@ -800,6 +1142,11 @@ export const analyzeMarket = (
 
     const changes =
         getPriceChanges(
+            ticks
+        );
+
+    const normalizedChanges =
+        getNormalizedChanges(
             ticks
         );
 
@@ -814,6 +1161,16 @@ export const analyzeMarket = (
     const priceChange =
         lastPrice -
         firstPrice;
+
+    const normalizedPriceChange =
+        firstPrice !== 0
+            ? (
+                  priceChange /
+                  Math.abs(
+                      firstPrice
+                  )
+              ) * 100
+            : 0;
 
     const direction =
         calculateDirection(
@@ -830,9 +1187,27 @@ export const analyzeMarket = (
             changes
         );
 
+    const recentChanges =
+        changes.slice(
+            -Math.min(
+                RECENT_WINDOW,
+                changes.length
+            )
+        );
+
+    const recentConsistency =
+        calculateDirectionalConsistency(
+            recentChanges
+        );
+
     const momentum =
         calculateMomentum(
-            changes
+            normalizedChanges
+        );
+
+    const recentMomentum =
+        calculateRecentMomentum(
+            normalizedChanges
         );
 
     const trendStrength =
@@ -842,9 +1217,14 @@ export const analyzeMarket = (
             consistency
         );
 
+    const recentTrendStrength =
+        calculateRecentTrendStrength(
+            normalizedChanges
+        );
+
     const volatility =
         calculateVolatility(
-            changes
+            ticks
         );
 
     const volatilityLevel =
@@ -854,7 +1234,7 @@ export const analyzeMarket = (
 
     const reversal =
         calculateReversalStrength(
-            changes
+            normalizedChanges
         );
 
     const reversalStrength =
@@ -863,6 +1243,14 @@ export const analyzeMarket = (
             reversal.down
         );
 
+    const choppiness =
+        calculateChoppiness(
+            normalizedChanges
+        );
+
+    const isChoppy =
+        choppiness >= 58;
+
     const reasons: string[] =
         [];
 
@@ -870,7 +1258,8 @@ export const analyzeMarket = (
         ScannerMarketState =
         'RANGE';
 
-    let confidence = 45;
+    let confidence =
+        45;
 
     // ========================================================
     // MOMENTUM UP
@@ -880,16 +1269,23 @@ export const analyzeMarket = (
         direction === 'UP' &&
         momentum >=
             MOMENTUM_THRESHOLD &&
+        recentMomentum >=
+            MOMENTUM_THRESHOLD &&
         consecutive.up >= 3 &&
-        consistency >= 60
+        consistency >= 60 &&
+        recentConsistency >= 55 &&
+        !isChoppy
     ) {
         state =
             'MOMENTUM_UP';
 
         confidence =
             50 +
-            momentum * 0.25 +
-            consistency * 0.15 +
+            momentum * 0.20 +
+            recentMomentum * 0.20 +
+            consistency * 0.10 +
+            recentConsistency *
+                0.10 +
             trendStrength * 0.10;
 
         reasons.push(
@@ -909,16 +1305,23 @@ export const analyzeMarket = (
         direction === 'DOWN' &&
         momentum >=
             MOMENTUM_THRESHOLD &&
+        recentMomentum >=
+            MOMENTUM_THRESHOLD &&
         consecutive.down >= 3 &&
-        consistency >= 60
+        consistency >= 60 &&
+        recentConsistency >= 55 &&
+        !isChoppy
     ) {
         state =
             'MOMENTUM_DOWN';
 
         confidence =
             50 +
-            momentum * 0.25 +
-            consistency * 0.15 +
+            momentum * 0.20 +
+            recentMomentum * 0.20 +
+            consistency * 0.10 +
+            recentConsistency *
+                0.10 +
             trendStrength * 0.10;
 
         reasons.push(
@@ -942,11 +1345,18 @@ export const analyzeMarket = (
             'REVERSAL_UP';
 
         confidence =
-            60 +
-            reversal.up * 0.25;
+            55 +
+            reversal.up * 0.25 +
+            recentMomentum * 0.15;
 
         reasons.push(
             'Downward movement has shown signs of an upward reversal.'
+        );
+
+        reasons.push(
+            `Reversal strength: ${Math.round(
+                reversal.up
+            )}%.`
         );
     }
 
@@ -962,11 +1372,18 @@ export const analyzeMarket = (
             'REVERSAL_DOWN';
 
         confidence =
-            60 +
-            reversal.down * 0.25;
+            55 +
+            reversal.down * 0.25 +
+            recentMomentum * 0.15;
 
         reasons.push(
             'Upward movement has shown signs of a downward reversal.'
+        );
+
+        reasons.push(
+            `Reversal strength: ${Math.round(
+                reversal.down
+            )}%.`
         );
     }
 
@@ -978,14 +1395,19 @@ export const analyzeMarket = (
         direction === 'UP' &&
         trendStrength >=
             TREND_THRESHOLD &&
-        consistency >= 50
+        recentTrendStrength >=
+            50 &&
+        consistency >= 50 &&
+        !isChoppy
     ) {
         state =
             'UPTREND';
 
         confidence =
-            50 +
-            trendStrength * 0.30 +
+            45 +
+            trendStrength * 0.25 +
+            recentTrendStrength *
+                0.20 +
             consistency * 0.15;
 
         reasons.push(
@@ -1001,14 +1423,19 @@ export const analyzeMarket = (
         direction === 'DOWN' &&
         trendStrength >=
             TREND_THRESHOLD &&
-        consistency >= 50
+        recentTrendStrength >=
+            50 &&
+        consistency >= 50 &&
+        !isChoppy
     ) {
         state =
             'DOWNTREND';
 
         confidence =
-            50 +
-            trendStrength * 0.30 +
+            45 +
+            trendStrength * 0.25 +
+            recentTrendStrength *
+                0.20 +
             consistency * 0.15;
 
         reasons.push(
@@ -1021,16 +1448,30 @@ export const analyzeMarket = (
     // ========================================================
 
     else if (
-        consistency < 48 &&
-        volatility >= 55
+        isChoppy &&
+        (
+            volatility >= 45 ||
+            consistency < 48
+        )
     ) {
         state =
             'CHOPPY';
 
-        confidence = 35;
+        confidence =
+            30 +
+            (
+                100 -
+                choppiness
+            ) * 0.15;
 
         reasons.push(
             'Market movement is inconsistent and noisy.'
+        );
+
+        reasons.push(
+            `Choppiness: ${Math.round(
+                choppiness
+            )}%.`
         );
     }
 
@@ -1044,9 +1485,10 @@ export const analyzeMarket = (
 
         confidence =
             45 +
-            (100 -
-                consistency) *
-                0.10;
+            (
+                100 -
+                consistency
+            ) * 0.10;
 
         reasons.push(
             'No dominant directional condition detected.'
@@ -1054,24 +1496,125 @@ export const analyzeMarket = (
     }
 
     // ========================================================
+    // MARKET QUALITY
+    // ========================================================
+
+    const directionalQuality =
+        consistency * 0.35;
+
+    const recentQuality =
+        recentConsistency * 0.25;
+
+    const trendQuality =
+        trendStrength * 0.20;
+
+    const antiChopQuality =
+        (
+            100 -
+            choppiness
+        ) * 0.20;
+
+    const marketQuality =
+        Math.round(
+            clamp(
+                directionalQuality +
+                    recentQuality +
+                    trendQuality +
+                    antiChopQuality,
+                0,
+                100
+            )
+        );
+
+    // ========================================================
+    // CONFIDENCE ADJUSTMENTS
+    // ========================================================
+
+    if (isChoppy) {
+        confidence -= 12;
+    }
+
+    if (
+        recentMomentum <
+        40
+    ) {
+        confidence -= 5;
+    }
+
+    if (
+        marketQuality <
+        MINIMUM_MARKET_QUALITY
+    ) {
+        confidence -= 5;
+    }
+
+    confidence =
+        Math.round(
+            clamp(
+                confidence,
+                0,
+                99
+            )
+        );
+
+    const isConfirmed =
+        state !==
+            'INSUFFICIENT_DATA' &&
+        !isChoppy &&
+        confidence >=
+            MINIMUM_SCAN_CONFIDENCE &&
+        marketQuality >=
+            MINIMUM_MARKET_QUALITY;
+
+    // ========================================================
     // GENERAL MARKET INFORMATION
     // ========================================================
 
     reasons.push(
-        `Momentum: ${Math.round(momentum)}%.`
+        `Momentum: ${Math.round(
+            momentum
+        )}%.`
     );
 
     reasons.push(
-        `Trend strength: ${Math.round(trendStrength)}%.`
+        `Recent momentum: ${Math.round(
+            recentMomentum
+        )}%.`
     );
 
     reasons.push(
-        `Volatility: ${Math.round(volatility)}% (${volatilityLevel}).`
+        `Trend strength: ${Math.round(
+            trendStrength
+        )}%.`
     );
 
     reasons.push(
-        `Directional consistency: ${Math.round(consistency)}%.`
+        `Recent directional consistency: ${Math.round(
+            recentConsistency
+        )}%.`
     );
+
+    reasons.push(
+        `Volatility: ${Math.round(
+            volatility
+        )}% (${volatilityLevel}).`
+    );
+
+    reasons.push(
+        `Market quality: ${marketQuality}%.`
+    );
+
+    reasons.push(
+        `Confidence: ${confidence}%.`
+    );
+
+    if (
+        isChoppy
+    ) {
+        reasons.push(
+            'Scanner safety filter: CHOPPY market.'
+        );
+    }
 
     if (
         priceChange !== 0
@@ -1086,13 +1629,23 @@ export const analyzeMarket = (
 
         direction,
 
-        momentum: Math.round(
-            clamp(
-                momentum,
-                0,
-                100
-            )
-        ),
+        momentum:
+            Math.round(
+                clamp(
+                    momentum,
+                    0,
+                    100
+                )
+            ),
+
+        recentMomentum:
+            Math.round(
+                clamp(
+                    recentMomentum,
+                    0,
+                    100
+                )
+            ),
 
         trendStrength:
             Math.round(
@@ -1120,14 +1673,14 @@ export const analyzeMarket = (
 
         priceChange,
 
-        confidence:
-            Math.round(
-                clamp(
-                    confidence,
-                    0,
-                    99
+        normalizedPriceChange:
+            Number(
+                normalizedPriceChange.toFixed(
+                    6
                 )
             ),
+
+        confidence,
 
         volatilityLevel,
 
@@ -1143,6 +1696,15 @@ export const analyzeMarket = (
                 )
             ),
 
+        recentDirectionalConsistency:
+            Math.round(
+                clamp(
+                    recentConsistency,
+                    0,
+                    100
+                )
+            ),
+
         reversalStrength:
             Math.round(
                 clamp(
@@ -1151,6 +1713,12 @@ export const analyzeMarket = (
                     100
                 )
             ),
+
+        marketQuality,
+
+        isChoppy,
+
+        isConfirmed,
 
         reasons,
     };
@@ -1177,10 +1745,12 @@ const calculateDirectionCompatibility = (
         strategyDirection ===
         'NEUTRAL'
     ) {
-        return analysisDirection ===
+        return (
+            analysisDirection ===
             'FLAT'
-            ? 100
-            : 75;
+                ? 100
+                : 75
+        );
     }
 
     if (
@@ -1211,7 +1781,8 @@ const calculateDirectionCompatibility = (
 const calculateVolatilityCompatibility = (
     preferred:
         AIStrategy['marketProfile']['preferredVolatility'],
-    actual: VolatilityLevel
+    actual:
+        VolatilityLevel
 ): number => {
     if (
         preferred === 'ANY'
@@ -1259,7 +1830,8 @@ const calculateVolatilityCompatibility = (
 const calculateBiasCompatibility = (
     strategyBias:
         AIStrategy['marketProfile']['bias'],
-    analysis: MarketAnalysis
+    analysis:
+        MarketAnalysis
 ): number => {
     const marketBias =
         getMarketBias(
@@ -1273,7 +1845,6 @@ const calculateBiasCompatibility = (
         return 100;
     }
 
-    // BALANCED profiles can operate in several conditions.
     if (
         strategyBias ===
         'BALANCED'
@@ -1290,8 +1861,6 @@ const calculateBiasCompatibility = (
         return 70;
     }
 
-    // Recovery strategies should not be treated as a direct
-    // prediction of price direction.
     if (
         strategyBias ===
         'RECOVERY'
@@ -1310,7 +1879,6 @@ const calculateBiasCompatibility = (
         return 60;
     }
 
-    // Accumulator strategies prefer stable conditions.
     if (
         strategyBias ===
         'ACCUMULATION'
@@ -1342,7 +1910,9 @@ const calculateStateCompatibility = (
         strategy.marketProfile
             .bias;
 
-    switch (analysis.state) {
+    switch (
+        analysis.state
+    ) {
         case 'MOMENTUM_UP':
         case 'MOMENTUM_DOWN':
             if (
@@ -1442,8 +2012,10 @@ const calculateStateCompatibility = (
 // ============================================================
 
 const calculateRiskCompatibility = (
-    risk: AIStrategy['risk'],
-    analysis: MarketAnalysis
+    risk:
+        AIStrategy['risk'],
+    analysis:
+        MarketAnalysis
 ): number => {
     switch (risk) {
         case 'LOW':
@@ -1505,15 +2077,12 @@ const calculateRiskCompatibility = (
 // ============================================================
 // STRATEGY COMPATIBILITY
 // ============================================================
-//
-// This is the main bridge between the scanner and the
-// 30 strategy profiles.
-//
-// ============================================================
 
 export const calculateMarketCompatibility = (
-    strategy: AIStrategy,
-    analysis: MarketAnalysis
+    strategy:
+        AIStrategy,
+    analysis:
+        MarketAnalysis
 ): number => {
     if (
         analysis.state ===
@@ -1524,21 +2093,24 @@ export const calculateMarketCompatibility = (
 
     const biasScore =
         calculateBiasCompatibility(
-            strategy.marketProfile
+            strategy
+                .marketProfile
                 .bias,
             analysis
         );
 
     const directionScore =
         calculateDirectionCompatibility(
-            strategy.marketProfile
+            strategy
+                .marketProfile
                 .preferredDirection,
             analysis.direction
         );
 
     const volatilityScore =
         calculateVolatilityCompatibility(
-            strategy.marketProfile
+            strategy
+                .marketProfile
                 .preferredVolatility,
             analysis.volatilityLevel
         );
@@ -1558,21 +2130,28 @@ export const calculateMarketCompatibility = (
     const confidenceScore =
         analysis.confidence;
 
+    const qualityScore =
+        analysis.marketQuality;
+
     // ========================================================
     // WEIGHTING
     // ========================================================
     //
-    // Market state and strategy bias are the strongest signals.
+    // State + bias = primary
+    // Direction = secondary
+    // Volatility/risk = safety
+    // Confidence + quality = confirmation
     //
     // ========================================================
 
     const score =
-        stateScore * 0.25 +
-        biasScore * 0.25 +
-        directionScore * 0.20 +
+        stateScore * 0.23 +
+        biasScore * 0.23 +
+        directionScore * 0.18 +
         volatilityScore * 0.10 +
         riskScore * 0.08 +
-        confidenceScore * 0.12;
+        confidenceScore * 0.10 +
+        qualityScore * 0.08;
 
     return Math.round(
         clamp(
@@ -1588,8 +2167,10 @@ export const calculateMarketCompatibility = (
 // ============================================================
 
 const buildStrategyReasons = (
-    strategy: AIStrategy,
-    analysis: MarketAnalysis,
+    strategy:
+        AIStrategy,
+    analysis:
+        MarketAnalysis,
     score: number
 ): string[] => {
     const reasons: string[] =
@@ -1616,7 +2197,11 @@ const buildStrategyReasons = (
     );
 
     reasons.push(
-        `Current market confidence: ${analysis.confidence}%.`
+        `Market confidence: ${analysis.confidence}%.`
+    );
+
+    reasons.push(
+        `Market quality: ${analysis.marketQuality}%.`
     );
 
     reasons.push(
@@ -1633,15 +2218,33 @@ const buildStrategyReasons = (
         );
     }
 
+    if (
+        analysis.isChoppy
+    ) {
+        reasons.push(
+            'Strategy blocked by choppy-market safety filter.'
+        );
+    }
+
+    if (
+        score <
+        MINIMUM_STRATEGY_SCORE
+    ) {
+        reasons.push(
+            `Compatibility score is below the ${MINIMUM_STRATEGY_SCORE}% minimum.`
+        );
+    }
+
     return reasons;
 };
 
 // ============================================================
-// RANK ALL 30 STRATEGIES
+// RANK ALL STRATEGIES
 // ============================================================
 
 export const rankStrategies = (
-    analysis: MarketAnalysis
+    analysis:
+        MarketAnalysis
 ): StrategyCompatibility[] => {
     if (
         analysis.state ===
@@ -1661,16 +2264,26 @@ export const rankStrategies = (
 
                 const confidenceEligible =
                     analysis.confidence >=
-                    strategy.marketProfile
+                    strategy
+                        .marketProfile
                         .minimumConfidence;
+
+                const qualityEligible =
+                    analysis.marketQuality >=
+                    MINIMUM_MARKET_QUALITY;
 
                 const minimumScore =
                     score >=
-                    MINIMUM_SCAN_CONFIDENCE;
+                    MINIMUM_STRATEGY_SCORE;
+
+                const choppyBlocked =
+                    analysis.isChoppy;
 
                 const eligible =
                     confidenceEligible &&
-                    minimumScore;
+                    qualityEligible &&
+                    minimumScore &&
+                    !choppyBlocked;
 
                 return {
                     strategy,
@@ -1689,7 +2302,10 @@ export const rankStrategies = (
             }
         )
         .sort(
-            (a, b) =>
+            (
+                a,
+                b
+            ) =>
                 b.score -
                 a.score
         );
@@ -1697,10 +2313,6 @@ export const rankStrategies = (
 
 // ============================================================
 // COMPLETE SCAN
-// ============================================================
-//
-// This is the main function FloatingAI.tsx can call.
-//
 // ============================================================
 
 export const scanMarket = (
@@ -1725,21 +2337,91 @@ export const scanMarket = (
     const best =
         eligibleStrategies[0];
 
+    const secondBest =
+        eligibleStrategies[1];
+
+    const bestScore =
+        best?.score || 0;
+
+    const secondBestScore =
+        secondBest?.score || 0;
+
+    const winnerMargin =
+        best
+            ? bestScore -
+              secondBestScore
+            : 0;
+
+    // ========================================================
+    // STRATEGY CONFIDENCE
+    // ========================================================
+    //
+    // A high score alone is not enough.
+    //
+    // We also measure how clearly the winner beats the
+    // next-best candidate.
+    //
+    // ========================================================
+
+    const marginConfidence =
+        clamp(
+            (
+                winnerMargin /
+                MINIMUM_WINNER_MARGIN
+            ) * 100,
+            0,
+            100
+        );
+
+    const scoreConfidence =
+        bestScore;
+
+    const strategyConfidence =
+        Math.round(
+            clamp(
+                scoreConfidence *
+                    0.70 +
+                    marginConfidence *
+                        0.30,
+                0,
+                99
+            )
+        );
+
+    const winnerConfirmed =
+        Boolean(
+            best &&
+            analysis.isConfirmed &&
+            bestScore >=
+                MINIMUM_STRATEGY_SCORE &&
+            winnerMargin >=
+                MINIMUM_WINNER_MARGIN &&
+            strategyConfidence >=
+                MINIMUM_SCAN_CONFIDENCE
+        );
+
     return {
         analysis,
 
         rankedStrategies,
 
         bestStrategy:
-            best?.strategy,
+            winnerConfirmed
+                ? best?.strategy
+                : undefined,
 
-        bestScore:
-            best?.score || 0,
+        bestScore,
+
+        secondBestScore,
+
+        winnerMargin,
+
+        strategyConfidence,
 
         scanReady:
-            Boolean(best) &&
-            analysis.confidence >=
-                MINIMUM_SCAN_CONFIDENCE,
+            winnerConfirmed,
+
+        winnerConfirmed,
     };
 };
 
