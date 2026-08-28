@@ -376,7 +376,6 @@
 
 /* ============================================================
    THREE RISK POINTS
-   THIS IS THE IMPORTANT PART
    ============================================================ */
 
 .risk-disclaimer-points {
@@ -613,7 +612,7 @@
 
 
 /* ============================================================
-   MOBILE
+   COMPACT MOBILE
    ============================================================ */
 
 @media (max-width: 480px) {
@@ -627,136 +626,142 @@
 
         max-width: none;
 
-        max-height: calc(100vh - 24px);
-        max-height: calc(100dvh - 24px);
+        max-height: calc(100vh - 100px);
+        max-height: calc(100dvh - 100px);
 
         border-radius: 10px;
     }
 
 
     /* -----------------------------------------
-       Header
+       HEADER
        ----------------------------------------- */
 
     .risk-disclaimer-header {
-        min-height: 62px;
+        min-height: 54px;
 
-        padding: 14px 16px;
+        padding: 10px 14px;
     }
 
     .risk-disclaimer-title-wrapper {
-        gap: 9px;
+        gap: 8px;
     }
 
     .risk-disclaimer-title-wrapper h2 {
-        font-size: 16px;
+        font-size: 15px;
     }
 
     .risk-disclaimer-warning-icon {
-        font-size: 19px;
+        font-size: 17px;
     }
 
     .risk-disclaimer-close {
-        width: 36px;
-        height: 36px;
+        width: 32px;
+        height: 32px;
 
-        min-width: 36px;
+        min-width: 32px;
 
-        font-size: 29px;
+        font-size: 26px;
     }
 
 
     /* -----------------------------------------
-       Content
+       CONTENT
        ----------------------------------------- */
 
     .risk-disclaimer-content {
-        padding: 16px;
+        padding: 12px 14px 14px;
     }
 
 
     /* -----------------------------------------
-       Alert
+       WARNING
        ----------------------------------------- */
 
     .risk-disclaimer-alert {
-        min-height: 54px;
+        min-height: 46px;
 
-        margin-bottom: 16px;
+        margin-bottom: 12px;
 
-        padding: 13px 14px;
+        padding: 10px 12px;
+
+        gap: 8px;
+    }
+
+    .risk-disclaimer-alert-icon {
+        font-size: 16px;
     }
 
     .risk-disclaimer-alert strong {
-        font-size: 14px;
+        font-size: 13px;
     }
 
 
     /* -----------------------------------------
-       Intro text
+       INTRO TEXT
        ----------------------------------------- */
 
     .risk-disclaimer-content > p:not(.risk-disclaimer-note) {
-        margin-bottom: 16px;
+        margin-bottom: 12px;
 
-        font-size: 14px;
+        font-size: 13px;
 
-        line-height: 1.55;
+        line-height: 1.4;
     }
 
 
     /* -----------------------------------------
-       Risk cards
+       RISK CARDS
        ----------------------------------------- */
 
     .risk-disclaimer-points {
-        gap: 14px;
+        gap: 8px;
     }
 
     .risk-disclaimer-point {
-        padding: 12px 14px;
+        padding: 9px 12px;
 
         border-radius: 8px;
     }
 
     .risk-disclaimer-point strong {
-        font-size: 14px;
+        margin-bottom: 2px;
 
-        margin-bottom: 4px;
+        font-size: 13px;
+
+        line-height: 1.3;
     }
 
     .risk-disclaimer-point span {
-        font-size: 13px;
+        font-size: 12px;
 
-        line-height: 1.5;
+        line-height: 1.35;
     }
 
 
     /* -----------------------------------------
-       Past performance
+       PAST PERFORMANCE
        ----------------------------------------- */
 
     .risk-disclaimer-note {
-        margin-top: 18px;
+        margin-top: 12px;
 
-        font-size: 14px;
+        font-size: 13px;
 
-        line-height: 1.55;
+        line-height: 1.4;
     }
 
 
     /* -----------------------------------------
-       Footer
-       IMPORTANT:
-       Remains HORIZONTAL like Screenshot 2.
+       FOOTER
        ----------------------------------------- */
 
     .risk-disclaimer-footer {
-        min-height: 80px;
+        min-height: 62px;
 
-        padding: 14px 16px;
+        padding: 10px 14px;
 
-        gap: 10px;
+        gap: 8px;
 
         display: flex;
 
@@ -767,9 +772,8 @@
         justify-content: space-between;
     }
 
-
     .risk-disclaimer-read-more {
-        font-size: 13px;
+        font-size: 12px;
 
         line-height: 1.35;
 
@@ -778,17 +782,16 @@
         flex: 1 1 auto;
     }
 
-
     .risk-disclaimer-understand {
-        width: 128px;
+        width: 116px;
 
-        min-width: 128px;
+        min-width: 116px;
 
-        height: 42px;
+        height: 38px;
 
-        padding: 10px 12px;
+        padding: 8px 10px;
 
-        font-size: 14px;
+        font-size: 13px;
     }
 }
 
@@ -799,94 +802,92 @@
 
 @media (max-width: 360px) {
 
+    .risk-disclaimer-button {
+        left: 16px;
+
+        bottom: 68px;
+
+        width: 118px;
+
+        height: 26px;
+
+        font-size: 8px;
+    }
+
     .risk-disclaimer-overlay {
         padding: 8px;
     }
 
     .risk-disclaimer-modal {
-        max-height: calc(100vh - 16px);
-        max-height: calc(100dvh - 16px);
-
-        border-radius: 9px;
+        max-height: calc(100vh - 80px);
+        max-height: calc(100dvh - 80px);
     }
-
 
     .risk-disclaimer-header {
-        padding: 12px 14px;
-    }
+        min-height: 50px;
 
+        padding: 8px 12px;
+    }
 
     .risk-disclaimer-content {
-        padding: 14px;
+        padding: 10px 12px 12px;
     }
 
-
     .risk-disclaimer-alert {
-        padding: 12px 13px;
+        min-height: 42px;
+
+        padding: 9px 10px;
     }
 
     .risk-disclaimer-alert strong {
         font-size: 13px;
     }
 
-
-    .risk-disclaimer-content > p:not(.risk-disclaimer-note) {
-        font-size: 13px;
-    }
-
-
     .risk-disclaimer-points {
-        gap: 12px;
+        gap: 7px;
     }
-
 
     .risk-disclaimer-point {
-        padding: 11px 13px;
+        padding: 8px 10px;
     }
-
 
     .risk-disclaimer-point strong {
         font-size: 13px;
     }
 
-
     .risk-disclaimer-point span {
         font-size: 12px;
 
-        line-height: 1.5;
+        line-height: 1.35;
     }
 
-
     .risk-disclaimer-note {
-        margin-top: 16px;
+        margin-top: 10px;
 
         font-size: 13px;
     }
 
-
     .risk-disclaimer-footer {
-        min-height: 74px;
+        min-height: 58px;
 
-        padding: 12px 14px;
+        padding: 8px 12px;
 
         gap: 8px;
     }
 
-
     .risk-disclaimer-read-more {
-        font-size: 12px;
+        font-size: 11px;
     }
-
 
     .risk-disclaimer-understand {
-        width: 112px;
+        width: 105px;
 
-        min-width: 112px;
+        min-width: 105px;
 
-        height: 42px;
+        height: 36px;
 
-        padding: 9px 10px;
+        padding: 8px 9px;
 
-        font-size: 13px;
+        font-size: 12px;
     }
-   }
+}
