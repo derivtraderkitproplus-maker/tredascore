@@ -1,4 +1,5 @@
 import React, {
+    useCallback,
     useEffect,
     useRef,
     useState,
@@ -21,26 +22,69 @@ import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 
 import './FloatingAI.css';
 
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
+
 type ScannerResult = AIStrategy & {
     scannerScore: number;
     marketCompatibility: number;
     rank: number;
 
-    /*
-     * Live analysis belonging specifically
-     * to this strategy's market symbol.
-     */
     marketState: MarketAnalysis['state'];
     marketDirection: MarketAnalysis['direction'];
     marketConfidence: number;
+
+    /*
+     * True when the live market confidence satisfies
+     * this strategy's configured minimumConfidence.
+     */
+    confidenceQualified: boolean;
+
+    /*
+     * Number of live ticks currently available for
+     * this strategy's market.
+     */
+    liveTickCount: number;
 };
+
+/*
+ * ============================================================
+ * CONSTANTS
+ * ============================================================
+ */
 
 const MAX_TICKS_PER_SYMBOL = 100;
 
+/*
+ * Minimum number of ticks before the scanner considers
+ * the market buffer sufficiently populated.
+ *
+ * scannerLogic.ts remains the authority on whether the
+ * market itself has sufficient data.
+ */
+const MIN_TICKS_FOR_LIVE_SCANNER = 20;
+
 const LIVE_TICK_RETRY_MS = 1000;
+
+const SCAN_SETTLE_MS = 900;
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 
 const FloatingAI = () => {
     const { quick_strategy } = useStore();
+
+    /*
+     * ------------------------------------------------------------
+     * UI STATE
+     * ------------------------------------------------------------
+     */
 
     const [isOpen, setIsOpen] = useState(false);
 
@@ -55,54 +99,85 @@ const FloatingAI = () => {
 
     /*
      * ------------------------------------------------------------
-     * LIVE DERIV TICK STORAGE
+     * LIVE TICK STORAGE
      * ------------------------------------------------------------
      *
-     * Each symbol gets its own rolling tick buffer.
+     * One independent rolling buffer per symbol.
      *
      * Example:
      *
+     * 1HZ100V -> [tick, tick, tick...]
+     *
+     * If more symbols are added later:
+     *
      * R_100 -> [tick, tick, tick...]
      * R_75  -> [tick, tick, tick...]
-     *
-     * This allows every strategy to be analyzed against
-     * the actual market it trades.
      */
+
     const tickBuffersRef = useRef<
         Record<string, number[]>
     >({});
 
     /*
-     * Keep track of active WebSocket unsubscribe functions.
+     * Last received tick timestamp for each symbol.
      */
+    const lastTickTimeRef = useRef<
+        Record<string, number>
+    >({});
+
+    /*
+     * Number of rejected/invalid ticks is useful during
+     * development without affecting scanner calculations.
+     */
+    const invalidTickCountRef = useRef(0);
+
+    /*
+     * ------------------------------------------------------------
+     * SUBSCRIPTION MANAGEMENT
+     * ------------------------------------------------------------
+     */
+
     const tickUnsubscribersRef = useRef<
         Array<() => void>
     >([]);
 
-    /*
-     * Prevent duplicate subscriptions.
-     */
     const subscribedSymbolsRef = useRef<
         Set<string>
     >(new Set());
 
-    /*
-     * Used to retry subscription if APIBase has not
-     * finished creating the WebSocket connection yet.
-     */
     const tickRetryTimerRef =
         useRef<ReturnType<typeof setTimeout> | null>(
             null
         );
 
     /*
+     * Prevent callbacks from continuing after unmount.
+     */
+    const isMountedRef = useRef(true);
+
+    /*
+     * ------------------------------------------------------------
+     * SCAN CONTROL
+     * ------------------------------------------------------------
+     *
+     * Prevent overlapping scans.
+     */
+    const scanInProgressRef = useRef(false);
+
+    /*
+     * Gives every scan a unique generation.
+     *
+     * If an old asynchronous scan finishes after a newer
+     * scan has started, its result is ignored.
+     */
+    const scanGenerationRef = useRef(0);
+
+    /*
      * ------------------------------------------------------------
      * MARKET ANALYSIS DISPLAY
      * ------------------------------------------------------------
-     *
-     * This displays the analysis for the highest-ranked
-     * strategy after scanning.
      */
+
     const [marketAnalysis, setMarketAnalysis] =
         useState<MarketAnalysis>(() =>
             analyzeMarket([])
@@ -110,7 +185,7 @@ const FloatingAI = () => {
 
     /*
      * ------------------------------------------------------------
-     * EDITABLE STAKE / TARGET VALUES
+     * EDITABLE VALUES
      * ------------------------------------------------------------
      */
 
@@ -122,25 +197,12 @@ const FloatingAI = () => {
 
     /*
      * ============================================================
-     * LIVE TICK BRIDGE
+     * SYMBOL COLLECTION
      * ============================================================
-     *
-     * Connects the AI scanner to the Deriv WebSocket through
-     * api_base.subscribeToTicks().
-     *
-     * This function ONLY receives market data.
-     *
-     * It does NOT:
-     * - place trades
-     * - press Run
-     * - load Blockly
-     * - modify Quick Strategy
      */
-    const subscribeToLiveTicks = () => {
-        /*
-         * Get all unique symbols used by the 30 strategies.
-         */
-        const symbols = Array.from(
+
+    const getStrategySymbols = useCallback(() => {
+        return Array.from(
             new Set(
                 AI_STRATEGIES
                     .map(strategy => strategy.symbol)
@@ -151,9 +213,66 @@ const FloatingAI = () => {
                     )
             )
         );
+    }, []);
+
+    /*
+     * ============================================================
+     * TICK BUFFER HELPER
+     * ============================================================
+     */
+
+    const ensureTickBuffer = useCallback(
+        (symbol: string) => {
+            if (!tickBuffersRef.current[symbol]) {
+                tickBuffersRef.current[symbol] =
+                    [];
+            }
+
+            return tickBuffersRef.current[symbol];
+        },
+        []
+    );
+
+    /*
+     * ============================================================
+     * LIVE DERIV TICK BRIDGE
+     * ============================================================
+     *
+     * IMPORTANT:
+     *
+     * This function ONLY receives market data.
+     *
+     * It does NOT:
+     * - place trades
+     * - execute bots
+     * - press Run
+     * - load Blockly
+     * - modify Quick Strategy
+     */
+
+    const subscribeToLiveTicks = useCallback(() => {
+        if (!isMountedRef.current) {
+            return;
+        }
+
+        const symbols = getStrategySymbols();
 
         /*
-         * If the Deriv API is not ready yet, retry.
+         * If there are no symbols configured, there is
+         * nothing to subscribe to.
+         */
+        if (symbols.length === 0) {
+            console.warn(
+                '[AI Scanner] No valid strategy symbols found.'
+            );
+
+            return;
+        }
+
+        /*
+         * Deriv API connection not ready yet.
+         *
+         * Retry safely.
          */
         if (!api_base.api) {
             if (
@@ -164,7 +283,11 @@ const FloatingAI = () => {
                         tickRetryTimerRef.current =
                             null;
 
-                        subscribeToLiveTicks();
+                        if (
+                            isMountedRef.current
+                        ) {
+                            subscribeToLiveTicks();
+                        }
                     }, LIVE_TICK_RETRY_MS);
             }
 
@@ -172,12 +295,23 @@ const FloatingAI = () => {
         }
 
         /*
-         * Subscribe to every unique strategy symbol.
+         * API is available, so any pending retry is no
+         * longer necessary.
+         */
+        if (
+            tickRetryTimerRef.current !== null
+        ) {
+            clearTimeout(
+                tickRetryTimerRef.current
+            );
+
+            tickRetryTimerRef.current = null;
+        }
+
+        /*
+         * Subscribe once per symbol.
          */
         symbols.forEach(symbol => {
-            /*
-             * Don't create duplicate subscriptions.
-             */
             if (
                 subscribedSymbolsRef.current.has(
                     symbol
@@ -186,15 +320,7 @@ const FloatingAI = () => {
                 return;
             }
 
-            /*
-             * Create the tick buffer before subscription.
-             */
-            if (
-                !tickBuffersRef.current[symbol]
-            ) {
-                tickBuffersRef.current[symbol] =
-                    [];
-            }
+            ensureTickBuffer(symbol);
 
             try {
                 const unsubscribe =
@@ -202,7 +328,18 @@ const FloatingAI = () => {
                         symbol,
                         tick => {
                             /*
-                             * Safety validation.
+                             * Component may have unmounted
+                             * while the WebSocket callback was
+                             * still active.
+                             */
+                            if (
+                                !isMountedRef.current
+                            ) {
+                                return;
+                            }
+
+                            /*
+                             * Defensive tick validation.
                              */
                             if (
                                 !tick ||
@@ -211,12 +348,12 @@ const FloatingAI = () => {
                                     tick.quote
                                 )
                             ) {
+                                invalidTickCountRef.current +=
+                                    1;
+
                                 return;
                             }
 
-                            /*
-                             * Get current buffer.
-                             */
                             const currentTicks =
                                 tickBuffersRef.current[
                                     symbol
@@ -231,8 +368,7 @@ const FloatingAI = () => {
                             ];
 
                             /*
-                             * Keep only the latest
-                             * MAX_TICKS_PER_SYMBOL ticks.
+                             * Maintain rolling window.
                              */
                             tickBuffersRef.current[
                                 symbol
@@ -240,22 +376,35 @@ const FloatingAI = () => {
                                 updatedTicks.slice(
                                     -MAX_TICKS_PER_SYMBOL
                                 );
+
+                            /*
+                             * Track freshness.
+                             */
+                            lastTickTimeRef.current[
+                                symbol
+                            ] = Date.now();
                         }
                     );
 
                 /*
-                 * Mark symbol as subscribed.
+                 * Mark as subscribed only after
+                 * subscribeToTicks succeeds.
                  */
                 subscribedSymbolsRef.current.add(
                     symbol
                 );
 
                 /*
-                 * Store cleanup function.
+                 * Only store a valid cleanup function.
                  */
-                tickUnsubscribersRef.current.push(
-                    unsubscribe
-                );
+                if (
+                    typeof unsubscribe ===
+                    'function'
+                ) {
+                    tickUnsubscribersRef.current.push(
+                        unsubscribe
+                    );
+                }
 
                 console.log(
                     `[AI Scanner] Live ticks connected: ${symbol}`
@@ -267,19 +416,19 @@ const FloatingAI = () => {
                 );
             }
         });
-    };
+    }, [
+        ensureTickBuffer,
+        getStrategySymbols,
+    ]);
 
     /*
      * ============================================================
-     * START LIVE TICK BRIDGE
+     * CLEANUP LIVE TICK BRIDGE
      * ============================================================
-     *
-     * Start when FloatingAI mounts.
      */
-    useEffect(() => {
-        subscribeToLiveTicks();
 
-        return () => {
+    const cleanupLiveTickBridge =
+        useCallback(() => {
             /*
              * Stop retry timer.
              */
@@ -294,7 +443,7 @@ const FloatingAI = () => {
             }
 
             /*
-             * Unsubscribe every scanner tick listener.
+             * Unsubscribe every active listener.
              */
             tickUnsubscribersRef.current.forEach(
                 unsubscribe => {
@@ -312,26 +461,55 @@ const FloatingAI = () => {
             tickUnsubscribersRef.current = [];
 
             subscribedSymbolsRef.current.clear();
-        };
-    }, []);
+        }, []);
 
     /*
      * ============================================================
-     * BASE STRATEGY SCORE
+     * START LIVE TICK BRIDGE
+     * ============================================================
+     */
+
+    useEffect(() => {
+        isMountedRef.current = true;
+
+        subscribeToLiveTicks();
+
+        return () => {
+            isMountedRef.current = false;
+
+            /*
+             * Invalidate any active scan.
+             */
+            scanGenerationRef.current += 1;
+
+            scanInProgressRef.current = false;
+
+            cleanupLiveTickBridge();
+        };
+    }, [
+        cleanupLiveTickBridge,
+        subscribeToLiveTicks,
+    ]);
+
+    /*
+     * ============================================================
+     * PROFILE SCORE
      * ============================================================
      *
-     * This measures the quality of the strategy profile itself.
+     * This measures the static strategy profile.
      *
-     * It is NOT a win rate.
-     * It does NOT predict profit.
+     * IMPORTANT:
+     * This is NOT a win rate.
+     * This is NOT a profit prediction.
      */
+
     const calculateProfileScore = (
         strategy: AIStrategy
     ): number => {
         let score = 70;
 
         /*
-         * Risk profile
+         * Risk profile.
          */
         if (strategy.risk === 'LOW') {
             score += 8;
@@ -344,7 +522,7 @@ const FloatingAI = () => {
         }
 
         /*
-         * Profit / loss relationship
+         * Profit / loss configuration.
          */
         if (
             strategy.profit > 0 &&
@@ -362,14 +540,15 @@ const FloatingAI = () => {
         }
 
         /*
-         * Short duration preference
+         * Short duration.
          */
         if (strategy.duration <= 1) {
             score += 4;
         }
 
         /*
-         * Existing Quick Strategy engines
+         * Existing engines with stronger compatibility
+         * with the scanner's progressive profiles.
          */
         const preferredEngines = [
             'D_ALEMBERT',
@@ -398,12 +577,14 @@ const FloatingAI = () => {
      * FINAL SCANNER SCORE
      * ============================================================
      */
+
     const calculateFinalScannerScore = (
         strategy: AIStrategy,
         analysis: MarketAnalysis
     ): {
         scannerScore: number;
         marketCompatibility: number;
+        confidenceQualified: boolean;
     } => {
         const profileScore =
             calculateProfileScore(strategy);
@@ -415,26 +596,45 @@ const FloatingAI = () => {
             );
 
         /*
-         * No live data means we must NOT pretend that
-         * the market is compatible.
+         * No live data.
          */
         if (
             analysis.state ===
             'INSUFFICIENT_DATA'
         ) {
             return {
-                scannerScore: profileScore,
+                scannerScore: 0,
                 marketCompatibility: 0,
+                confidenceQualified: false,
             };
         }
 
         /*
-         * Live market data receives 60% weight.
-         * Static strategy profile receives 40%.
+         * Respect each strategy's minimum confidence.
          */
-        const finalScore =
+        const confidenceQualified =
+            analysis.confidence >=
+            strategy.marketProfile
+                .minimumConfidence;
+
+        /*
+         * Live market receives 60%.
+         * Static profile receives 40%.
+         */
+        let finalScore =
             profileScore * 0.4 +
             marketCompatibility * 0.6;
+
+        /*
+         * Confidence is a qualification gate.
+         *
+         * We do not artificially claim a strategy is
+         * strongly suitable when its own confidence
+         * requirement has not been met.
+         */
+        if (!confidenceQualified) {
+            finalScore *= 0.65;
+        }
 
         return {
             scannerScore: Math.round(
@@ -447,8 +647,57 @@ const FloatingAI = () => {
                 )
             ),
 
-            marketCompatibility,
+            marketCompatibility:
+                Math.round(
+                    Math.min(
+                        100,
+                        Math.max(
+                            0,
+                            marketCompatibility
+                        )
+                    )
+                ),
+
+            confidenceQualified,
         };
+    };
+
+    /*
+     * ============================================================
+     * BUILD INITIAL EDITABLE VALUES
+     * ============================================================
+     */
+
+    const initializeEditableValues = (
+        results: ScannerResult[]
+    ) => {
+        const initialStakeValues: Record<
+            string,
+            string
+        > = {};
+
+        const initialTargetValues: Record<
+            string,
+            string
+        > = {};
+
+        results.forEach(strategy => {
+            initialStakeValues[
+                strategy.id
+            ] = String(strategy.stake);
+
+            initialTargetValues[
+                strategy.id
+            ] = String(strategy.profit);
+        });
+
+        setStakeValues(
+            initialStakeValues
+        );
+
+        setTargetValues(
+            initialTargetValues
+        );
     };
 
     /*
@@ -456,58 +705,79 @@ const FloatingAI = () => {
      * SCAN ALL STRATEGIES
      * ============================================================
      */
+
     const scanAllStrategies = async () => {
+        /*
+         * Prevent double-click / overlapping scans.
+         */
+        if (scanInProgressRef.current) {
+            return;
+        }
+
+        scanInProgressRef.current = true;
+
+        const currentScanGeneration =
+            ++scanGenerationRef.current;
+
         setIsScanning(true);
 
         setScannerResults([]);
 
         try {
             /*
-             * Make sure live subscriptions are active.
+             * Ensure live subscriptions exist.
              */
             subscribeToLiveTicks();
 
             /*
-             * Small delay for scanner animation and
-             * to allow the latest incoming ticks to settle.
+             * Give incoming ticks a short opportunity
+             * to settle before analysis.
              */
             await new Promise(resolve =>
-                setTimeout(resolve, 900)
+                setTimeout(
+                    resolve,
+                    SCAN_SETTLE_MS
+                )
             );
 
             /*
+             * If the component disappeared or another
+             * scan replaced this one, stop.
+             */
+            if (
+                !isMountedRef.current ||
+                currentScanGeneration !==
+                    scanGenerationRef.current
+            ) {
+                return;
+            }
+
+            /*
              * ----------------------------------------------------
-             * ANALYZE EACH STRATEGY AGAINST ITS OWN SYMBOL
+             * ANALYZE ALL STRATEGIES
              * ----------------------------------------------------
              */
+
             const results: ScannerResult[] =
                 AI_STRATEGIES.map(strategy => {
-                    /*
-                     * Get the live tick buffer belonging
-                     * to this strategy's market.
-                     */
                     const liveTicks =
                         tickBuffersRef.current[
                             strategy.symbol
                         ] || [];
 
-                    /*
-                     * Analyze actual live market data.
-                     */
                     const analysis =
                         analyzeMarket(
                             liveTicks
                         );
 
-                    /*
-                     * Calculate compatibility using
-                     * this strategy's own market.
-                     */
                     const scores =
                         calculateFinalScannerScore(
                             strategy,
                             analysis
                         );
+
+                    const liveTickCount =
+                        liveTicks.length;
 
                     return {
                         ...strategy,
@@ -528,15 +798,57 @@ const FloatingAI = () => {
 
                         marketConfidence:
                             analysis.confidence,
+
+                        confidenceQualified:
+                            scores.confidenceQualified,
+
+                        liveTickCount,
                     };
                 });
 
             /*
              * ----------------------------------------------------
-             * RANK HIGHEST SCORE FIRST
+             * DETERMINE WHETHER REAL LIVE DATA EXISTS
              * ----------------------------------------------------
              */
+
+            const hasUsableLiveData =
+                results.some(
+                    result =>
+                        result.liveTickCount >=
+                            MIN_TICKS_FOR_LIVE_SCANNER &&
+                        result.marketState !==
+                            'INSUFFICIENT_DATA'
+                );
+
+            /*
+             * ----------------------------------------------------
+             * RANK RESULTS
+             * ----------------------------------------------------
+             *
+             * Priority:
+             *
+             * 1. Usable confidence
+             * 2. Scanner score
+             * 3. Market compatibility
+             * 4. Market confidence
+             */
+
             results.sort((a, b) => {
+                /*
+                 * If live data exists, qualified strategies
+                 * are preferred over unqualified strategies.
+                 */
+                if (
+                    hasUsableLiveData &&
+                    a.confidenceQualified !==
+                        b.confidenceQualified
+                ) {
+                    return a.confidenceQualified
+                        ? -1
+                        : 1;
+                }
+
                 if (
                     b.scannerScore !==
                     a.scannerScore
@@ -557,6 +869,16 @@ const FloatingAI = () => {
                     );
                 }
 
+                if (
+                    b.marketConfidence !==
+                    a.marketConfidence
+                ) {
+                    return (
+                        b.marketConfidence -
+                        a.marketConfidence
+                    );
+                }
+
                 return a.name.localeCompare(
                     b.name
                 );
@@ -567,6 +889,7 @@ const FloatingAI = () => {
              * ASSIGN RANKS
              * ----------------------------------------------------
              */
+
             const rankedResults =
                 results.map(
                     (strategy, index) => ({
@@ -577,9 +900,10 @@ const FloatingAI = () => {
 
             /*
              * ----------------------------------------------------
-             * DISPLAY ANALYSIS FOR TOP STRATEGY
+             * DISPLAY TOP STRATEGY MARKET ANALYSIS
              * ----------------------------------------------------
              */
+
             if (
                 rankedResults.length > 0
             ) {
@@ -607,44 +931,27 @@ const FloatingAI = () => {
              * INITIALIZE EDITABLE VALUES
              * ----------------------------------------------------
              */
-            const initialStakeValues: Record<
-                string,
-                string
-            > = {};
 
-            const initialTargetValues: Record<
-                string,
-                string
-            > = {};
-
-            rankedResults.forEach(
-                strategy => {
-                    initialStakeValues[
-                        strategy.id
-                    ] = String(
-                        strategy.stake
-                    );
-
-                    initialTargetValues[
-                        strategy.id
-                    ] = String(
-                        strategy.profit
-                    );
-                }
-            );
-
-            setStakeValues(
-                initialStakeValues
-            );
-
-            setTargetValues(
-                initialTargetValues
+            initializeEditableValues(
+                rankedResults
             );
 
             /*
              * ----------------------------------------------------
-             * DISPLAY RESULTS
+             * FINAL SAFETY CHECK
              * ----------------------------------------------------
+             */
+
+            if (
+                !isMountedRef.current ||
+                currentScanGeneration !==
+                    scanGenerationRef.current
+            ) {
+                return;
+            }
+
+            /*
+             * Display results.
              */
             setScannerResults(
                 rankedResults
@@ -655,7 +962,19 @@ const FloatingAI = () => {
                 error
             );
         } finally {
-            setIsScanning(false);
+            /*
+             * Only clear scanning state for the
+             * currently active scan.
+             */
+            if (
+                isMountedRef.current &&
+                currentScanGeneration ===
+                    scanGenerationRef.current
+            ) {
+                setIsScanning(false);
+            }
+
+            scanInProgressRef.current = false;
         }
     };
 
@@ -664,10 +983,21 @@ const FloatingAI = () => {
      * UPDATE STAKE
      * ============================================================
      */
+
     const updateStake = (
         strategyId: string,
         value: string
     ) => {
+        /*
+         * Allow:
+         *
+         * 1
+         * 1.
+         * 1.5
+         * .5
+         *
+         * but reject letters and multiple decimals.
+         */
         if (
             !/^\d*\.?\d*$/.test(value)
         ) {
@@ -685,6 +1015,7 @@ const FloatingAI = () => {
      * UPDATE TARGET
      * ============================================================
      */
+
     const updateTarget = (
         strategyId: string,
         value: string
@@ -708,30 +1039,47 @@ const FloatingAI = () => {
      *
      * IMPORTANT:
      *
-     * This loads the existing bot only.
+     * This ONLY loads the existing Quick Strategy.
      *
      * It does NOT execute the bot.
+     *
+     * The user must still use the existing Run mechanism.
      */
+
     const loadStrategy = async (
         strategy: ScannerResult
     ) => {
-        if (loadingStrategyId) {
+        /*
+         * Prevent loading while another strategy is
+         * being loaded.
+         */
+        if (loadingStrategyId !== null) {
+            return;
+        }
+
+        /*
+         * Do not load a strategy while a scan is running.
+         */
+        if (scanInProgressRef.current) {
             return;
         }
 
         const editedStake =
             parseFloat(
-                stakeValues[strategy.id]
+                stakeValues[strategy.id] ?? ''
             );
 
         const editedTarget =
             parseFloat(
-                targetValues[strategy.id]
+                targetValues[strategy.id] ?? ''
             );
 
         /*
-         * Validate stake.
+         * --------------------------------------------------------
+         * VALIDATE STAKE
+         * --------------------------------------------------------
          */
+
         if (
             !Number.isFinite(
                 editedStake
@@ -739,15 +1087,18 @@ const FloatingAI = () => {
             editedStake <= 0
         ) {
             console.error(
-                'Invalid stake amount.'
+                '[AI Scanner] Invalid stake amount.'
             );
 
             return;
         }
 
         /*
-         * Validate target.
+         * --------------------------------------------------------
+         * VALIDATE TARGET
+         * --------------------------------------------------------
          */
+
         if (
             !Number.isFinite(
                 editedTarget
@@ -755,7 +1106,29 @@ const FloatingAI = () => {
             editedTarget <= 0
         ) {
             console.error(
-                'Invalid target amount.'
+                '[AI Scanner] Invalid target amount.'
+            );
+
+            return;
+        }
+
+        /*
+         * --------------------------------------------------------
+         * SAFETY CHECK FOR INSUFFICIENT DATA
+         * --------------------------------------------------------
+         *
+         * Do not load a strategy that was selected only
+         * because there was no live data.
+         */
+
+        if (
+            strategy.marketState ===
+                'INSUFFICIENT_DATA' ||
+            strategy.liveTickCount <
+                MIN_TICKS_FOR_LIVE_SCANNER
+        ) {
+            console.warn(
+                '[AI Scanner] Strategy cannot be loaded from an insufficient-data scan.'
             );
 
             return;
@@ -767,17 +1140,20 @@ const FloatingAI = () => {
 
         try {
             /*
-             * Select existing Quick Strategy engine.
+             * Select the EXISTING Quick Strategy engine.
              */
             quick_strategy.setSelectedStrategy(
                 strategy.engine
             );
 
             /*
-             * Load configuration into
-             * existing Quick Strategy.
+             * Load configuration into the existing
+             * Quick Strategy.
              *
-             * DO NOT RUN.
+             * IMPORTANT:
+             * action remains LOAD.
+             *
+             * This does NOT execute a trade.
              */
             await quick_strategy.onSubmit({
                 symbol:
@@ -817,22 +1193,34 @@ const FloatingAI = () => {
             /*
              * Close scanner after successful load.
              */
-            setIsOpen(false);
+            if (
+                isMountedRef.current
+            ) {
+                setIsOpen(false);
 
-            setScannerResults([]);
+                setScannerResults([]);
 
-            setStakeValues({});
+                setStakeValues({});
 
-            setTargetValues({});
+                setTargetValues({});
+
+                setMarketAnalysis(
+                    analyzeMarket([])
+                );
+            }
         } catch (error) {
             console.error(
-                'Failed to load AI strategy:',
+                '[AI Scanner] Failed to load AI strategy:',
                 error
             );
         } finally {
-            setLoadingStrategyId(
-                null
-            );
+            if (
+                isMountedRef.current
+            ) {
+                setLoadingStrategyId(
+                    null
+                );
+            }
         }
     };
 
@@ -841,7 +1229,17 @@ const FloatingAI = () => {
      * CLOSE SCANNER
      * ============================================================
      */
+
     const closeScanner = () => {
+        /*
+         * Invalidate any scan currently awaiting completion.
+         */
+        scanGenerationRef.current += 1;
+
+        scanInProgressRef.current = false;
+
+        setIsScanning(false);
+
         setIsOpen(false);
 
         setScannerResults([]);
@@ -851,6 +1249,10 @@ const FloatingAI = () => {
         setStakeValues({});
 
         setTargetValues({});
+
+        setMarketAnalysis(
+            analyzeMarket([])
+        );
     };
 
     /*
@@ -858,6 +1260,7 @@ const FloatingAI = () => {
      * RENDER
      * ============================================================
      */
+
     return (
         <>
             {/* ================================================== */}
@@ -878,8 +1281,8 @@ const FloatingAI = () => {
                         setIsOpen(true);
 
                         /*
-                         * Ensure live subscriptions are
-                         * active when scanner is opened.
+                         * Make sure subscriptions are
+                         * available when opened.
                          */
                         subscribeToLiveTicks();
                     }
@@ -898,7 +1301,7 @@ const FloatingAI = () => {
             </button>
 
             {/* ================================================== */}
-            {/* AI SCANNER */}
+            {/* AI SCANNER PANEL */}
             {/* ================================================== */}
 
             {isOpen && (
@@ -988,6 +1391,9 @@ const FloatingAI = () => {
                                         className="scan-button"
                                         onClick={
                                             scanAllStrategies
+                                        }
+                                        disabled={
+                                            isScanning
                                         }
                                     >
                                         ✦ Scan{' '}
@@ -1175,7 +1581,10 @@ const FloatingAI = () => {
                                                         </div>
 
                                                         {strategy.rank ===
-                                                            1 && (
+                                                            1 &&
+                                                            strategy.confidenceQualified &&
+                                                            strategy.marketState !==
+                                                                'INSUFFICIENT_DATA' && (
                                                             <div className="best-badge">
                                                                 BEST
                                                                 MATCH
@@ -1242,6 +1651,54 @@ const FloatingAI = () => {
                                                                     strategy.marketConfidence
                                                                 }
                                                                 %
+                                                            </strong>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* LIVE TICK COUNT */}
+                                                    <div className="strategy-market-live">
+                                                        <div>
+                                                            <span>
+                                                                Live
+                                                                Ticks
+                                                            </span>
+
+                                                            <strong>
+                                                                {
+                                                                    strategy.liveTickCount
+                                                                }
+                                                                /
+                                                                {
+                                                                    MAX_TICKS_PER_SYMBOL
+                                                                }
+                                                            </strong>
+                                                        </div>
+
+                                                        <div>
+                                                            <span>
+                                                                Required
+                                                            </span>
+
+                                                            <strong>
+                                                                {
+                                                                    strategy
+                                                                        .marketProfile
+                                                                        .minimumConfidence
+                                                                }
+                                                                %
+                                                            </strong>
+                                                        </div>
+
+                                                        <div>
+                                                            <span>
+                                                                Confidence
+                                                                Gate
+                                                            </span>
+
+                                                            <strong>
+                                                                {strategy.confidenceQualified
+                                                                    ? 'PASS'
+                                                                    : 'WAIT'}
                                                             </strong>
                                                         </div>
                                                     </div>
@@ -1439,27 +1896,43 @@ const FloatingAI = () => {
                                                         }
                                                         disabled={
                                                             loadingStrategyId !==
-                                                                null &&
-                                                            loadingStrategyId !==
-                                                                strategy.id
+                                                                null ||
+                                                            isScanning ||
+                                                            strategy.marketState ===
+                                                                'INSUFFICIENT_DATA' ||
+                                                            strategy.liveTickCount <
+                                                                MIN_TICKS_FOR_LIVE_SCANNER
                                                         }
                                                     >
                                                         {loadingStrategyId ===
                                                         strategy.id
                                                             ? 'Loading...'
-                                                            : 'Load Bot'}
+                                                            : strategy.marketState ===
+                                                                    'INSUFFICIENT_DATA' ||
+                                                                strategy.liveTickCount <
+                                                                    MIN_TICKS_FOR_LIVE_SCANNER
+                                                              ? 'Waiting for Data'
+                                                              : 'Load Bot'}
                                                     </button>
                                                 </div>
                                             )
                                         )}
                                     </div>
 
+                                    {/* ================================================== */}
                                     {/* RESCAN */}
+                                    {/* ================================================== */}
+
                                     <button
                                         type="button"
                                         className="rescan-button"
                                         onClick={
                                             scanAllStrategies
+                                        }
+                                        disabled={
+                                            isScanning ||
+                                            loadingStrategyId !==
+                                                null
                                         }
                                     >
                                         ↻ Scan Again
