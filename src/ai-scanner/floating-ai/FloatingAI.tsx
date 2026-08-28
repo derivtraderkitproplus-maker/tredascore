@@ -1,46 +1,107 @@
-import React, { useState } from 'react';
+import React, {
+    useEffect,
+    useRef,
+    useState,
+} from 'react';
+
 import { useStore } from '@/hooks/useStore';
-import { AI_STRATEGIES, AIStrategy } from './strategies';
+
+import {
+    AI_STRATEGIES,
+    AIStrategy,
+} from './strategies';
+
 import {
     analyzeMarket,
     calculateMarketCompatibility,
     MarketAnalysis,
 } from './scannerLogic';
+
+import { api_base } from '@/external/bot-skeleton/services/api/api-base';
+
 import './FloatingAI.css';
 
 type ScannerResult = AIStrategy & {
     scannerScore: number;
     marketCompatibility: number;
     rank: number;
+
+    /*
+     * Live analysis belonging specifically
+     * to this strategy's market symbol.
+     */
+    marketState: MarketAnalysis['state'];
+    marketDirection: MarketAnalysis['direction'];
+    marketConfidence: number;
 };
+
+const MAX_TICKS_PER_SYMBOL = 100;
+
+const LIVE_TICK_RETRY_MS = 1000;
 
 const FloatingAI = () => {
     const { quick_strategy } = useStore();
 
     const [isOpen, setIsOpen] = useState(false);
-    const [isScanning, setIsScanning] = useState(false);
 
-    const [scannerResults, setScannerResults] = useState<
-        ScannerResult[]
-    >([]);
+    const [isScanning, setIsScanning] =
+        useState(false);
+
+    const [scannerResults, setScannerResults] =
+        useState<ScannerResult[]>([]);
 
     const [loadingStrategyId, setLoadingStrategyId] =
         useState<string | null>(null);
 
     /*
      * ------------------------------------------------------------
-     * MARKET ANALYSIS
+     * LIVE DERIV TICK STORAGE
      * ------------------------------------------------------------
      *
-     * This will later be populated by live Deriv ticks.
+     * Each symbol gets its own rolling tick buffer.
      *
-     * For now we keep the scanner safely in an
-     * INSUFFICIENT_DATA state until the live tick bridge
-     * is connected.
+     * Example:
      *
-     * IMPORTANT:
+     * R_100 -> [tick, tick, tick...]
+     * R_75  -> [tick, tick, tick...]
      *
-     * We do NOT invent market data.
+     * This allows every strategy to be analyzed against
+     * the actual market it trades.
+     */
+    const tickBuffersRef = useRef<
+        Record<string, number[]>
+    >({});
+
+    /*
+     * Keep track of active WebSocket unsubscribe functions.
+     */
+    const tickUnsubscribersRef = useRef<
+        Array<() => void>
+    >([]);
+
+    /*
+     * Prevent duplicate subscriptions.
+     */
+    const subscribedSymbolsRef = useRef<
+        Set<string>
+    >(new Set());
+
+    /*
+     * Used to retry subscription if APIBase has not
+     * finished creating the WebSocket connection yet.
+     */
+    const tickRetryTimerRef =
+        useRef<ReturnType<typeof setTimeout> | null>(
+            null
+        );
+
+    /*
+     * ------------------------------------------------------------
+     * MARKET ANALYSIS DISPLAY
+     * ------------------------------------------------------------
+     *
+     * This displays the analysis for the highest-ranked
+     * strategy after scanning.
      */
     const [marketAnalysis, setMarketAnalysis] =
         useState<MarketAnalysis>(() =>
@@ -59,15 +120,209 @@ const FloatingAI = () => {
     const [targetValues, setTargetValues] =
         useState<Record<string, string>>({});
 
-    /**
-     * ------------------------------------------------------------
+    /*
+     * ============================================================
+     * LIVE TICK BRIDGE
+     * ============================================================
+     *
+     * Connects the AI scanner to the Deriv WebSocket through
+     * api_base.subscribeToTicks().
+     *
+     * This function ONLY receives market data.
+     *
+     * It does NOT:
+     * - place trades
+     * - press Run
+     * - load Blockly
+     * - modify Quick Strategy
+     */
+    const subscribeToLiveTicks = () => {
+        /*
+         * Get all unique symbols used by the 30 strategies.
+         */
+        const symbols = Array.from(
+            new Set(
+                AI_STRATEGIES
+                    .map(strategy => strategy.symbol)
+                    .filter(
+                        symbol =>
+                            typeof symbol === 'string' &&
+                            symbol.trim().length > 0
+                    )
+            )
+        );
+
+        /*
+         * If the Deriv API is not ready yet, retry.
+         */
+        if (!api_base.api) {
+            if (
+                tickRetryTimerRef.current === null
+            ) {
+                tickRetryTimerRef.current =
+                    setTimeout(() => {
+                        tickRetryTimerRef.current =
+                            null;
+
+                        subscribeToLiveTicks();
+                    }, LIVE_TICK_RETRY_MS);
+            }
+
+            return;
+        }
+
+        /*
+         * Subscribe to every unique strategy symbol.
+         */
+        symbols.forEach(symbol => {
+            /*
+             * Don't create duplicate subscriptions.
+             */
+            if (
+                subscribedSymbolsRef.current.has(
+                    symbol
+                )
+            ) {
+                return;
+            }
+
+            /*
+             * Create the tick buffer before subscription.
+             */
+            if (
+                !tickBuffersRef.current[symbol]
+            ) {
+                tickBuffersRef.current[symbol] =
+                    [];
+            }
+
+            try {
+                const unsubscribe =
+                    api_base.subscribeToTicks(
+                        symbol,
+                        tick => {
+                            /*
+                             * Safety validation.
+                             */
+                            if (
+                                !tick ||
+                                tick.symbol !== symbol ||
+                                !Number.isFinite(
+                                    tick.quote
+                                )
+                            ) {
+                                return;
+                            }
+
+                            /*
+                             * Get current buffer.
+                             */
+                            const currentTicks =
+                                tickBuffersRef.current[
+                                    symbol
+                                ] || [];
+
+                            /*
+                             * Add newest quote.
+                             */
+                            const updatedTicks = [
+                                ...currentTicks,
+                                tick.quote,
+                            ];
+
+                            /*
+                             * Keep only the latest
+                             * MAX_TICKS_PER_SYMBOL ticks.
+                             */
+                            tickBuffersRef.current[
+                                symbol
+                            ] =
+                                updatedTicks.slice(
+                                    -MAX_TICKS_PER_SYMBOL
+                                );
+                        }
+                    );
+
+                /*
+                 * Mark symbol as subscribed.
+                 */
+                subscribedSymbolsRef.current.add(
+                    symbol
+                );
+
+                /*
+                 * Store cleanup function.
+                 */
+                tickUnsubscribersRef.current.push(
+                    unsubscribe
+                );
+
+                console.log(
+                    `[AI Scanner] Live ticks connected: ${symbol}`
+                );
+            } catch (error) {
+                console.error(
+                    `[AI Scanner] Failed to subscribe to ${symbol}:`,
+                    error
+                );
+            }
+        });
+    };
+
+    /*
+     * ============================================================
+     * START LIVE TICK BRIDGE
+     * ============================================================
+     *
+     * Start when FloatingAI mounts.
+     */
+    useEffect(() => {
+        subscribeToLiveTicks();
+
+        return () => {
+            /*
+             * Stop retry timer.
+             */
+            if (
+                tickRetryTimerRef.current !== null
+            ) {
+                clearTimeout(
+                    tickRetryTimerRef.current
+                );
+
+                tickRetryTimerRef.current = null;
+            }
+
+            /*
+             * Unsubscribe every scanner tick listener.
+             */
+            tickUnsubscribersRef.current.forEach(
+                unsubscribe => {
+                    try {
+                        unsubscribe();
+                    } catch (error) {
+                        console.warn(
+                            '[AI Scanner] Tick unsubscribe failed:',
+                            error
+                        );
+                    }
+                }
+            );
+
+            tickUnsubscribersRef.current = [];
+
+            subscribedSymbolsRef.current.clear();
+        };
+    }, []);
+
+    /*
+     * ============================================================
      * BASE STRATEGY SCORE
-     * ------------------------------------------------------------
+     * ============================================================
      *
      * This measures the quality of the strategy profile itself.
      *
      * It is NOT a win rate.
-     *
      * It does NOT predict profit.
      */
     const calculateProfileScore = (
@@ -80,7 +335,9 @@ const FloatingAI = () => {
          */
         if (strategy.risk === 'LOW') {
             score += 8;
-        } else if (strategy.risk === 'MEDIUM') {
+        } else if (
+            strategy.risk === 'MEDIUM'
+        ) {
             score += 5;
         } else {
             score += 2;
@@ -136,18 +393,10 @@ const FloatingAI = () => {
         );
     };
 
-    /**
-     * ------------------------------------------------------------
+    /*
+     * ============================================================
      * FINAL SCANNER SCORE
-     * ------------------------------------------------------------
-     *
-     * Combines:
-     *
-     * 1. Strategy profile score
-     * 2. Current market compatibility
-     *
-     * This creates the foundation for the future
-     * live-market strategy ranking.
+     * ============================================================
      */
     const calculateFinalScannerScore = (
         strategy: AIStrategy,
@@ -166,10 +415,8 @@ const FloatingAI = () => {
             );
 
         /*
-         * If there is not enough market data yet,
-         * don't pretend there is a live-market advantage.
-         *
-         * The profile score remains visible.
+         * No live data means we must NOT pretend that
+         * the market is compatible.
          */
         if (
             analysis.state ===
@@ -182,14 +429,8 @@ const FloatingAI = () => {
         }
 
         /*
-         * Weighted score:
-         *
-         * 60% market compatibility
-         * 40% strategy profile
-         *
-         * Once live data is connected this will make
-         * market conditions more important than static
-         * strategy properties.
+         * Live market data receives 60% weight.
+         * Static strategy profile receives 40%.
          */
         const finalScore =
             profileScore * 0.4 +
@@ -199,7 +440,10 @@ const FloatingAI = () => {
             scannerScore: Math.round(
                 Math.min(
                     99,
-                    Math.max(0, finalScore)
+                    Math.max(
+                        0,
+                        finalScore
+                    )
                 )
             ),
 
@@ -207,18 +451,25 @@ const FloatingAI = () => {
         };
     };
 
-    /**
-     * ------------------------------------------------------------
+    /*
+     * ============================================================
      * SCAN ALL STRATEGIES
-     * ------------------------------------------------------------
+     * ============================================================
      */
     const scanAllStrategies = async () => {
         setIsScanning(true);
+
         setScannerResults([]);
 
         try {
             /*
-             * Small delay for scanner animation.
+             * Make sure live subscriptions are active.
+             */
+            subscribeToLiveTicks();
+
+            /*
+             * Small delay for scanner animation and
+             * to allow the latest incoming ticks to settle.
              */
             await new Promise(resolve =>
                 setTimeout(resolve, 900)
@@ -226,29 +477,32 @@ const FloatingAI = () => {
 
             /*
              * ----------------------------------------------------
-             * MARKET ANALYSIS
-             * ----------------------------------------------------
-             *
-             * Currently there are no live ticks.
-             *
-             * This will later become:
-             *
-             * analyzeMarket(liveTicks)
-             *
-             * when the Deriv WebSocket bridge is connected.
-             */
-            const analysis =
-                analyzeMarket([]);
-
-            setMarketAnalysis(analysis);
-
-            /*
-             * ----------------------------------------------------
-             * SCORE ALL STRATEGIES
+             * ANALYZE EACH STRATEGY AGAINST ITS OWN SYMBOL
              * ----------------------------------------------------
              */
             const results: ScannerResult[] =
                 AI_STRATEGIES.map(strategy => {
+                    /*
+                     * Get the live tick buffer belonging
+                     * to this strategy's market.
+                     */
+                    const liveTicks =
+                        tickBuffersRef.current[
+                            strategy.symbol
+                        ] || [];
+
+                    /*
+                     * Analyze actual live market data.
+                     */
+                    const analysis =
+                        analyzeMarket(
+                            liveTicks
+                        );
+
+                    /*
+                     * Calculate compatibility using
+                     * this strategy's own market.
+                     */
                     const scores =
                         calculateFinalScannerScore(
                             strategy,
@@ -265,11 +519,22 @@ const FloatingAI = () => {
                             scores.marketCompatibility,
 
                         rank: 0,
+
+                        marketState:
+                            analysis.state,
+
+                        marketDirection:
+                            analysis.direction,
+
+                        marketConfidence:
+                            analysis.confidence,
                     };
                 });
 
             /*
-             * Highest score first.
+             * ----------------------------------------------------
+             * RANK HIGHEST SCORE FIRST
+             * ----------------------------------------------------
              */
             results.sort((a, b) => {
                 if (
@@ -282,10 +547,6 @@ const FloatingAI = () => {
                     );
                 }
 
-                /*
-                 * If scores are equal,
-                 * use market compatibility.
-                 */
                 if (
                     b.marketCompatibility !==
                     a.marketCompatibility
@@ -296,16 +557,15 @@ const FloatingAI = () => {
                     );
                 }
 
-                /*
-                 * Final deterministic ordering.
-                 */
                 return a.name.localeCompare(
                     b.name
                 );
             });
 
             /*
-             * Assign ranks.
+             * ----------------------------------------------------
+             * ASSIGN RANKS
+             * ----------------------------------------------------
              */
             const rankedResults =
                 results.map(
@@ -314,6 +574,33 @@ const FloatingAI = () => {
                         rank: index + 1,
                     })
                 );
+
+            /*
+             * ----------------------------------------------------
+             * DISPLAY ANALYSIS FOR TOP STRATEGY
+             * ----------------------------------------------------
+             */
+            if (
+                rankedResults.length > 0
+            ) {
+                const topStrategy =
+                    rankedResults[0];
+
+                const topTicks =
+                    tickBuffersRef.current[
+                        topStrategy.symbol
+                    ] || [];
+
+                setMarketAnalysis(
+                    analyzeMarket(
+                        topTicks
+                    )
+                );
+            } else {
+                setMarketAnalysis(
+                    analyzeMarket([])
+                );
+            }
 
             /*
              * ----------------------------------------------------
@@ -354,12 +641,17 @@ const FloatingAI = () => {
                 initialTargetValues
             );
 
+            /*
+             * ----------------------------------------------------
+             * DISPLAY RESULTS
+             * ----------------------------------------------------
+             */
             setScannerResults(
                 rankedResults
             );
         } catch (error) {
             console.error(
-                'AI Scanner error:',
+                '[AI Scanner] Scanner error:',
                 error
             );
         } finally {
@@ -367,16 +659,18 @@ const FloatingAI = () => {
         }
     };
 
-    /**
-     * ------------------------------------------------------------
+    /*
+     * ============================================================
      * UPDATE STAKE
-     * ------------------------------------------------------------
+     * ============================================================
      */
     const updateStake = (
         strategyId: string,
         value: string
     ) => {
-        if (!/^\d*\.?\d*$/.test(value)) {
+        if (
+            !/^\d*\.?\d*$/.test(value)
+        ) {
             return;
         }
 
@@ -386,16 +680,18 @@ const FloatingAI = () => {
         }));
     };
 
-    /**
-     * ------------------------------------------------------------
+    /*
+     * ============================================================
      * UPDATE TARGET
-     * ------------------------------------------------------------
+     * ============================================================
      */
     const updateTarget = (
         strategyId: string,
         value: string
     ) => {
-        if (!/^\d*\.?\d*$/.test(value)) {
+        if (
+            !/^\d*\.?\d*$/.test(value)
+        ) {
             return;
         }
 
@@ -405,16 +701,16 @@ const FloatingAI = () => {
         }));
     };
 
-    /**
-     * ------------------------------------------------------------
+    /*
+     * ============================================================
      * LOAD SELECTED STRATEGY
-     * ------------------------------------------------------------
+     * ============================================================
      *
      * IMPORTANT:
      *
-     * This still ONLY loads the bot.
+     * This loads the existing bot only.
      *
-     * It does NOT automatically press Run.
+     * It does NOT execute the bot.
      */
     const loadStrategy = async (
         strategy: ScannerResult
@@ -484,14 +780,17 @@ const FloatingAI = () => {
              * DO NOT RUN.
              */
             await quick_strategy.onSubmit({
-                symbol: strategy.symbol,
+                symbol:
+                    strategy.symbol,
 
                 tradetype:
                     strategy.tradetype,
 
-                type: strategy.type,
+                type:
+                    strategy.type,
 
-                stake: editedStake,
+                stake:
+                    editedStake,
 
                 durationtype:
                     strategy.durationtype,
@@ -499,15 +798,20 @@ const FloatingAI = () => {
                 duration:
                     strategy.duration,
 
-                profit: editedTarget,
+                profit:
+                    editedTarget,
 
-                loss: strategy.loss,
+                loss:
+                    strategy.loss,
 
-                size: strategy.size,
+                size:
+                    strategy.size,
 
-                unit: strategy.unit,
+                unit:
+                    strategy.unit,
 
-                action: 'LOAD',
+                action:
+                    'LOAD',
             });
 
             /*
@@ -532,10 +836,10 @@ const FloatingAI = () => {
         }
     };
 
-    /**
-     * ------------------------------------------------------------
+    /*
+     * ============================================================
      * CLOSE SCANNER
-     * ------------------------------------------------------------
+     * ============================================================
      */
     const closeScanner = () => {
         setIsOpen(false);
@@ -549,6 +853,11 @@ const FloatingAI = () => {
         setTargetValues({});
     };
 
+    /*
+     * ============================================================
+     * RENDER
+     * ============================================================
+     */
     return (
         <>
             {/* ================================================== */}
@@ -567,6 +876,12 @@ const FloatingAI = () => {
                         closeScanner();
                     } else {
                         setIsOpen(true);
+
+                        /*
+                         * Ensure live subscriptions are
+                         * active when scanner is opened.
+                         */
+                        subscribeToLiveTicks();
                     }
                 }}
                 aria-label="Open AI Scanner"
@@ -647,13 +962,10 @@ const FloatingAI = () => {
                                             available
                                             strategy
                                             profiles
-                                            and rank
-                                            them
-                                            using
-                                            strategy
-                                            compatibility
-                                            and market
-                                            analysis.
+                                            against
+                                            live Deriv
+                                            market
+                                            ticks.
                                         </p>
                                     </div>
 
@@ -678,7 +990,10 @@ const FloatingAI = () => {
                                             scanAllStrategies
                                         }
                                     >
-                                        ✦ Scan 30
+                                        ✦ Scan{' '}
+                                        {
+                                            AI_STRATEGIES.length
+                                        }{' '}
                                         Strategies
                                     </button>
                                 </>
@@ -706,8 +1021,10 @@ const FloatingAI = () => {
                                     {
                                         AI_STRATEGIES.length
                                     }{' '}
-                                    strategy
-                                    profiles.
+                                    strategies
+                                    against
+                                    live market
+                                    ticks.
                                 </p>
 
                                 <div className="scanning-progress">
@@ -737,9 +1054,10 @@ const FloatingAI = () => {
                                                 }{' '}
                                                 strategies
                                                 ranked
-                                                by
-                                                scanner
-                                                score.
+                                                using
+                                                live
+                                                market
+                                                data.
                                             </p>
                                         </div>
 
@@ -799,23 +1117,25 @@ const FloatingAI = () => {
                                     </div>
 
                                     {/* ================================================== */}
-                                    {/* NO LIVE DATA NOTICE */}
+                                    {/* LIVE DATA NOTICE */}
                                     {/* ================================================== */}
 
                                     {marketAnalysis.state ===
                                         'INSUFFICIENT_DATA' && (
                                         <div className="scanner-data-notice">
                                             Waiting
-                                            for live
-                                            market
+                                            for
+                                            enough
+                                            live
                                             ticks.
-                                            Current
-                                            ranking
-                                            is based
-                                            on
-                                            strategy
-                                            profiles
-                                            only.
+                                            Keep the
+                                            scanner
+                                            open and
+                                            scan
+                                            again
+                                            once
+                                            data has
+                                            accumulated.
                                         </div>
                                     )}
 
@@ -883,6 +1203,47 @@ const FloatingAI = () => {
                                                         {
                                                             strategy.description
                                                         }
+                                                    </div>
+
+                                                    {/* LIVE MARKET STATE */}
+                                                    <div className="strategy-market-live">
+                                                        <div>
+                                                            <span>
+                                                                Live
+                                                                Market
+                                                            </span>
+
+                                                            <strong>
+                                                                {
+                                                                    strategy.marketState
+                                                                }
+                                                            </strong>
+                                                        </div>
+
+                                                        <div>
+                                                            <span>
+                                                                Direction
+                                                            </span>
+
+                                                            <strong>
+                                                                {
+                                                                    strategy.marketDirection
+                                                                }
+                                                            </strong>
+                                                        </div>
+
+                                                        <div>
+                                                            <span>
+                                                                Confidence
+                                                            </span>
+
+                                                            <strong>
+                                                                {
+                                                                    strategy.marketConfidence
+                                                                }
+                                                                %
+                                                            </strong>
+                                                        </div>
                                                     </div>
 
                                                     {/* SCORE */}
