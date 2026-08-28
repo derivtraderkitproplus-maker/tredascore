@@ -105,7 +105,7 @@
     align-items: center;
     justify-content: center;
 
-    padding: 16px;
+    padding: 12px;
 
     box-sizing: border-box;
 
@@ -126,12 +126,14 @@
     max-width: 520px;
 
     height: auto;
+
     min-height: 0;
 
-    max-height: calc(100vh - 32px);
-    max-height: calc(100dvh - 32px);
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
 
     margin: auto;
+
     padding: 0;
 
     background: #181a1f;
@@ -145,17 +147,17 @@
 
     box-sizing: border-box;
 
-    overflow-x: hidden;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
 
     flex: 0 1 auto;
-
-    -webkit-overflow-scrolling: touch;
 }
 
 
 /* ============================================================
-   MODAL HEADER
+   HEADER
    ============================================================ */
 
 .risk-disclaimer-header {
@@ -163,25 +165,29 @@
 
     width: 100%;
 
+    min-height: 62px;
+
+    padding: 14px 20px;
+
+    margin: 0;
+
     display: flex;
+
     align-items: center;
     justify-content: space-between;
 
     gap: 12px;
 
-    padding: 16px 20px;
-
-    min-height: 64px;
-
-    margin: 0;
-
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 
     box-sizing: border-box;
+
+    flex: 0 0 auto;
 }
 
 .risk-disclaimer-title-wrapper {
     display: flex;
+
     align-items: center;
 
     gap: 10px;
@@ -203,6 +209,8 @@
     font-weight: 700;
 
     line-height: 1.2;
+
+    white-space: nowrap;
 }
 
 .risk-disclaimer-warning-icon {
@@ -215,6 +223,7 @@
     padding: 0;
 
     font-size: 20px;
+
     line-height: 1;
 
     flex: 0 0 auto;
@@ -228,6 +237,7 @@
 
     width: 36px;
     height: 36px;
+
     min-width: 36px;
 
     margin: 0;
@@ -239,7 +249,9 @@
     background: transparent;
     color: #ffffff;
 
-    font-size: 28px;
+    font-family: inherit;
+
+    font-size: 30px;
     font-weight: 400;
 
     line-height: 1;
@@ -257,33 +269,32 @@
 
 
 /* ============================================================
-   MODAL CONTENT
+   MAIN CONTENT
    ============================================================ */
 
 .risk-disclaimer-content {
-    display: block;
-
     width: 100%;
 
     margin: 0;
 
-    padding: 18px 20px 24px;
+    padding: 18px 20px 20px;
 
     box-sizing: border-box;
 
-    overflow: visible;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    flex: 1 1 auto;
+
+    -webkit-overflow-scrolling: touch;
 }
 
 
 /* ============================================================
-   WARNING / ALERT BOX
+   WARNING / ALERT
    ============================================================ */
 
 .risk-disclaimer-alert {
-    display: flex;
-
-    align-items: center;
-
     width: 100%;
 
     min-height: 54px;
@@ -291,6 +302,10 @@
     margin: 0 0 18px;
 
     padding: 13px 14px;
+
+    display: flex;
+
+    align-items: center;
 
     gap: 10px;
 
@@ -301,11 +316,6 @@
     border: 1px solid rgba(245, 196, 0, 0.3);
 
     color: #ffffff;
-
-    font-size: 14px;
-    font-weight: 600;
-
-    line-height: 1.3;
 
     box-sizing: border-box;
 }
@@ -320,22 +330,38 @@
     padding: 0;
 
     font-size: 18px;
+
     line-height: 1;
 
     flex: 0 0 auto;
 }
 
+.risk-disclaimer-alert strong {
+    display: block;
+
+    margin: 0;
+    padding: 0;
+
+    color: #ffffff;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    line-height: 1.35;
+}
+
 
 /* ============================================================
-   MAIN WARNING TEXT
+   INTRODUCTORY TEXT
    ============================================================ */
 
-.risk-disclaimer-content > p {
+.risk-disclaimer-content > p:not(.risk-disclaimer-note) {
     display: block;
 
     width: 100%;
 
     margin: 0 0 18px;
+
     padding: 0;
 
     color: rgba(255, 255, 255, 0.82);
@@ -349,21 +375,49 @@
 
 
 /* ============================================================
-   INFORMATION SECTIONS
+   THREE RISK POINTS
+   THIS IS THE IMPORTANT PART
    ============================================================ */
 
-.risk-disclaimer-important,
-.risk-disclaimer-third-party {
-    display: block;
+.risk-disclaimer-points {
+    display: flex;
+
+    flex-direction: column;
 
     width: 100%;
 
-    margin: 16px 0 0;
+    gap: 14px;
+
+    margin: 0;
+
     padding: 0;
 
-    border: 0;
+    box-sizing: border-box;
+}
 
-    background: transparent;
+
+/* ============================================================
+   INDIVIDUAL RISK CARD
+   ============================================================ */
+
+.risk-disclaimer-point {
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    width: 100%;
+
+    margin: 0;
+
+    padding: 12px 14px;
+
+    border-radius: 8px;
+
+    background: rgba(255, 255, 255, 0.045);
+
+    border: 1px solid rgba(255, 255, 255, 0.08);
 
     box-sizing: border-box;
 
@@ -372,84 +426,48 @@
 
 
 /* ============================================================
-   INFORMATION TITLES
-   IMPORTANT:
-   Forces Losses / Leverage / Responsibility onto separate lines.
+   POINT TITLE
    ============================================================ */
 
-.risk-disclaimer-important-title {
-    display: block !important;
+.risk-disclaimer-point strong {
+    display: block;
 
     width: 100%;
 
     margin: 0 0 4px;
+
     padding: 0;
 
     color: #ffffff;
 
     font-size: 14px;
+
     font-weight: 700;
 
     line-height: 1.35;
 
     box-sizing: border-box;
-
-    white-space: normal;
 }
 
 
 /* ============================================================
-   STRONG / SPAN SAFETY
-   Handles JSX such as:
-
-   <strong>Losses</strong>
-   Only trade money...
-
-   without producing:
-
-   LossesOnly trade...
+   POINT DESCRIPTION
    ============================================================ */
 
-.risk-disclaimer-important > strong,
-.risk-disclaimer-important > span,
-.risk-disclaimer-third-party > strong,
-.risk-disclaimer-third-party > span {
-    display: block !important;
-
-    width: 100%;
-
-    margin: 0 0 4px;
-    padding: 0;
-
-    color: #ffffff;
-
-    font-size: 14px;
-    font-weight: 700;
-
-    line-height: 1.35;
-
-    box-sizing: border-box;
-
-    white-space: normal;
-}
-
-
-/* ============================================================
-   INFORMATION TEXT
-   ============================================================ */
-
-.risk-disclaimer-important p,
-.risk-disclaimer-third-party p {
+.risk-disclaimer-point span {
     display: block;
 
     width: 100%;
 
     margin: 0;
+
     padding: 0;
 
-    color: rgba(255, 255, 255, 0.76);
+    color: rgba(255, 255, 255, 0.72);
 
     font-size: 13px;
+
+    font-weight: 400;
 
     line-height: 1.5;
 
@@ -458,28 +476,19 @@
 
 
 /* ============================================================
-   EXTRA SAFETY FOR TEXT ELEMENTS
-   ============================================================ */
-
-.risk-disclaimer-important br,
-.risk-disclaimer-third-party br {
-    display: block;
-}
-
-
-/* ============================================================
    PAST PERFORMANCE
    ============================================================ */
 
-.risk-disclaimer-content .risk-disclaimer-performance {
+.risk-disclaimer-note {
     display: block;
 
     width: 100%;
 
-    margin: 16px 0 0;
+    margin: 18px 0 0;
+
     padding: 0;
 
-    color: rgba(255, 255, 255, 0.82);
+    color: rgba(255, 255, 255, 0.78);
 
     font-size: 14px;
 
@@ -490,26 +499,31 @@
 
 
 /* ============================================================
-   MODAL ACTIONS
+   FOOTER
    ============================================================ */
 
-.risk-disclaimer-actions {
+.risk-disclaimer-footer {
+    width: 100%;
+
+    min-height: 80px;
+
+    margin: 0;
+
+    padding: 14px 20px;
+
     display: flex;
 
     align-items: center;
 
     justify-content: space-between;
 
-    width: 100%;
+    gap: 16px;
 
-    gap: 12px;
-
-    margin: 22px 0 0;
-    padding: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 
     box-sizing: border-box;
 
-    flex-wrap: nowrap;
+    flex: 0 0 auto;
 }
 
 
@@ -518,25 +532,25 @@
    ============================================================ */
 
 .risk-disclaimer-read-more {
-    display: inline-block;
+    display: block;
 
     min-width: 0;
 
     margin: 0;
+
     padding: 0;
 
     color: #4c8bf5;
 
     font-size: 14px;
+
     font-weight: 600;
 
     line-height: 1.35;
 
     text-decoration: none;
 
-    white-space: normal;
-
-    overflow-wrap: break-word;
+    white-space: nowrap;
 
     flex: 1 1 auto;
 }
@@ -547,32 +561,37 @@
 
 
 /* ============================================================
-   I UNDERSTAND BUTTON
+   I UNDERSTAND
    ============================================================ */
 
-.risk-disclaimer-close-button {
+.risk-disclaimer-understand {
     display: flex;
 
     align-items: center;
     justify-content: center;
 
-    width: auto;
+    width: 142px;
 
     min-width: 142px;
-    min-height: 44px;
+
+    height: 44px;
 
     margin: 0;
+
     padding: 10px 16px;
 
     border: 0;
+
     border-radius: 7px;
 
     background: #4c8bf5;
+
     color: #ffffff;
 
     font-family: inherit;
 
     font-size: 14px;
+
     font-weight: 600;
 
     line-height: 1;
@@ -584,8 +603,12 @@
     flex: 0 0 auto;
 }
 
-.risk-disclaimer-close-button:hover {
+.risk-disclaimer-understand:hover {
     opacity: 0.92;
+}
+
+.risk-disclaimer-understand:active {
+    transform: scale(0.98);
 }
 
 
@@ -595,62 +618,19 @@
 
 @media (max-width: 480px) {
 
-    /* -----------------------------------------
-       Floating button
-       ----------------------------------------- */
-
-    .risk-disclaimer-button {
-        left: 22px;
-        bottom: 68px;
-
-        width: 118px;
-        height: 26px;
-
-        padding: 0 7px;
-
-        font-size: 8px;
-
-        gap: 4px;
-    }
-
-    .risk-disclaimer-icon {
-        font-size: 10px;
-    }
-
-
-    /* -----------------------------------------
-       Overlay
-       ----------------------------------------- */
-
     .risk-disclaimer-overlay {
         padding: 12px;
-
-        align-items: center;
-        justify-content: center;
-
-        overflow-y: auto;
     }
-
-
-    /* -----------------------------------------
-       Modal
-       ----------------------------------------- */
 
     .risk-disclaimer-modal {
         width: 100%;
-        max-width: none;
 
-        height: auto;
+        max-width: none;
 
         max-height: calc(100vh - 24px);
         max-height: calc(100dvh - 24px);
 
-        margin: auto;
-
         border-radius: 10px;
-
-        overflow-x: hidden;
-        overflow-y: auto;
     }
 
 
@@ -676,13 +656,22 @@
         font-size: 19px;
     }
 
+    .risk-disclaimer-close {
+        width: 36px;
+        height: 36px;
+
+        min-width: 36px;
+
+        font-size: 29px;
+    }
+
 
     /* -----------------------------------------
        Content
        ----------------------------------------- */
 
     .risk-disclaimer-content {
-        padding: 16px 16px 22px;
+        padding: 16px;
     }
 
 
@@ -696,16 +685,18 @@
         margin-bottom: 16px;
 
         padding: 13px 14px;
+    }
 
+    .risk-disclaimer-alert strong {
         font-size: 14px;
     }
 
 
     /* -----------------------------------------
-       Main paragraph
+       Intro text
        ----------------------------------------- */
 
-    .risk-disclaimer-content > p {
+    .risk-disclaimer-content > p:not(.risk-disclaimer-note) {
         margin-bottom: 16px;
 
         font-size: 14px;
@@ -715,40 +706,26 @@
 
 
     /* -----------------------------------------
-       Information sections
+       Risk cards
        ----------------------------------------- */
 
-    .risk-disclaimer-important,
-    .risk-disclaimer-third-party {
-        margin-top: 14px;
-
-        padding: 0;
+    .risk-disclaimer-points {
+        gap: 14px;
     }
 
+    .risk-disclaimer-point {
+        padding: 12px 14px;
 
-    .risk-disclaimer-important-title {
-        margin-bottom: 4px;
+        border-radius: 8px;
+    }
 
+    .risk-disclaimer-point strong {
         font-size: 14px;
 
-        line-height: 1.35;
-    }
-
-
-    .risk-disclaimer-important > strong,
-    .risk-disclaimer-important > span,
-    .risk-disclaimer-third-party > strong,
-    .risk-disclaimer-third-party > span {
         margin-bottom: 4px;
-
-        font-size: 14px;
-
-        line-height: 1.35;
     }
 
-
-    .risk-disclaimer-important p,
-    .risk-disclaimer-third-party p {
+    .risk-disclaimer-point span {
         font-size: 13px;
 
         line-height: 1.5;
@@ -759,8 +736,8 @@
        Past performance
        ----------------------------------------- */
 
-    .risk-disclaimer-content .risk-disclaimer-performance {
-        margin-top: 16px;
+    .risk-disclaimer-note {
+        margin-top: 18px;
 
         font-size: 14px;
 
@@ -769,78 +746,49 @@
 
 
     /* -----------------------------------------
-       ACTIONS
-       
+       Footer
        IMPORTANT:
-       Stack the actions vertically so they can
-       NEVER overlap or collide on a phone.
+       Remains HORIZONTAL like Screenshot 2.
        ----------------------------------------- */
 
-    .risk-disclaimer-actions {
-        display: flex;
+    .risk-disclaimer-footer {
+        min-height: 80px;
 
-        flex-direction: column;
-
-        align-items: stretch;
-        justify-content: flex-start;
-
-        width: 100%;
+        padding: 14px 16px;
 
         gap: 10px;
 
-        margin-top: 20px;
-
-        padding: 0;
-
-        flex-wrap: nowrap;
-    }
-
-
-    /* -----------------------------------------
-       Read disclosure
-       ----------------------------------------- */
-
-    .risk-disclaimer-read-more {
-        display: block;
-
-        width: 100%;
-
-        margin: 0;
-        padding: 0;
-
-        font-size: 13px;
-
-        line-height: 1.4;
-
-        text-align: left;
-
-        white-space: normal;
-
-        overflow-wrap: anywhere;
-
-        flex: none;
-    }
-
-
-    /* -----------------------------------------
-       I Understand
-       ----------------------------------------- */
-
-    .risk-disclaimer-close-button {
         display: flex;
 
-        width: 100%;
+        flex-direction: row;
 
-        min-width: 0;
+        align-items: center;
 
-        min-height: 42px;
+        justify-content: space-between;
+    }
 
-        margin: 0;
-        padding: 10px 14px;
+
+    .risk-disclaimer-read-more {
+        font-size: 13px;
+
+        line-height: 1.35;
+
+        white-space: nowrap;
+
+        flex: 1 1 auto;
+    }
+
+
+    .risk-disclaimer-understand {
+        width: 128px;
+
+        min-width: 128px;
+
+        height: 42px;
+
+        padding: 10px 12px;
 
         font-size: 14px;
-
-        flex: none;
     }
 }
 
@@ -851,21 +799,9 @@
 
 @media (max-width: 360px) {
 
-    .risk-disclaimer-button {
-        left: 16px;
-        bottom: 68px;
-
-        width: 118px;
-        height: 26px;
-
-        font-size: 8px;
-    }
-
-
     .risk-disclaimer-overlay {
         padding: 8px;
     }
-
 
     .risk-disclaimer-modal {
         max-height: calc(100vh - 16px);
@@ -881,70 +817,76 @@
 
 
     .risk-disclaimer-content {
-        padding: 14px 14px 20px;
+        padding: 14px;
     }
 
 
     .risk-disclaimer-alert {
         padding: 12px 13px;
+    }
 
+    .risk-disclaimer-alert strong {
         font-size: 13px;
     }
 
 
-    .risk-disclaimer-content > p {
+    .risk-disclaimer-content > p:not(.risk-disclaimer-note) {
         font-size: 13px;
     }
 
 
-    .risk-disclaimer-important-title {
+    .risk-disclaimer-points {
+        gap: 12px;
+    }
+
+
+    .risk-disclaimer-point {
+        padding: 11px 13px;
+    }
+
+
+    .risk-disclaimer-point strong {
         font-size: 13px;
     }
 
 
-    .risk-disclaimer-important > strong,
-    .risk-disclaimer-important > span,
-    .risk-disclaimer-third-party > strong,
-    .risk-disclaimer-third-party > span {
-        font-size: 13px;
-    }
-
-
-    .risk-disclaimer-important p,
-    .risk-disclaimer-third-party p {
+    .risk-disclaimer-point span {
         font-size: 12px;
 
         line-height: 1.5;
     }
 
 
-    .risk-disclaimer-content .risk-disclaimer-performance {
+    .risk-disclaimer-note {
+        margin-top: 16px;
+
         font-size: 13px;
     }
 
 
-    .risk-disclaimer-actions {
-        gap: 9px;
+    .risk-disclaimer-footer {
+        min-height: 74px;
 
-        margin-top: 18px;
+        padding: 12px 14px;
+
+        gap: 8px;
     }
 
 
     .risk-disclaimer-read-more {
         font-size: 12px;
-
-        line-height: 1.4;
     }
 
 
-    .risk-disclaimer-close-button {
-        width: 100%;
+    .risk-disclaimer-understand {
+        width: 112px;
 
-        min-width: 0;
-        min-height: 42px;
+        min-width: 112px;
 
-        padding: 9px 12px;
+        height: 42px;
+
+        padding: 9px 10px;
 
         font-size: 13px;
     }
-}
+   }
