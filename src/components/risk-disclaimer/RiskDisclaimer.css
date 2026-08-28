@@ -9,7 +9,7 @@
 
 /* ============================================================
    FLOATING RISK DISCLAIMER BUTTON
-   Matches the compact button shown in the reference
+   HALF THE PREVIOUS SIZE
    ============================================================ */
 
 .risk-disclaimer-button {
@@ -18,26 +18,26 @@
     left: 40px;
     bottom: 72px;
 
-    width: 235px;
-    height: 52px;
+    width: 118px;
+    height: 26px;
 
-    padding: 0 14px;
+    padding: 0 7px;
 
     border: 0;
-    border-radius: 7px;
+    border-radius: 5px;
 
     background: #f5c400;
     color: #111111;
 
     font-family: inherit;
-    font-size: 16px;
+    font-size: 8px;
     font-weight: 600;
     line-height: 1;
 
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 9px;
+    gap: 4px;
 
     box-sizing: border-box;
 
@@ -45,7 +45,7 @@
 
     z-index: 10000;
 
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 
     transition:
         opacity 0.2s ease,
@@ -61,7 +61,7 @@
 }
 
 .risk-disclaimer-icon {
-    font-size: 18px;
+    font-size: 10px;
     line-height: 1;
     flex: 0 0 auto;
 }
@@ -301,19 +301,20 @@
 
 @media (max-width: 480px) {
     .risk-disclaimer-button {
-        left: 22px;
+        left: 40px;
         bottom: 72px;
 
-        width: 235px;
-        height: 52px;
+        width: 118px;
+        height: 26px;
 
-        padding: 0 14px;
+        padding: 0 7px;
 
-        font-size: 16px;
+        font-size: 8px;
+        gap: 4px;
     }
 
     .risk-disclaimer-icon {
-        font-size: 18px;
+        font-size: 10px;
     }
 
     .risk-disclaimer-overlay {
@@ -352,16 +353,18 @@
 
 @media (max-width: 360px) {
     .risk-disclaimer-button {
-        left: 16px;
+        left: 40px;
         bottom: 72px;
 
-        width: 205px;
-        height: 48px;
+        width: 118px;
+        height: 26px;
 
-        font-size: 14px;
+        padding: 0 7px;
+
+        font-size: 8px;
     }
 
     .risk-disclaimer-icon {
-        font-size: 16px;
+        font-size: 10px;
     }
 }
