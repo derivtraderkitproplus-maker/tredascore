@@ -8,39 +8,40 @@
 }
 
 /* ============================================================
-   SMALL FLOATING BUTTON
+   FLOATING RISK DISCLAIMER BUTTON
+   Matches the compact button shown in the reference
    ============================================================ */
 
 .risk-disclaimer-button {
     position: fixed;
-    left: 22px;
+
+    left: 40px;
     bottom: 72px;
 
-    width: auto;
-    min-width: 72px;
-    height: 44px;
+    width: 235px;
+    height: 52px;
 
     padding: 0 14px;
 
     border: 0;
-    border-radius: 6px;
+    border-radius: 7px;
 
     background: #f5c400;
-    color: #111;
+    color: #111111;
 
     font-family: inherit;
-    font-size: 13px;
+    font-size: 16px;
     font-weight: 600;
     line-height: 1;
-
-    cursor: pointer;
 
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 9px;
 
     box-sizing: border-box;
+
+    cursor: pointer;
 
     z-index: 10000;
 
@@ -56,12 +57,13 @@
 }
 
 .risk-disclaimer-button:active {
-    transform: scale(0.97);
+    transform: scale(0.98);
 }
 
 .risk-disclaimer-icon {
-    font-size: 15px;
+    font-size: 18px;
     line-height: 1;
+    flex: 0 0 auto;
 }
 
 .risk-disclaimer-button-text {
@@ -112,7 +114,7 @@
 }
 
 /* ============================================================
-   HEADER
+   MODAL HEADER
    ============================================================ */
 
 .risk-disclaimer-header {
@@ -172,7 +174,7 @@
 }
 
 /* ============================================================
-   CONTENT
+   MODAL CONTENT
    ============================================================ */
 
 .risk-disclaimer-content {
@@ -213,7 +215,7 @@
 }
 
 /* ============================================================
-   COMPACT INFORMATION BOXES
+   INFORMATION BOXES
    ============================================================ */
 
 .risk-disclaimer-important,
@@ -245,7 +247,7 @@
 }
 
 /* ============================================================
-   ACTIONS
+   MODAL ACTIONS
    ============================================================ */
 
 .risk-disclaimer-actions {
@@ -302,16 +304,16 @@
         left: 22px;
         bottom: 72px;
 
-        min-width: 72px;
-        height: 42px;
+        width: 235px;
+        height: 52px;
 
-        padding: 0 12px;
+        padding: 0 14px;
 
-        font-size: 12px;
+        font-size: 16px;
     }
 
     .risk-disclaimer-icon {
-        font-size: 14px;
+        font-size: 18px;
     }
 
     .risk-disclaimer-overlay {
@@ -341,5 +343,25 @@
 
     .risk-disclaimer-close-button {
         min-width: 128px;
+    }
+}
+
+/* ============================================================
+   VERY SMALL PHONES
+   ============================================================ */
+
+@media (max-width: 360px) {
+    .risk-disclaimer-button {
+        left: 16px;
+        bottom: 72px;
+
+        width: 205px;
+        height: 48px;
+
+        font-size: 14px;
+    }
+
+    .risk-disclaimer-icon {
+        font-size: 16px;
     }
 }
