@@ -18,6 +18,21 @@ const FloatingAI = () => {
         null
     );
 
+    /*
+     * ------------------------------------------------------------
+     * EDITABLE STAKE / TARGET VALUES
+     * ------------------------------------------------------------
+     *
+     * These values belong only to the current scanner session.
+     *
+     * The original strategy configuration in strategies.ts is NOT
+     * modified.
+     */
+    const [stakeValues, setStakeValues] = useState<Record<string, string>>({});
+    const [targetValues, setTargetValues] = useState<Record<string, string>>(
+        {}
+    );
+
     /**
      * ------------------------------------------------------------
      * CALCULATE SCANNER SCORE
@@ -111,6 +126,21 @@ const FloatingAI = () => {
                 rank: index + 1,
             }));
 
+            /*
+             * Initialize editable values from each strategy's
+             * original configuration.
+             */
+            const initialStakeValues: Record<string, string> = {};
+            const initialTargetValues: Record<string, string> = {};
+
+            rankedResults.forEach(strategy => {
+                initialStakeValues[strategy.id] = String(strategy.stake);
+                initialTargetValues[strategy.id] = String(strategy.profit);
+            });
+
+            setStakeValues(initialStakeValues);
+            setTargetValues(initialTargetValues);
+
             setScannerResults(rankedResults);
         } catch (error) {
             console.error('AI Scanner error:', error);
@@ -121,15 +151,70 @@ const FloatingAI = () => {
 
     /**
      * ------------------------------------------------------------
+     * UPDATE STAKE
+     * ------------------------------------------------------------
+     */
+    const updateStake = (strategyId: string, value: string) => {
+        /*
+         * Allow only numbers and a single decimal point.
+         */
+        if (!/^\d*\.?\d*$/.test(value)) {
+            return;
+        }
+
+        setStakeValues(previous => ({
+            ...previous,
+            [strategyId]: value,
+        }));
+    };
+
+    /**
+     * ------------------------------------------------------------
+     * UPDATE TARGET
+     * ------------------------------------------------------------
+     */
+    const updateTarget = (strategyId: string, value: string) => {
+        /*
+         * Allow only numbers and a single decimal point.
+         */
+        if (!/^\d*\.?\d*$/.test(value)) {
+            return;
+        }
+
+        setTargetValues(previous => ({
+            ...previous,
+            [strategyId]: value,
+        }));
+    };
+
+    /**
+     * ------------------------------------------------------------
      * LOAD SELECTED STRATEGY
      * ------------------------------------------------------------
      *
-     * This uses the EXISTING Quick Strategy system.
+     * Loads the selected strategy into the existing Quick Strategy
+     * system using the EDITED stake and target values.
      *
-     * It loads the bot configuration but does NOT press Run.
+     * It does NOT press Run.
      */
     const loadStrategy = async (strategy: ScannerResult) => {
         if (loadingStrategyId) return;
+
+        const editedStake = parseFloat(stakeValues[strategy.id]);
+        const editedTarget = parseFloat(targetValues[strategy.id]);
+
+        /*
+         * Basic validation before loading.
+         */
+        if (!Number.isFinite(editedStake) || editedStake <= 0) {
+            console.error('Invalid stake amount.');
+            return;
+        }
+
+        if (!Number.isFinite(editedTarget) || editedTarget <= 0) {
+            console.error('Invalid target amount.');
+            return;
+        }
 
         setLoadingStrategyId(strategy.id);
 
@@ -143,6 +228,11 @@ const FloatingAI = () => {
              * Send the strategy configuration to the existing
              * Quick Strategy store.
              *
+             * IMPORTANT:
+             *
+             * stake = USER-EDITED STAKE
+             * profit = USER-EDITED TARGET
+             *
              * action = LOAD means:
              *
              * Load configuration
@@ -153,11 +243,11 @@ const FloatingAI = () => {
                 tradetype: strategy.tradetype,
                 type: strategy.type,
 
-                stake: strategy.stake,
+                stake: editedStake,
                 durationtype: strategy.durationtype,
                 duration: strategy.duration,
 
-                profit: strategy.profit,
+                profit: editedTarget,
                 loss: strategy.loss,
 
                 size: strategy.size,
@@ -171,6 +261,8 @@ const FloatingAI = () => {
              */
             setIsOpen(false);
             setScannerResults([]);
+            setStakeValues({});
+            setTargetValues({});
         } catch (error) {
             console.error(
                 'Failed to load AI strategy:',
@@ -190,6 +282,8 @@ const FloatingAI = () => {
         setIsOpen(false);
         setScannerResults([]);
         setLoadingStrategyId(null);
+        setStakeValues({});
+        setTargetValues({});
     };
 
     return (
@@ -368,7 +462,10 @@ const FloatingAI = () => {
                                                     : ''
                                             }`}
                                         >
+                                            {/* ================================================== */}
                                             {/* RANK */}
+                                            {/* ================================================== */}
+
                                             <div className="strategy-card-top">
                                                 <div
                                                     className={`strategy-rank ${
@@ -394,17 +491,26 @@ const FloatingAI = () => {
                                                 </div>
                                             </div>
 
+                                            {/* ================================================== */}
                                             {/* NAME */}
+                                            {/* ================================================== */}
+
                                             <div className="strategy-name">
                                                 {strategy.name}
                                             </div>
 
+                                            {/* ================================================== */}
                                             {/* DESCRIPTION */}
+                                            {/* ================================================== */}
+
                                             <div className="strategy-description">
                                                 {strategy.description}
                                             </div>
 
+                                            {/* ================================================== */}
                                             {/* SCORE */}
+                                            {/* ================================================== */}
+
                                             <div className="scanner-score">
                                                 <div className="score-info">
                                                     <span>
@@ -429,9 +535,13 @@ const FloatingAI = () => {
                                                 </div>
                                             </div>
 
+                                            {/* ================================================== */}
                                             {/* DETAILS */}
+                                            {/* ================================================== */}
+
                                             <div className="strategy-details">
 
+                                                {/* ENGINE */}
                                                 <div className="strategy-detail">
                                                     <span>
                                                         Engine
@@ -444,6 +554,7 @@ const FloatingAI = () => {
                                                     </strong>
                                                 </div>
 
+                                                {/* MARKET */}
                                                 <div className="strategy-detail">
                                                     <span>
                                                         Market
@@ -456,6 +567,7 @@ const FloatingAI = () => {
                                                     </strong>
                                                 </div>
 
+                                                {/* DIRECTION */}
                                                 <div className="strategy-detail">
                                                     <span>
                                                         Direction
@@ -469,19 +581,41 @@ const FloatingAI = () => {
                                                     </strong>
                                                 </div>
 
-                                                <div className="strategy-detail">
+                                                {/* ================================================== */}
+                                                {/* EDITABLE STAKE */}
+                                                {/* ================================================== */}
+
+                                                <div className="strategy-detail editable-strategy-detail">
                                                     <span>
                                                         Stake
                                                     </span>
 
-                                                    <strong>
-                                                        $
-                                                        {
-                                                            strategy.stake
-                                                        }
-                                                    </strong>
+                                                    <div className="strategy-input-wrapper">
+                                                        <span className="strategy-input-prefix">
+                                                            $
+                                                        </span>
+
+                                                        <input
+                                                            type="text"
+                                                            inputMode="decimal"
+                                                            value={
+                                                                stakeValues[
+                                                                    strategy.id
+                                                                ] ?? ''
+                                                            }
+                                                            onChange={event =>
+                                                                updateStake(
+                                                                    strategy.id,
+                                                                    event.target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            aria-label={`Stake for ${strategy.name}`}
+                                                        />
+                                                    </div>
                                                 </div>
 
+                                                {/* DURATION */}
                                                 <div className="strategy-detail">
                                                     <span>
                                                         Duration
@@ -498,22 +632,46 @@ const FloatingAI = () => {
                                                     </strong>
                                                 </div>
 
-                                                <div className="strategy-detail">
+                                                {/* ================================================== */}
+                                                {/* EDITABLE TARGET */}
+                                                {/* ================================================== */}
+
+                                                <div className="strategy-detail editable-strategy-detail">
                                                     <span>
                                                         Target
                                                     </span>
 
-                                                    <strong>
-                                                        $
-                                                        {
-                                                            strategy.profit
-                                                        }
-                                                    </strong>
+                                                    <div className="strategy-input-wrapper">
+                                                        <span className="strategy-input-prefix">
+                                                            $
+                                                        </span>
+
+                                                        <input
+                                                            type="text"
+                                                            inputMode="decimal"
+                                                            value={
+                                                                targetValues[
+                                                                    strategy.id
+                                                                ] ?? ''
+                                                            }
+                                                            onChange={event =>
+                                                                updateTarget(
+                                                                    strategy.id,
+                                                                    event.target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            aria-label={`Target for ${strategy.name}`}
+                                                        />
+                                                    </div>
                                                 </div>
 
                                             </div>
 
+                                            {/* ================================================== */}
                                             {/* LOAD BOT */}
+                                            {/* ================================================== */}
+
                                             <button
                                                 type="button"
                                                 className="load-bot-button"
