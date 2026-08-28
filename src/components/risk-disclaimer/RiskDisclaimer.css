@@ -9,8 +9,7 @@
 
 /* ============================================================
    FLOATING RISK DISCLAIMER BUTTON
-   Compact — half the original size
-   Positioned above Run button, slightly left and down
+   Compact size + correct position
    ============================================================ */
 
 .risk-disclaimer-button {
@@ -71,6 +70,7 @@
     white-space: nowrap;
 }
 
+
 /* ============================================================
    MODAL OVERLAY
    ============================================================ */
@@ -92,16 +92,21 @@
     box-sizing: border-box;
 }
 
+
 /* ============================================================
    MODAL
+   IMPORTANT:
+   Do NOT use max-height here.
+   This prevents the popup from being compressed.
    ============================================================ */
 
 .risk-disclaimer-modal {
     width: min(100%, 520px);
 
-    max-height: calc(100vh - 32px);
+    height: auto;
+    max-height: none;
 
-    overflow-y: auto;
+    overflow: visible;
 
     background: #181a1f;
     color: #ffffff;
@@ -113,6 +118,7 @@
 
     box-sizing: border-box;
 }
+
 
 /* ============================================================
    MODAL HEADER
@@ -174,6 +180,7 @@
     background: rgba(255, 255, 255, 0.08);
 }
 
+
 /* ============================================================
    MODAL CONTENT
    ============================================================ */
@@ -199,6 +206,9 @@
     border: 1px solid rgba(245, 196, 0, 0.3);
 
     font-size: 14px;
+    font-weight: 600;
+
+    box-sizing: border-box;
 }
 
 .risk-disclaimer-alert-icon {
@@ -206,14 +216,15 @@
     flex: 0 0 auto;
 }
 
-.risk-disclaimer-content p {
-    margin: 0 0 14px;
+.risk-disclaimer-content > p {
+    margin: 0 0 16px;
 
     color: rgba(255, 255, 255, 0.82);
 
     font-size: 14px;
     line-height: 1.55;
 }
+
 
 /* ============================================================
    INFORMATION BOXES
@@ -230,6 +241,8 @@
     background: rgba(255, 255, 255, 0.04);
 
     border: 1px solid rgba(255, 255, 255, 0.08);
+
+    box-sizing: border-box;
 }
 
 .risk-disclaimer-important-title {
@@ -247,6 +260,7 @@
     line-height: 1.5;
 }
 
+
 /* ============================================================
    MODAL ACTIONS
    ============================================================ */
@@ -259,6 +273,8 @@
     gap: 12px;
 
     margin-top: 18px;
+
+    padding-top: 0;
 }
 
 .risk-disclaimer-read-more {
@@ -290,17 +306,22 @@
     font-weight: 600;
 
     cursor: pointer;
+
+    box-sizing: border-box;
 }
 
 .risk-disclaimer-close-button:hover {
     opacity: 0.92;
 }
 
+
 /* ============================================================
    MOBILE
    ============================================================ */
 
 @media (max-width: 480px) {
+
+    /* Floating button — KEEP THIS LOCATION */
     .risk-disclaimer-button {
         left: 22px;
         bottom: 68px;
@@ -318,16 +339,27 @@
         font-size: 10px;
     }
 
+
+    /* Overlay */
     .risk-disclaimer-overlay {
         padding: 12px;
     }
 
+
+    /* Full popup — NO HEIGHT RESTRICTION */
     .risk-disclaimer-modal {
         width: 100%;
-        max-height: calc(100vh - 24px);
+
+        height: auto;
+        max-height: none;
+
+        overflow: visible;
+
         border-radius: 10px;
     }
 
+
+    /* Header */
     .risk-disclaimer-header {
         padding: 14px 16px;
     }
@@ -336,24 +368,70 @@
         font-size: 16px;
     }
 
+
+    /* Content */
     .risk-disclaimer-content {
         padding: 16px;
     }
 
+
+    /* Warning box */
+    .risk-disclaimer-alert {
+        padding: 13px 14px;
+
+        font-size: 14px;
+    }
+
+
+    /* Main warning paragraph */
+    .risk-disclaimer-content > p {
+        font-size: 14px;
+        line-height: 1.55;
+
+        margin-bottom: 16px;
+    }
+
+
+    /* Risk information boxes */
+    .risk-disclaimer-important,
+    .risk-disclaimer-third-party {
+        margin-top: 14px;
+        padding: 12px 14px;
+    }
+
+
+    /* Bottom actions */
     .risk-disclaimer-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
         gap: 8px;
+
+        margin-top: 18px;
+    }
+
+    .risk-disclaimer-read-more {
+        font-size: 14px;
     }
 
     .risk-disclaimer-close-button {
         min-width: 128px;
+        min-height: 44px;
+
+        padding: 10px 14px;
+
+        font-size: 14px;
     }
 }
+
 
 /* ============================================================
    VERY SMALL PHONES
    ============================================================ */
 
 @media (max-width: 360px) {
+
     .risk-disclaimer-button {
         left: 16px;
         bottom: 68px;
@@ -366,5 +444,39 @@
 
     .risk-disclaimer-icon {
         font-size: 10px;
+    }
+
+
+    .risk-disclaimer-modal {
+        width: 100%;
+
+        height: auto;
+        max-height: none;
+
+        overflow: visible;
+    }
+
+
+    .risk-disclaimer-content {
+        padding: 14px;
+    }
+
+    .risk-disclaimer-header {
+        padding: 13px 14px;
+    }
+
+    .risk-disclaimer-actions {
+        gap: 6px;
+    }
+
+    .risk-disclaimer-read-more {
+        font-size: 12px;
+    }
+
+    .risk-disclaimer-close-button {
+        min-width: 112px;
+        min-height: 42px;
+
+        font-size: 13px;
     }
 }
