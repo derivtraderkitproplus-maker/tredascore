@@ -66,6 +66,20 @@ class APIBase {
     common_store: CommonStore | undefined;
     reconnection_attempts: number = 0;
 
+    /*
+     * ------------------------------------------------------------
+     * AI SCANNER LIVE TICK BRIDGE
+     * ------------------------------------------------------------
+     *
+     * Keeps the scanner connected to real Deriv tick data.
+     *
+     * This does NOT execute trades.
+     * It only provides market tick data to the AI scanner.
+     */
+    private tickMessageSubscriptions: Array<{
+        unsubscribe: () => void;
+    }> = [];
+
     // Constants for timeouts - extracted magic numbers for better maintainability
     private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000; // 10 seconds
     private readonly ENRICHMENT_TIMEOUT_MS = 10000; // 10 seconds
@@ -108,6 +122,7 @@ class APIBase {
             // Remove account_id from URL after storing
             removeUrlParameter('account_id');
         }
+
         if (accountType) {
             localStorage.setItem('account_type', accountType);
             // Remove account_type from URL after storing
@@ -121,21 +136,42 @@ class APIBase {
         if (!activeAccountId) {
             try {
                 const storedAccounts = sessionStorage.getItem('deriv_accounts');
+
                 if (storedAccounts) {
                     const accounts = JSON.parse(storedAccounts);
-                    if (accounts && accounts.length > 0 && accounts[0].account_id) {
+
+                    if (
+                        accounts &&
+                        accounts.length > 0 &&
+                        accounts[0].account_id
+                    ) {
                         // Use the first account as default
-                        const accountId = accounts[0].account_id as string;
+                        const accountId =
+                            accounts[0].account_id as string;
+
                         activeAccountId = accountId;
-                        localStorage.setItem('active_loginid', accountId);
+
+                        localStorage.setItem(
+                            'active_loginid',
+                            accountId
+                        );
 
                         // Set account type based on account_id prefix
-                        const isDemo = accountId.startsWith('VRT') || accountId.startsWith('VRTC');
-                        localStorage.setItem('account_type', isDemo ? 'demo' : 'real');
+                        const isDemo =
+                            accountId.startsWith('VRT') ||
+                            accountId.startsWith('VRTC');
+
+                        localStorage.setItem(
+                            'account_type',
+                            isDemo ? 'demo' : 'real'
+                        );
                     }
                 }
             } catch (error) {
-                console.error('[APIBase] Error reading accounts from sessionStorage:', error);
+                console.error(
+                    '[APIBase] Error reading accounts from sessionStorage:',
+                    error
+                );
             }
         }
 
@@ -163,27 +199,51 @@ class APIBase {
             this.reconnection_attempts = 0;
         }
 
-        if (!this.api || this.api?.connection.readyState !== 1 || force_create_connection) {
+        if (
+            !this.api ||
+            this.api?.connection.readyState !== 1 ||
+            force_create_connection
+        ) {
             if (this.api?.connection) {
                 ApiHelpers.disposeInstance();
                 setConnectionStatus(CONNECTION_STATUS.CLOSED);
                 this.api.disconnect();
-                this.api.connection.removeEventListener('open', this.onsocketopen.bind(this));
-                this.api.connection.removeEventListener('close', this.onsocketclose.bind(this));
+
+                this.api.connection.removeEventListener(
+                    'open',
+                    this.onsocketopen.bind(this)
+                );
+
+                this.api.connection.removeEventListener(
+                    'close',
+                    this.onsocketclose.bind(this)
+                );
             }
 
             this.api = await generateDerivApiInstance();
 
-            this.api?.connection.addEventListener('open', this.onsocketopen.bind(this));
-            this.api?.connection.addEventListener('close', this.onsocketclose.bind(this));
+            this.api?.connection.addEventListener(
+                'open',
+                this.onsocketopen.bind(this)
+            );
+
+            this.api?.connection.addEventListener(
+                'close',
+                this.onsocketclose.bind(this)
+            );
 
             // Store the current account ID used for this WebSocket connection
             // This will be used to check if we need to regenerate the connection when the tab becomes active
-            const currentClientStore = globalObserver.getState('client.store');
+            const currentClientStore =
+                globalObserver.getState('client.store');
+
             if (currentClientStore) {
                 const active_login_id = getAccountId();
+
                 if (active_login_id) {
-                    currentClientStore.setWebSocketLoginId(active_login_id);
+                    currentClientStore.setWebSocketLoginId(
+                        active_login_id
+                    );
                 }
             }
         }
@@ -191,12 +251,16 @@ class APIBase {
         const hasAccountID = V2GetActiveAccountId();
 
         if (!this.has_active_symbols && !hasAccountID) {
-            this.active_symbols_promise = this.getActiveSymbols().then(() => undefined);
+            this.active_symbols_promise =
+                this.getActiveSymbols().then(() => undefined);
         }
 
         this.initEventListeners();
 
-        if (this.time_interval) clearInterval(this.time_interval);
+        if (this.time_interval) {
+            clearInterval(this.time_interval);
+        }
+
         this.time_interval = null;
 
         chart_api.init(force_create_connection);
@@ -204,21 +268,39 @@ class APIBase {
 
     getConnectionStatus() {
         if (this.api?.connection) {
-            const ready_state = this.api.connection.readyState;
-            return socket_state[ready_state as keyof typeof socket_state] || 'Unknown';
+            const ready_state =
+                this.api.connection.readyState;
+
+            return (
+                socket_state[
+                    ready_state as keyof typeof socket_state
+                ] || 'Unknown'
+            );
         }
+
         return 'Socket not initialized';
     }
 
     terminate() {
+        this.unsubscribeAllTickStreams();
+
         // eslint-disable-next-line no-console
-        if (this.api) this.api.disconnect();
+        if (this.api) {
+            this.api.disconnect();
+        }
     }
 
     initEventListeners() {
         if (window) {
-            window.addEventListener('online', this.reconnectIfNotConnected);
-            window.addEventListener('focus', this.reconnectIfNotConnected);
+            window.addEventListener(
+                'online',
+                this.reconnectIfNotConnected
+            );
+
+            window.addEventListener(
+                'focus',
+                this.reconnectIfNotConnected
+            );
         }
     }
 
@@ -229,10 +311,16 @@ class APIBase {
     }
 
     reconnectIfNotConnected = () => {
-        if (this.api?.connection?.readyState && this.api?.connection?.readyState > 1) {
+        if (
+            this.api?.connection?.readyState &&
+            this.api?.connection?.readyState > 1
+        ) {
             this.reconnection_attempts += 1;
 
-            if (this.reconnection_attempts >= this.MAX_RECONNECTION_ATTEMPTS) {
+            if (
+                this.reconnection_attempts >=
+                this.MAX_RECONNECTION_ATTEMPTS
+            ) {
                 // Reset reconnection counter
                 this.reconnection_attempts = 0;
 
@@ -242,10 +330,21 @@ class APIBase {
                 setAuthData(null);
 
                 // Clear necessary storage items
-                localStorage.removeItem('active_loginid');
-                localStorage.removeItem('account_type');
-                localStorage.removeItem('accountsList');
-                localStorage.removeItem('clientAccounts');
+                localStorage.removeItem(
+                    'active_loginid'
+                );
+
+                localStorage.removeItem(
+                    'account_type'
+                );
+
+                localStorage.removeItem(
+                    'accountsList'
+                );
+
+                localStorage.removeItem(
+                    'clientAccounts'
+                );
             }
 
             this.init(true);
@@ -255,130 +354,271 @@ class APIBase {
     async authorizeAndSubscribe() {
         if (!this.api) return;
 
-        this.account_id = getAccountId() || '';
+        this.account_id =
+            getAccountId() || '';
+
         setIsAuthorizing(true);
 
         try {
-            const { balance, error } = await this.api.balance();
+            const { balance, error } =
+                await this.api.balance();
 
             if (error) {
-                const errorMessage = isBackendError(error)
-                    ? handleBackendError(error)
-                    : error.message || 'Authorization failed';
+                const errorMessage =
+                    isBackendError(error)
+                        ? handleBackendError(error)
+                        : error.message ||
+                          'Authorization failed';
 
                 // Authorization error
-                console.error('Authorization error:', errorMessage);
+                console.error(
+                    'Authorization error:',
+                    errorMessage
+                );
 
                 setIsAuthorizing(false);
-                return { ...error, localizedMessage: errorMessage };
+
+                return {
+                    ...error,
+                    localizedMessage:
+                        errorMessage,
+                };
             }
 
             this.account_info = {
-                balance: balance?.balance,
-                currency: balance?.currency,
-                loginid: balance?.loginid,
-            };
-            this.token = balance?.loginid;
+                balance:
+                    balance?.balance,
 
-            const account_type = getAccountType(balance?.loginid);
-            const currentAccount = balance?.loginid
-                ? {
-                      balance: balance.balance,
-                      currency: balance.currency || 'USD',
-                      is_virtual: account_type === 'real' ? 0 : 1,
-                      loginid: balance.loginid,
-                  }
-                : null;
+                currency:
+                    balance?.currency,
+
+                loginid:
+                    balance?.loginid,
+            };
+
+            this.token =
+                balance?.loginid;
+
+            const account_type =
+                getAccountType(
+                    balance?.loginid
+                );
+
+            const currentAccount =
+                balance?.loginid
+                    ? {
+                          balance:
+                              balance.balance,
+
+                          currency:
+                              balance.currency ||
+                              'USD',
+
+                          is_virtual:
+                              account_type ===
+                              'real'
+                                  ? 0
+                                  : 1,
+
+                          loginid:
+                              balance.loginid,
+                      }
+                    : null;
 
             // Build full account list from sessionStorage (populated during OAuth flow)
             // Falls back to just the current account if sessionStorage has no data
-            const storedAccounts = DerivWSAccountsService.getStoredAccounts();
+            const storedAccounts =
+                DerivWSAccountsService.getStoredAccounts();
+
             const accountList =
-                storedAccounts && storedAccounts.length > 0
+                storedAccounts &&
+                storedAccounts.length > 0
                     ? storedAccounts
-                          .filter(a => !a.status || a.status === 'active')
+                          .filter(
+                              a =>
+                                  !a.status ||
+                                  a.status ===
+                                      'active'
+                          )
                           .map(a => ({
-                              balance: parseFloat(a.balance) || 0,
-                              currency: a.currency || 'USD',
-                              is_virtual: a.account_type === 'demo' ? 1 : 0,
-                              loginid: a.account_id,
+                              balance:
+                                  parseFloat(
+                                      a.balance
+                                  ) || 0,
+
+                              currency:
+                                  a.currency ||
+                                  'USD',
+
+                              is_virtual:
+                                  a.account_type ===
+                                  'demo'
+                                      ? 1
+                                      : 0,
+
+                              loginid:
+                                  a.account_id,
                           }))
                     : currentAccount
                       ? [currentAccount]
                       : [];
 
-            setAccountList(accountList); // Observable stream
+            setAccountList(
+                accountList
+            );
+
             setAuthData({
-                balance: balance?.balance,
-                currency: balance?.currency,
-                loginid: balance?.loginid,
-                is_virtual: account_type === 'real' ? 0 : 1,
-                account_list: accountList,
+                balance:
+                    balance?.balance,
+
+                currency:
+                    balance?.currency,
+
+                loginid:
+                    balance?.loginid,
+
+                is_virtual:
+                    account_type ===
+                    'real'
+                        ? 0
+                        : 1,
+
+                account_list:
+                    accountList,
             });
 
             // // Set account_type in localStorage based on loginid prefix using centralized utility
-            const loginid = balance?.loginid || '';
-            const isDemo = isDemoAccount(loginid);
+            const loginid =
+                balance?.loginid || '';
+
+            const isDemo =
+                isDemoAccount(loginid);
 
             if (isDemo) {
-                localStorage.setItem('account_type', 'demo');
+                localStorage.setItem(
+                    'account_type',
+                    'demo'
+                );
             } else {
-                localStorage.setItem('account_type', 'real');
+                localStorage.setItem(
+                    'account_type',
+                    'real'
+                );
             }
 
-            globalObserver.emit('api.authorize', {
-                account_list: accountList,
-                current_account: {
-                    loginid: balance?.loginid,
-                    currency: balance?.currency || 'USD',
-                    is_virtual: account_type === 'real' ? 0 : 1,
-                    balance: typeof balance?.balance === 'number' ? balance.balance : undefined,
-                },
-            });
+            globalObserver.emit(
+                'api.authorize',
+                {
+                    account_list:
+                        accountList,
+
+                    current_account: {
+                        loginid:
+                            balance?.loginid,
+
+                        currency:
+                            balance?.currency ||
+                            'USD',
+
+                        is_virtual:
+                            account_type ===
+                            'real'
+                                ? 0
+                                : 1,
+
+                        balance:
+                            typeof balance?.balance ===
+                            'number'
+                                ? balance.balance
+                                : undefined,
+                    },
+                }
+            );
 
             // Update the WebSocket login ID in the client store
-            const currentClientStore = globalObserver.getState('client.store');
-            if (currentClientStore && balance?.loginid) {
-                currentClientStore.setWebSocketLoginId(balance.loginid);
+            const currentClientStore =
+                globalObserver.getState(
+                    'client.store'
+                );
+
+            if (
+                currentClientStore &&
+                balance?.loginid
+            ) {
+                currentClientStore.setWebSocketLoginId(
+                    balance.loginid
+                );
             }
 
             setIsAuthorized(true);
-            this.is_authorized = true;
-            localStorage.setItem('client_account_details', JSON.stringify(accountList));
-            localStorage.setItem('client.country', balance?.country);
+
+            this.is_authorized =
+                true;
+
+            localStorage.setItem(
+                'client_account_details',
+                JSON.stringify(
+                    accountList
+                )
+            );
+
+            localStorage.setItem(
+                'client.country',
+                balance?.country
+            );
 
             if (balance?.loginid) {
-                localStorage.setItem('active_loginid', balance.loginid);
+                localStorage.setItem(
+                    'active_loginid',
+                    balance.loginid
+                );
             }
 
             if (this.has_active_symbols) {
-                this.toggleRunButton(false);
+                this.toggleRunButton(
+                    false
+                );
             } else {
-                this.active_symbols_promise = this.getActiveSymbols();
+                this.active_symbols_promise =
+                    this.getActiveSymbols();
             }
+
             this.subscribe();
         } catch (e) {
-            this.is_authorized = false;
+            this.is_authorized =
+                false;
+
             clearAuthData();
+
             setIsAuthorized(false);
-            globalObserver.emit('Error', e);
+
+            globalObserver.emit(
+                'Error',
+                e
+            );
         } finally {
             setIsAuthorizing(false);
         }
     }
 
     async subscribe() {
-        const subscribeToStream = (streamName: string) => {
+        const subscribeToStream = (
+            streamName: string
+        ) => {
             return doUntilDone(
                 () => {
-                    const subscription = this.api?.send({
-                        [streamName]: 1,
-                        subscribe: 1,
-                    });
+                    const subscription =
+                        this.api?.send({
+                            [streamName]: 1,
+                            subscribe: 1,
+                        });
 
                     if (subscription) {
-                        this.current_auth_subscriptions.push(subscription);
+                        this.current_auth_subscriptions.push(
+                            subscription
+                        );
                     }
+
                     return subscription;
                 },
                 [],
@@ -386,89 +626,378 @@ class APIBase {
             );
         };
 
-        const streamsToSubscribe = ['balance', 'transaction', 'proposal_open_contract'];
+        const streamsToSubscribe = [
+            'balance',
+            'transaction',
+            'proposal_open_contract',
+        ];
 
-        await Promise.all(streamsToSubscribe.map(subscribeToStream));
+        await Promise.all(
+            streamsToSubscribe.map(
+                subscribeToStream
+            )
+        );
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * SUBSCRIBE TO DERIV LIVE TICKS
+     * ------------------------------------------------------------
+     *
+     * Used by the AI Strategy Scanner.
+     *
+     * Example:
+     *
+     * api_base.subscribeToTicks(
+     *     'R_100',
+     *     tick => {
+     *         console.log(tick);
+     *     }
+     * );
+     *
+     * This only reads market data.
+     * It does NOT place trades.
+     */
+    subscribeToTicks(
+        symbol: string,
+        callback: (tick: {
+            symbol: string;
+            quote: number;
+            epoch: number;
+        }) => void
+    ) {
+        if (!this.api) {
+            console.error(
+                '[APIBase] Cannot subscribe to ticks: API connection not available'
+            );
+
+            return () => {};
+        }
+
+        if (!symbol) {
+            console.error(
+                '[APIBase] Cannot subscribe to ticks: symbol is missing'
+            );
+
+            return () => {};
+        }
+
+        let isActive = true;
+
+        /*
+         * Listen for incoming WebSocket messages.
+         */
+        const messageSubscription =
+            this.api
+                .onMessage()
+                .subscribe(
+                    (message: any) => {
+                        if (
+                            !isActive ||
+                            !message
+                        ) {
+                            return;
+                        }
+
+                        /*
+                         * Deriv tick response.
+                         */
+                        if (
+                            message.tick &&
+                            message.tick.symbol ===
+                                symbol
+                        ) {
+                            const tick =
+                                message.tick;
+
+                            const quote =
+                                Number(
+                                    tick.quote
+                                );
+
+                            const epoch =
+                                Number(
+                                    tick.epoch
+                                );
+
+                            /*
+                             * Never pass invalid market data
+                             * to the scanner.
+                             */
+                            if (
+                                !Number.isFinite(
+                                    quote
+                                ) ||
+                                !Number.isFinite(
+                                    epoch
+                                )
+                            ) {
+                                return;
+                            }
+
+                            callback({
+                                symbol:
+                                    tick.symbol,
+
+                                quote,
+
+                                epoch,
+                            });
+                        }
+                    }
+                );
+
+        /*
+         * Start the Deriv tick stream.
+         */
+        try {
+            this.api.send({
+                ticks: symbol,
+                subscribe: 1,
+            });
+        } catch (error) {
+            console.error(
+                '[APIBase] Failed to subscribe to Deriv ticks:',
+                error
+            );
+
+            messageSubscription.unsubscribe();
+
+            return () => {};
+        }
+
+        /*
+         * Cleanup function.
+         */
+        const unsubscribe =
+            () => {
+                if (!isActive) {
+                    return;
+                }
+
+                isActive = false;
+
+                /*
+                 * Stop receiving WebSocket messages
+                 * for this scanner subscription.
+                 */
+                messageSubscription.unsubscribe();
+            };
+
+        this.tickMessageSubscriptions.push({
+            unsubscribe,
+        });
+
+        return unsubscribe;
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * STOP ALL AI SCANNER TICK STREAMS
+     * ------------------------------------------------------------
+     */
+    unsubscribeAllTickStreams() {
+        this.tickMessageSubscriptions.forEach(
+            subscription => {
+                try {
+                    subscription.unsubscribe();
+                } catch (error) {
+                    console.warn(
+                        '[APIBase] Failed to unsubscribe tick stream:',
+                        error
+                    );
+                }
+            }
+        );
+
+        this.tickMessageSubscriptions = [];
     }
 
     getActiveSymbols = async () => {
         if (!this.api) {
-            throw new Error('API connection not available for fetching active symbols');
+            throw new Error(
+                'API connection not available for fetching active symbols'
+            );
         }
 
         try {
             // Add timeout to prevent hanging
-            const timeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Active symbols fetch timeout')), this.ACTIVE_SYMBOLS_TIMEOUT_MS)
-            );
+            const timeout =
+                new Promise(
+                    (_, reject) =>
+                        setTimeout(
+                            () =>
+                                reject(
+                                    new Error(
+                                        'Active symbols fetch timeout'
+                                    )
+                                ),
+                            this
+                                .ACTIVE_SYMBOLS_TIMEOUT_MS
+                        )
+                );
 
-            const activeSymbolsPromise = doUntilDone(() => this.api?.send({ active_symbols: 'brief' }), [], this);
+            const activeSymbolsPromise =
+                doUntilDone(
+                    () =>
+                        this.api?.send({
+                            active_symbols:
+                                'brief',
+                        }),
+                    [],
+                    this
+                );
 
-            const apiResult = await Promise.race([activeSymbolsPromise, timeout]);
+            const apiResult =
+                await Promise.race([
+                    activeSymbolsPromise,
+                    timeout,
+                ]);
 
-            const { active_symbols = [], error = {} } = apiResult as any;
+            const {
+                active_symbols = [],
+                error = {},
+            } =
+                apiResult as any;
 
-            if (error && Object.keys(error).length > 0) {
-                throw new Error(`Active symbols API error: ${error.message || 'Unknown error'}`);
+            if (
+                error &&
+                Object.keys(error)
+                    .length > 0
+            ) {
+                throw new Error(
+                    `Active symbols API error: ${
+                        error.message ||
+                        'Unknown error'
+                    }`
+                );
             }
 
-            if (!active_symbols.length) {
-                throw new Error('No active symbols received from API');
+            if (
+                !active_symbols.length
+            ) {
+                throw new Error(
+                    'No active symbols received from API'
+                );
             }
 
-            this.has_active_symbols = true;
+            this.has_active_symbols =
+                true;
 
             // Process active symbols using the dedicated service with fallback
             try {
-                const enrichmentTimeout = new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error('Enrichment timeout')), this.ENRICHMENT_TIMEOUT_MS)
+                const enrichmentTimeout =
+                    new Promise<never>(
+                        (_, reject) =>
+                            setTimeout(
+                                () =>
+                                    reject(
+                                        new Error(
+                                            'Enrichment timeout'
+                                        )
+                                    ),
+                                this
+                                    .ENRICHMENT_TIMEOUT_MS
+                            )
+                    );
+
+                const enrichmentPromise =
+                    activeSymbolsProcessorService.processActiveSymbols(
+                        active_symbols
+                    );
+
+                const processedResult =
+                    await Promise.race([
+                        enrichmentPromise,
+                        enrichmentTimeout,
+                    ]);
+
+                this.active_symbols =
+                    processedResult.enrichedSymbols;
+
+                this.pip_sizes =
+                    processedResult.pipSizes;
+            } catch (
+                enrichmentError
+            ) {
+                console.warn(
+                    'Symbol enrichment failed, using raw symbols:',
+                    enrichmentError
                 );
 
-                const enrichmentPromise = activeSymbolsProcessorService.processActiveSymbols(active_symbols);
-                const processedResult = await Promise.race([enrichmentPromise, enrichmentTimeout]);
-
-                this.active_symbols = processedResult.enrichedSymbols;
-                this.pip_sizes = processedResult.pipSizes;
-            } catch (enrichmentError) {
-                console.warn('Symbol enrichment failed, using raw symbols:', enrichmentError);
                 // Fallback to raw symbols if enrichment fails
-                this.active_symbols = active_symbols;
+                this.active_symbols =
+                    active_symbols;
+
                 this.pip_sizes = {};
             }
 
-            this.toggleRunButton(false);
+            this.toggleRunButton(
+                false
+            );
+
             return this.active_symbols;
         } catch (error) {
-            console.error('Failed to fetch and process active symbols:', error);
+            console.error(
+                'Failed to fetch and process active symbols:',
+                error
+            );
+
             throw error;
         }
     };
 
-    toggleRunButton = (toggle: boolean) => {
-        const run_button = document.querySelector('#db-animation__run-button');
-        if (!run_button) return;
-        (run_button as HTMLButtonElement).disabled = toggle;
+    toggleRunButton = (
+        toggle: boolean
+    ) => {
+        const run_button =
+            document.querySelector(
+                '#db-animation__run-button'
+            );
+
+        if (!run_button)
+            return;
+
+        (
+            run_button as HTMLButtonElement
+        ).disabled = toggle;
     };
 
-    setIsRunning(toggle = false) {
-        this.is_running = toggle;
+    setIsRunning(
+        toggle = false
+    ) {
+        this.is_running =
+            toggle;
     }
 
-    pushSubscription(subscription: CurrentSubscription) {
-        this.subscriptions.push(subscription);
+    pushSubscription(
+        subscription: CurrentSubscription
+    ) {
+        this.subscriptions.push(
+            subscription
+        );
     }
 
     clearSubscriptions() {
-        this.subscriptions.forEach(s => s.unsubscribe());
+        this.subscriptions.forEach(
+            s => s.unsubscribe()
+        );
+
         this.subscriptions = [];
 
         // Resetting timeout resolvers
-        const global_timeouts = globalObserver.getState('global_timeouts') ?? [];
+        const global_timeouts =
+            globalObserver.getState(
+                'global_timeouts'
+            ) ?? [];
 
-        global_timeouts.forEach((_: unknown, i: number) => {
-            clearTimeout(i);
-        });
+        global_timeouts.forEach(
+            (_: unknown, i: number) => {
+                clearTimeout(i);
+            }
+        );
     }
 }
 
-export const api_base = new APIBase();
+export const api_base =
+    new APIBase();
