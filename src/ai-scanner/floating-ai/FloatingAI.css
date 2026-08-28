@@ -948,6 +948,150 @@
 
 
 /* ============================================================
+   EDITABLE STAKE / TARGET DETAIL
+   ============================================================ */
+
+.editable-strategy-detail {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    min-width: 0;
+}
+
+
+/* ============================================================
+   INPUT WRAPPER
+   ============================================================ */
+
+.strategy-input-wrapper {
+    display: flex;
+
+    align-items: center;
+
+    width: 100%;
+
+    min-width: 0;
+
+    height: 27px;
+
+    margin-top: 1px;
+
+    padding: 0 7px;
+
+    border-radius: 6px;
+
+    background: rgba(15, 23, 42, 0.75);
+
+    border: 1px solid rgba(139, 92, 246, 0.22);
+
+    box-sizing: border-box;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+
+/* ============================================================
+   DOLLAR PREFIX
+   ============================================================ */
+
+.strategy-input-prefix {
+    display: inline-flex !important;
+
+    align-items: center;
+
+    justify-content: center;
+
+    flex: 0 0 auto;
+
+    margin: 0 3px 0 0 !important;
+
+    padding: 0 !important;
+
+    color: #94a3b8 !important;
+
+    font-size: 10px !important;
+
+    line-height: 1 !important;
+
+    text-transform: none !important;
+
+    letter-spacing: 0 !important;
+}
+
+
+/* ============================================================
+   STAKE / TARGET INPUT
+   ============================================================ */
+
+.strategy-input-wrapper input {
+    display: block;
+
+    width: 100%;
+
+    min-width: 0;
+
+    height: 100%;
+
+    margin: 0;
+
+    padding: 0;
+
+    border: none;
+
+    outline: none;
+
+    background: transparent;
+
+    color: #ffffff;
+
+    font-family: inherit;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    line-height: 1;
+
+    text-align: left;
+
+    box-sizing: border-box;
+}
+
+
+/* Remove browser number/input decorations if present */
+
+.strategy-input-wrapper input::-webkit-outer-spin-button,
+.strategy-input-wrapper input::-webkit-inner-spin-button {
+    margin: 0;
+}
+
+
+/* Placeholder */
+
+.strategy-input-wrapper input::placeholder {
+    color: #64748b;
+
+    opacity: 1;
+}
+
+
+/* Focus state */
+
+.strategy-input-wrapper:focus-within {
+    background: rgba(15, 23, 42, 0.95);
+
+    border-color: rgba(139, 92, 246, 0.65);
+
+    box-shadow:
+        0 0 0 2px rgba(124, 58, 237, 0.12);
+}
+
+
+/* ============================================================
    LOAD BOT BUTTON
    ============================================================ */
 
@@ -1138,6 +1282,24 @@
     }
 
 
+    /* Editable fields on mobile */
+
+    .strategy-input-wrapper {
+        height: 26px;
+
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+
+    .strategy-input-wrapper input {
+        font-size: 10px;
+    }
+
+    .strategy-input-prefix {
+        font-size: 9px !important;
+    }
+
+
     .load-bot-button {
         padding: 13px 12px;
     }
@@ -1175,4 +1337,21 @@
     .strategy-detail {
         padding: 8px;
     }
+
+    /* Keep editable fields compact on very small screens */
+
+    .strategy-input-wrapper {
+        height: 25px;
+
+        padding-left: 5px;
+        padding-right: 5px;
     }
+
+    .strategy-input-wrapper input {
+        font-size: 10px;
+    }
+
+    .strategy-input-prefix {
+        font-size: 9px !important;
+    }
+   }
