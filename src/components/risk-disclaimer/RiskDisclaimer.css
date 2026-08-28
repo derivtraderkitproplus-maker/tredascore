@@ -9,14 +9,15 @@
 
 /* ============================================================
    FLOATING RISK DISCLAIMER BUTTON
-   HALF THE PREVIOUS SIZE
+   Compact — half the original size
+   Positioned above Run button, slightly left and down
    ============================================================ */
 
 .risk-disclaimer-button {
     position: fixed;
 
-    left: 40px;
-    bottom: 72px;
+    left: 22px;
+    bottom: 68px;
 
     width: 118px;
     height: 26px;
@@ -301,8 +302,8 @@
 
 @media (max-width: 480px) {
     .risk-disclaimer-button {
-        left: 40px;
-        bottom: 72px;
+        left: 22px;
+        bottom: 68px;
 
         width: 118px;
         height: 26px;
@@ -322,6 +323,7 @@
     }
 
     .risk-disclaimer-modal {
+        width: 100%;
         max-height: calc(100vh - 24px);
         border-radius: 10px;
     }
@@ -353,13 +355,11 @@
 
 @media (max-width: 360px) {
     .risk-disclaimer-button {
-        left: 40px;
-        bottom: 72px;
+        left: 16px;
+        bottom: 68px;
 
         width: 118px;
         height: 26px;
-
-        padding: 0 7px;
 
         font-size: 8px;
     }
