@@ -7,9 +7,10 @@
     padding: 0;
 }
 
+
 /* ============================================================
    FLOATING RISK DISCLAIMER BUTTON
-   Compact size + correct position
+   Screenshot 3 position
    ============================================================ */
 
 .risk-disclaimer-button {
@@ -22,6 +23,8 @@
     height: 26px;
 
     padding: 0 7px;
+
+    margin: 0;
 
     border: 0;
     border-radius: 5px;
@@ -37,6 +40,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+
     gap: 4px;
 
     box-sizing: border-box;
@@ -61,12 +65,23 @@
 }
 
 .risk-disclaimer-icon {
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: center;
+
     font-size: 10px;
     line-height: 1;
+
     flex: 0 0 auto;
 }
 
 .risk-disclaimer-button-text {
+    display: inline-block;
+
+    margin: 0;
+    padding: 0;
+
     white-space: nowrap;
 }
 
@@ -77,6 +92,7 @@
 
 .risk-disclaimer-overlay {
     position: fixed;
+
     inset: 0;
 
     z-index: 99999;
@@ -84,39 +100,62 @@
     background: rgba(0, 0, 0, 0.65);
 
     display: flex;
+
     align-items: center;
     justify-content: center;
 
     padding: 16px;
 
     box-sizing: border-box;
+
+    overflow-y: auto;
+
+    -webkit-overflow-scrolling: touch;
 }
 
 
 /* ============================================================
    MODAL
    IMPORTANT:
-   Do NOT use max-height here.
-   This prevents the popup from being compressed.
+   No fixed height.
+   No fixed bottom position.
+   No clipping.
    ============================================================ */
 
 .risk-disclaimer-modal {
-    width: min(100%, 520px);
+    position: relative;
+
+    width: 100%;
+    max-width: 520px;
 
     height: auto;
-    max-height: none;
 
-    overflow: visible;
+    min-height: 0;
+
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+
+    margin: auto;
+
+    padding: 0;
 
     background: #181a1f;
     color: #ffffff;
 
     border: 1px solid rgba(255, 255, 255, 0.12);
+
     border-radius: 12px;
 
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 
     box-sizing: border-box;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    flex: 0 1 auto;
+
+    -webkit-overflow-scrolling: touch;
 }
 
 
@@ -125,7 +164,12 @@
    ============================================================ */
 
 .risk-disclaimer-header {
+    position: relative;
+
+    width: 100%;
+
     display: flex;
+
     align-items: center;
     justify-content: space-between;
 
@@ -133,31 +177,68 @@
 
     padding: 16px 20px;
 
+    min-height: 64px;
+
+    margin: 0;
+
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+    box-sizing: border-box;
 }
 
 .risk-disclaimer-title-wrapper {
     display: flex;
+
     align-items: center;
+
     gap: 10px;
+
+    min-width: 0;
+
+    flex: 1;
 }
 
 .risk-disclaimer-title-wrapper h2 {
+    display: block;
+
     margin: 0;
+    padding: 0;
+
+    color: #ffffff;
 
     font-size: 18px;
     font-weight: 700;
+
+    line-height: 1.2;
 }
 
 .risk-disclaimer-warning-icon {
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: center;
+
+    margin: 0;
+    padding: 0;
+
     font-size: 20px;
     line-height: 1;
+
+    flex: 0 0 auto;
 }
 
 .risk-disclaimer-close {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
     width: 36px;
     height: 36px;
 
+    min-width: 36px;
+
+    margin: 0;
     padding: 0;
 
     border: 0;
@@ -167,13 +248,15 @@
     color: #ffffff;
 
     font-size: 28px;
+    font-weight: 400;
+
     line-height: 1;
 
     cursor: pointer;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    box-sizing: border-box;
+
+    flex: 0 0 auto;
 }
 
 .risk-disclaimer-close:hover {
@@ -186,18 +269,34 @@
    ============================================================ */
 
 .risk-disclaimer-content {
-    padding: 18px 20px;
+    display: block;
+
+    width: 100%;
+
+    margin: 0;
+    padding: 18px 20px 20px;
+
+    box-sizing: border-box;
 }
+
+
+/* ============================================================
+   WARNING / ALERT BOX
+   ============================================================ */
 
 .risk-disclaimer-alert {
     display: flex;
+
     align-items: center;
 
-    gap: 10px;
+    width: 100%;
 
-    margin-bottom: 16px;
+    min-height: 54px;
 
+    margin: 0 0 18px;
     padding: 13px 14px;
+
+    gap: 10px;
 
     border-radius: 8px;
 
@@ -205,36 +304,66 @@
 
     border: 1px solid rgba(245, 196, 0, 0.3);
 
+    color: #ffffff;
+
     font-size: 14px;
     font-weight: 600;
+
+    line-height: 1.3;
 
     box-sizing: border-box;
 }
 
 .risk-disclaimer-alert-icon {
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: center;
+
+    margin: 0;
+    padding: 0;
+
     font-size: 18px;
+    line-height: 1;
+
     flex: 0 0 auto;
 }
 
+
+/* ============================================================
+   MAIN WARNING TEXT
+   ============================================================ */
+
 .risk-disclaimer-content > p {
-    margin: 0 0 16px;
+    display: block;
+
+    margin: 0 0 18px;
+    padding: 0;
 
     color: rgba(255, 255, 255, 0.82);
 
     font-size: 14px;
+
     line-height: 1.55;
+
+    box-sizing: border-box;
 }
 
 
 /* ============================================================
    INFORMATION BOXES
+   This explicitly forces the title onto its own line.
+   Fixes "LossesOnly..." / "LeverageLeverage..." conflict.
    ============================================================ */
 
 .risk-disclaimer-important,
 .risk-disclaimer-third-party {
-    padding: 12px 14px;
+    display: block;
 
-    margin-top: 14px;
+    width: 100%;
+
+    margin: 14px 0 0;
+    padding: 12px 14px;
 
     border-radius: 8px;
 
@@ -245,19 +374,78 @@
     box-sizing: border-box;
 }
 
+
+/* Force title to behave as a real block */
 .risk-disclaimer-important-title {
-    margin-bottom: 5px;
+    display: block;
+
+    width: 100%;
+
+    margin: 0 0 5px;
+    padding: 0;
+
+    color: #ffffff;
 
     font-size: 15px;
     font-weight: 700;
+
+    line-height: 1.3;
+
+    box-sizing: border-box;
 }
 
+
+/* Information text */
 .risk-disclaimer-important p,
 .risk-disclaimer-third-party p {
+    display: block;
+
+    width: 100%;
+
     margin: 0;
+    padding: 0;
+
+    color: rgba(255, 255, 255, 0.72);
 
     font-size: 13px;
+
     line-height: 1.5;
+
+    box-sizing: border-box;
+}
+
+
+/* ============================================================
+   EXTRA SAFETY:
+   If title is a <strong> or <span>, force it to its own line.
+   ============================================================ */
+
+.risk-disclaimer-important > strong,
+.risk-disclaimer-important > span,
+.risk-disclaimer-third-party > strong,
+.risk-disclaimer-third-party > span {
+    display: block;
+
+    margin: 0 0 5px;
+}
+
+
+/* ============================================================
+   PAST PERFORMANCE
+   ============================================================ */
+
+.risk-disclaimer-content
+    .risk-disclaimer-performance {
+    display: block;
+
+    margin: 16px 0 0;
+    padding: 0;
+
+    color: rgba(255, 255, 255, 0.82);
+
+    font-size: 14px;
+
+    line-height: 1.55;
 }
 
 
@@ -267,33 +455,61 @@
 
 .risk-disclaimer-actions {
     display: flex;
+
     align-items: center;
+
     justify-content: space-between;
+
+    width: 100%;
 
     gap: 12px;
 
-    margin-top: 18px;
+    margin: 20px 0 0;
+    padding: 0;
 
-    padding-top: 0;
+    box-sizing: border-box;
 }
 
+
+/* Read disclosure link */
 .risk-disclaimer-read-more {
+    display: inline-block;
+
+    margin: 0;
+    padding: 0;
+
     color: #4c8bf5;
 
     font-size: 14px;
     font-weight: 600;
 
+    line-height: 1.3;
+
     text-decoration: none;
+
+    white-space: nowrap;
+
+    flex: 1 1 auto;
 }
 
 .risk-disclaimer-read-more:hover {
     text-decoration: underline;
 }
 
+
+/* Understand button */
 .risk-disclaimer-close-button {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    width: auto;
+
     min-width: 142px;
     min-height: 44px;
 
+    margin: 0;
     padding: 10px 16px;
 
     border: 0;
@@ -302,12 +518,18 @@
     background: #4c8bf5;
     color: #ffffff;
 
+    font-family: inherit;
+
     font-size: 14px;
     font-weight: 600;
+
+    line-height: 1;
 
     cursor: pointer;
 
     box-sizing: border-box;
+
+    flex: 0 0 auto;
 }
 
 .risk-disclaimer-close-button:hover {
@@ -321,7 +543,10 @@
 
 @media (max-width: 480px) {
 
-    /* Floating button — KEEP THIS LOCATION */
+    /* -----------------------------------------
+       Floating button
+       ----------------------------------------- */
+
     .risk-disclaimer-button {
         left: 22px;
         bottom: 68px;
@@ -332,6 +557,7 @@
         padding: 0 7px;
 
         font-size: 8px;
+
         gap: 4px;
     }
 
@@ -340,69 +566,133 @@
     }
 
 
-    /* Overlay */
+    /* -----------------------------------------
+       Overlay
+       ----------------------------------------- */
+
     .risk-disclaimer-overlay {
         padding: 12px;
+
+        align-items: center;
+        justify-content: center;
+
+        overflow-y: auto;
     }
 
 
-    /* Full popup — NO HEIGHT RESTRICTION */
+    /* -----------------------------------------
+       Modal
+       ----------------------------------------- */
+
     .risk-disclaimer-modal {
         width: 100%;
+        max-width: none;
 
         height: auto;
-        max-height: none;
 
-        overflow: visible;
+        max-height: calc(100vh - 24px);
+        max-height: calc(100dvh - 24px);
+
+        margin: auto;
 
         border-radius: 10px;
+
+        overflow-x: hidden;
+        overflow-y: auto;
     }
 
 
-    /* Header */
+    /* -----------------------------------------
+       Header
+       ----------------------------------------- */
+
     .risk-disclaimer-header {
+        min-height: 62px;
+
         padding: 14px 16px;
+    }
+
+    .risk-disclaimer-title-wrapper {
+        gap: 9px;
     }
 
     .risk-disclaimer-title-wrapper h2 {
         font-size: 16px;
     }
 
+    .risk-disclaimer-warning-icon {
+        font-size: 19px;
+    }
 
-    /* Content */
+
+    /* -----------------------------------------
+       Content
+       ----------------------------------------- */
+
     .risk-disclaimer-content {
         padding: 16px;
     }
 
 
-    /* Warning box */
+    /* -----------------------------------------
+       Alert
+       ----------------------------------------- */
+
     .risk-disclaimer-alert {
+        min-height: 54px;
+
+        margin-bottom: 16px;
+
         padding: 13px 14px;
 
         font-size: 14px;
     }
 
 
-    /* Main warning paragraph */
+    /* -----------------------------------------
+       Main paragraph
+       ----------------------------------------- */
+
     .risk-disclaimer-content > p {
+        margin-bottom: 16px;
+
         font-size: 14px;
         line-height: 1.55;
-
-        margin-bottom: 16px;
     }
 
 
-    /* Risk information boxes */
+    /* -----------------------------------------
+       Information boxes
+       ----------------------------------------- */
+
     .risk-disclaimer-important,
     .risk-disclaimer-third-party {
         margin-top: 14px;
+
         padding: 12px 14px;
     }
 
+    .risk-disclaimer-important-title {
+        margin-bottom: 5px;
 
-    /* Bottom actions */
+        font-size: 15px;
+    }
+
+    .risk-disclaimer-important p,
+    .risk-disclaimer-third-party p {
+        font-size: 13px;
+
+        line-height: 1.5;
+    }
+
+
+    /* -----------------------------------------
+       Actions
+       ----------------------------------------- */
+
     .risk-disclaimer-actions {
         display: flex;
+
         align-items: center;
         justify-content: space-between;
 
@@ -412,7 +702,9 @@
     }
 
     .risk-disclaimer-read-more {
-        font-size: 14px;
+        font-size: 13px;
+
+        white-space: nowrap;
     }
 
     .risk-disclaimer-close-button {
@@ -442,27 +734,21 @@
         font-size: 8px;
     }
 
-    .risk-disclaimer-icon {
-        font-size: 10px;
+    .risk-disclaimer-overlay {
+        padding: 8px;
     }
-
 
     .risk-disclaimer-modal {
-        width: 100%;
-
-        height: auto;
-        max-height: none;
-
-        overflow: visible;
-    }
-
-
-    .risk-disclaimer-content {
-        padding: 14px;
+        max-height: calc(100vh - 16px);
+        max-height: calc(100dvh - 16px);
     }
 
     .risk-disclaimer-header {
-        padding: 13px 14px;
+        padding: 12px 14px;
+    }
+
+    .risk-disclaimer-content {
+        padding: 14px;
     }
 
     .risk-disclaimer-actions {
@@ -476,6 +762,8 @@
     .risk-disclaimer-close-button {
         min-width: 112px;
         min-height: 42px;
+
+        padding: 9px 12px;
 
         font-size: 13px;
     }
