@@ -4,16 +4,10 @@ import './RiskDisclaimer.css';
 const RiskDisclaimer = () => {
     const [isOpen, setIsOpen] = useState(false);
 
-    /**
-     * ------------------------------------------------------------
-     * PREVENT BACKGROUND SCROLLING
-     * ------------------------------------------------------------
-     */
     useEffect(() => {
         if (!isOpen) return;
 
         const originalOverflow = document.body.style.overflow;
-
         document.body.style.overflow = 'hidden';
 
         return () => {
@@ -21,11 +15,6 @@ const RiskDisclaimer = () => {
         };
     }, [isOpen]);
 
-    /**
-     * ------------------------------------------------------------
-     * ESCAPE KEY
-     * ------------------------------------------------------------
-     */
     useEffect(() => {
         if (!isOpen) return;
 
@@ -42,47 +31,21 @@ const RiskDisclaimer = () => {
         };
     }, [isOpen]);
 
-    /**
-     * ------------------------------------------------------------
-     * OPEN DISCLAIMER
-     * ------------------------------------------------------------
-     */
-    const openDisclaimer = () => {
-        setIsOpen(true);
-    };
-
-    /**
-     * ------------------------------------------------------------
-     * CLOSE DISCLAIMER
-     * ------------------------------------------------------------
-     */
-    const closeDisclaimer = () => {
-        setIsOpen(false);
-    };
-
-    /**
-     * ------------------------------------------------------------
-     * CLOSE WHEN CLICKING OUTSIDE MODAL
-     * ------------------------------------------------------------
-     */
     const handleOverlayClick = (
         event: React.MouseEvent<HTMLDivElement>
     ) => {
         if (event.target === event.currentTarget) {
-            closeDisclaimer();
+            setIsOpen(false);
         }
     };
 
     return (
-        <>
-            {/* ================================================== */}
-            {/* RISK DISCLAIMER BUTTON */}
-            {/* ================================================== */}
-
+        <div className="risk-disclaimer">
+            {/* FLOATING BUTTON */}
             <button
                 type="button"
                 className="risk-disclaimer-button"
-                onClick={openDisclaimer}
+                onClick={() => setIsOpen(true)}
                 aria-label="Open Risk Disclaimer"
                 aria-haspopup="dialog"
                 aria-expanded={isOpen}
@@ -99,10 +62,7 @@ const RiskDisclaimer = () => {
                 </span>
             </button>
 
-            {/* ================================================== */}
-            {/* RISK DISCLAIMER MODAL */}
-            {/* ================================================== */}
-
+            {/* COMPACT MODAL */}
             {isOpen && (
                 <div
                     className="risk-disclaimer-overlay"
@@ -115,18 +75,15 @@ const RiskDisclaimer = () => {
                         aria-modal="true"
                         aria-labelledby="risk-disclaimer-title"
                     >
-                        {/* ================================================== */}
                         {/* HEADER */}
-                        {/* ================================================== */}
-
                         <div className="risk-disclaimer-header">
                             <div className="risk-disclaimer-title-wrapper">
-                                <div
+                                <span
                                     className="risk-disclaimer-warning-icon"
                                     aria-hidden="true"
                                 >
                                     ⚠
-                                </div>
+                                </span>
 
                                 <h2 id="risk-disclaimer-title">
                                     Risk Disclaimer
@@ -136,20 +93,15 @@ const RiskDisclaimer = () => {
                             <button
                                 type="button"
                                 className="risk-disclaimer-close"
-                                onClick={closeDisclaimer}
+                                onClick={() => setIsOpen(false)}
                                 aria-label="Close Risk Disclaimer"
                             >
                                 ×
                             </button>
                         </div>
 
-                        {/* ================================================== */}
                         {/* CONTENT */}
-                        {/* ================================================== */}
-
                         <div className="risk-disclaimer-content">
-
-                            {/* MAIN WARNING */}
                             <div className="risk-disclaimer-alert">
                                 <span
                                     className="risk-disclaimer-alert-icon"
@@ -163,106 +115,65 @@ const RiskDisclaimer = () => {
                                 </strong>
                             </div>
 
-                            {/* INTRODUCTION */}
-                            <p>
-                                The products offered through Deriv
-                                include complex derivatives and carry
-                                significant risks. You should understand
-                                how the products work before trading.
-                            </p>
-
-                            {/* LOSS WARNING */}
                             <p>
                                 You may lose all the money you invest.
                                 Never trade with money you cannot afford
                                 to lose.
                             </p>
 
-                            {/* LEVERAGE */}
-                            <p>
-                                CFDs are complex financial instruments
-                                with a high risk of losing money rapidly
-                                due to leverage. Leverage can amplify
-                                both gains and losses.
-                            </p>
-
-                            {/* INDEPENDENT DECISION */}
-                            <p>
-                                Trading decisions are your responsibility.
-                                You should carefully consider your
-                                financial circumstances, experience and
-                                risk tolerance before trading.
-                            </p>
-
-                            {/* PAST PERFORMANCE */}
-                            <p>
-                                Past performance is not a guarantee of
-                                future results and should not be relied
-                                upon as an indication of future
-                                performance.
-                            </p>
-
-                            {/* ================================================== */}
-                            {/* IMPORTANT NOTICE */}
-                            {/* ================================================== */}
-
-                            <div className="risk-disclaimer-important">
-                                <div className="risk-disclaimer-important-title">
-                                    Important
+                            <div className="risk-disclaimer-points">
+                                <div className="risk-disclaimer-point">
+                                    <strong>Losses</strong>
+                                    <span>
+                                        Only trade money you can afford to lose.
+                                    </span>
                                 </div>
 
-                                <p>
-                                    Do not trade with borrowed money or
-                                    money that you need for essential
-                                    expenses. Make sure you understand
-                                    the risks before entering a trade.
-                                </p>
+                                <div className="risk-disclaimer-point">
+                                    <strong>Leverage</strong>
+                                    <span>
+                                        Leverage can increase both gains and losses.
+                                    </span>
+                                </div>
+
+                                <div className="risk-disclaimer-point">
+                                    <strong>Responsibility</strong>
+                                    <span>
+                                        Make sure you understand the product
+                                        and risks before trading.
+                                    </span>
+                                </div>
                             </div>
 
-                            {/* ================================================== */}
-                            {/* THIRD-PARTY NOTICE */}
-                            {/* ================================================== */}
+                            <p className="risk-disclaimer-note">
+                                Past performance does not guarantee future
+                                results.
+                            </p>
+                        </div>
 
-                            <div className="risk-disclaimer-third-party">
-                                <p>
-                                    This website is an independent
-                                    third-party platform. Trading
-                                    availability, products and services
-                                    may depend on the applicable
-                                    underlying provider and your account
-                                    eligibility.
-                                </p>
-                            </div>
+                        {/* FOOTER */}
+                        <div className="risk-disclaimer-footer">
+                            <a
+                                href="https://deriv.com/terms-and-conditions/risk-disclosure"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="risk-disclaimer-read-more"
+                            >
+                                Read Full Risk Disclosure
+                            </a>
 
-                            {/* ================================================== */}
-                            {/* ACTIONS */}
-                            {/* ================================================== */}
-
-                            <div className="risk-disclaimer-actions">
-
-                                <a
-                                    href="https://deriv.com/terms-and-conditions/risk-disclosure"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="risk-disclaimer-read-more"
-                                >
-                                    Read Full Risk Disclosure
-                                </a>
-
-                                <button
-                                    type="button"
-                                    className="risk-disclaimer-close-button"
-                                    onClick={closeDisclaimer}
-                                >
-                                    Close
-                                </button>
-
-                            </div>
+                            <button
+                                type="button"
+                                className="risk-disclaimer-understand"
+                                onClick={() => setIsOpen(false)}
+                            >
+                                I Understand
+                            </button>
                         </div>
                     </div>
                 </div>
             )}
-        </>
+        </div>
     );
 };
 
