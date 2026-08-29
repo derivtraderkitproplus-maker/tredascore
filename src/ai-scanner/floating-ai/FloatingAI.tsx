@@ -410,8 +410,18 @@ const FloatingAI = () => {
      * ============================================================
      */
 
-    useEffect(() => {
+        useEffect(() => {
         isMountedRef.current = true;
+
+        // INJECT MOBILE DEVELOPMENT CONSOLE LOG TRACKER
+        const script = document.createElement('script');
+        script.src = "https://jsdelivr.net";
+        document.body.appendChild(script);
+        script.onload = () => { 
+            if ((window as any).eruda) {
+                (window as any).eruda.init(); 
+            }
+        };
 
         subscribeToLiveTicks();
 
@@ -431,6 +441,7 @@ const FloatingAI = () => {
         cleanupLiveTickBridge,
         subscribeToLiveTicks,
     ]);
+
 
     /*
      * ============================================================
