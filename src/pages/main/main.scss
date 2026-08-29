@@ -10,6 +10,11 @@
     .dc-tabs__active-line {
         right: auto;
         left: 0;
+
+        /* Professional active indicator */
+        background: #7c4dff;
+        height: 0.3rem;
+        border-radius: 0.3rem 0.3rem 0 0;
     }
 }
 
@@ -107,14 +112,10 @@
                ================================================= */
 
             &__active-line {
-                background-color: #743cff;
+                background: #7c4dff;
                 height: 0.3rem;
                 border-radius: 0.3rem 0.3rem 0 0;
                 transition: none;
-
-                /*
-                 * Keep the active indicator inside the tab.
-                 */
                 max-width: 100%;
             }
 
@@ -123,7 +124,7 @@
                ================================================= */
 
             &__active {
-                background-color: #141d31;
+                background: #151d32;
                 color: #ffffff;
             }
 
@@ -140,7 +141,12 @@
                 max-width: 100%;
                 min-width: 0;
 
-                background: var(--general-section-1);
+                /*
+                 * Slightly deeper navigation surface.
+                 * Keeps the navigation visually separate from
+                 * the application content.
+                 */
+                background: #0d1425;
 
                 box-sizing: border-box;
 
@@ -170,6 +176,8 @@
 
                     scrollbar-width: none;
                     -ms-overflow-style: none;
+
+                    border-bottom: 1px solid rgb(255 255 255 / 4%);
 
                     &::-webkit-scrollbar {
                         display: none;
@@ -229,7 +237,7 @@
                 border-top-right-radius: 1rem;
 
                 background: transparent;
-                color: var(--text-general);
+                color: #9aa6bd;
 
                 box-sizing: border-box;
 
@@ -249,6 +257,12 @@
 
                     padding-inline-end: 0;
                     margin-inline-end: 0.8rem;
+
+                    opacity: 0.82;
+
+                    transition:
+                        opacity 0.2s ease,
+                        transform 0.2s ease;
                 }
 
                 /* ---------------------------------------------
@@ -264,6 +278,10 @@
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
+
+                    transition:
+                        color 0.2s ease,
+                        font-weight 0.2s ease;
                 }
 
                 /* ---------------------------------------------
@@ -271,8 +289,12 @@
                    --------------------------------------------- */
 
                 &:hover {
-                    background-color: #121a2d;
-                    color: #ffffff;
+                    background: #111a2d;
+                    color: #e8ecf5;
+
+                    svg {
+                        opacity: 1;
+                    }
                 }
 
                 /* ---------------------------------------------
@@ -281,8 +303,14 @@
 
                 &.dc-tabs__active,
                 &[aria-selected='true'] {
-                    background-color: #141d31;
+                    background: #151d32;
                     color: #ffffff;
+
+                    /*
+                     * Subtle inner separation makes the active
+                     * tab feel like part of the content surface.
+                     */
+                    box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%);
 
                     .derivs-text,
                     span {
@@ -293,6 +321,7 @@
                     svg {
                         color: #ffffff;
                         opacity: 1;
+                        transform: translateY(-0.05rem);
                     }
                 }
 
@@ -313,9 +342,8 @@
                      * Every tab gets exactly 25% of the available
                      * navigation width.
                      *
-                     * No fixed 13rem minimum width.
-                     * No natural-width expansion.
-                     * No horizontal scrolling.
+                     * This is intentionally preserved because it
+                     * solved the mobile navigation clipping.
                      */
 
                     width: 25%;
@@ -342,10 +370,6 @@
 
                     overflow: hidden;
 
-                    /*
-                     * Prevent the original component's width rules
-                     * from expanding the tab.
-                     */
                     flex-grow: 1;
                     flex-shrink: 1;
 
@@ -365,6 +389,8 @@
                         margin: 0;
 
                         padding: 0;
+
+                        opacity: 0.82;
                     }
 
                     /* ---------------------------------------------
@@ -391,6 +417,17 @@
                         text-overflow: ellipsis;
 
                         box-sizing: border-box;
+
+                        color: #9aa6bd;
+                    }
+
+                    /* ---------------------------------------------
+                       MOBILE HOVER / PRESS
+                       --------------------------------------------- */
+
+                    &:hover {
+                        background: #111a2d;
+                        color: #e8ecf5;
                     }
 
                     /* ---------------------------------------------
@@ -399,7 +436,7 @@
 
                     &.dc-tabs__active,
                     &[aria-selected='true'] {
-                        background-color: #141d31;
+                        background: #151d32;
                         color: #ffffff;
 
                         .derivs-text,
