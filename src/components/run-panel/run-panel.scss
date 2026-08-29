@@ -12,6 +12,13 @@
         width: 36.6rem !important;
         right: 0;
 
+        /* ============================================================
+           NAVY RUN PANEL SURFACE
+           ============================================================ */
+
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+
         &--mobile {
             position: absolute;
             top: 0;
@@ -21,11 +28,19 @@
             height: calc(100% - env(safe-area-inset-bottom, 0));
             padding-bottom: env(safe-area-inset-bottom, 0);
 
+            /* Force the complete mobile run-panel surface to navy */
+            background: #0b1428 !important;
+            background-color: #0b1428 !important;
+
             &-closed {
                 position: unset;
             }
         }
     }
+
+    /* ============================================================
+       TILES
+       ============================================================ */
 
     &__tile {
         @include flex-center;
@@ -48,9 +63,9 @@
         }
     }
 
-    /* ========================================================
-       STATISTICS / RISK DISCLAIMER AREA
-       ======================================================== */
+    /* ============================================================
+       STATISTICS AREA
+       ============================================================ */
 
     &__stat {
         @include flex-center(flex-start, flex-end);
@@ -58,14 +73,27 @@
         flex-direction: column;
         width: 35rem;
 
-        /* Force the entire statistics/disclaimer area to navy */
+        /*
+         * THIS IS THE IMPORTANT FIX.
+         *
+         * The black area in the mobile screenshot comes from
+         * var(--general-section-2).
+         *
+         * Force the entire statistics/disclaimer area to use
+         * the same navy surface as the rest of the application.
+         */
+        background: #0b1428 !important;
         background-color: #0b1428 !important;
+        background-image: none !important;
 
         @include mobile-or-tablet-screen {
             margin: 0;
             position: fixed;
 
+            /* Keep mobile statistics area navy */
+            background: #0b1428 !important;
             background-color: #0b1428 !important;
+            background-image: none !important;
 
             @supports (-webkit-touch-callout: none) {
                 padding-bottom: env(safe-area-inset-bottom, 0);
@@ -111,10 +139,16 @@
             width: 100%;
             bottom: 0;
 
-            /* Force mobile statistics area to navy */
+            /* IMPORTANT: mobile bottom statistics surface */
+            background: #0b1428 !important;
             background-color: #0b1428 !important;
+            background-image: none !important;
         }
     }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
 
     &__footer {
         text-align: center;
@@ -130,11 +164,22 @@
         }
     }
 
+    /* ============================================================
+       CONTENT
+       ============================================================ */
+
     &__content {
         display: flex;
         justify-content: space-between;
         flex-direction: column;
         overflow: hidden !important;
+
+        /*
+         * Keep the content surface consistent with the navy
+         * application background.
+         */
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
 
         .dc-tabs {
             &__item {
@@ -145,6 +190,10 @@
         }
     }
 
+    /* ============================================================
+       BUTTONS
+       ============================================================ */
+
     &__buttons {
         display: inline-flex !important;
         justify-content: space-between;
@@ -153,13 +202,23 @@
         align-items: center;
     }
 
+    /* ============================================================
+       RUN PANEL TAB CONTENT
+       ============================================================ */
+
     &-tab {
         &__content {
             height: calc(100vh - 42rem);
             overflow: hidden;
 
+            background: #0b1428 !important;
+            background-color: #0b1428 !important;
+
             &--no-stat {
                 height: var(--drawer-content-height-no-stat);
+
+                background: #0b1428 !important;
+                background-color: #0b1428 !important;
             }
 
             &--mobile {
@@ -170,6 +229,9 @@
                 width: 100vw;
                 padding: 0.4rem 0;
 
+                background: #0b1428 !important;
+                background-color: #0b1428 !important;
+
                 @supports (-webkit-touch-callout: none) {
                     bottom: calc(
                         15.7rem + env(safe-area-inset-bottom, 0)
@@ -179,9 +241,16 @@
 
             &--summary-tab {
                 padding: 0.8rem 1.6rem;
+
+                background: #0b1428 !important;
+                background-color: #0b1428 !important;
             }
         }
     }
+
+    /* ============================================================
+       CLEAR BUTTON
+       ============================================================ */
 
     &__clear-button {
         @include mobile-or-tablet-screen {
@@ -203,6 +272,7 @@
     position: relative;
 
     background: #0b1428 !important;
+    background-color: #0b1428 !important;
 
     &__section {
         @include flex-center(space-between);
@@ -214,6 +284,8 @@
         width: 100%;
 
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
+
         border-top: 1px solid rgba(130, 110, 255, 0.12);
 
         z-index: 8;
@@ -237,6 +309,7 @@
         width: 100%;
 
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
 
         @include tablet-screen {
             max-width: 60rem;
@@ -268,8 +341,19 @@
    ============================================================ */
 
 @include mobile-or-tablet-screen {
+    .run-panel {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
+    .run-panel__container {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
     .run-panel__container--mobile {
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
     }
 
     .run-panel__stat {
@@ -282,16 +366,34 @@
         background-color: #0b1428 !important;
     }
 
+    .run-panel__content {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
+    .run-panel-tab__content {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
+    .run-panel-tab__content--mobile {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
     .controls {
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
     }
 
     .controls__section {
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
     }
 
     .controls__buttons {
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
     }
 }
 
@@ -431,6 +533,7 @@
         width: 100%;
         left: 0;
         top: 0;
+
         background: var(--general-main-1);
 
         .db-self-exclusion {
