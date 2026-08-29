@@ -6,11 +6,11 @@
    ============================================================ */
 
 .app-header {
-    /*
-     * Professional deep-navy header.
-     */
     background: #080d1a;
     min-height: 5.6rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 
     border-bottom: 1px solid rgba(130, 110, 255, 0.12);
 
@@ -52,6 +52,7 @@
         .account-info {
             display: flex;
             align-items: center;
+            min-width: 0;
         }
 
         button {
@@ -83,12 +84,102 @@
     @include mobile-or-tablet-screen {
         min-height: 5.6rem;
 
+        /*
+         * ======================================================
+         * MOBILE HEADER WIDTH CONTROL
+         *
+         * Prevent the header from becoming wider than the
+         * viewport when Menu + Logo + Account + Transfer
+         * are displayed together.
+         * ======================================================
+         */
+
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
+
+        /*
+         * Header's two main wrappers must be allowed to shrink.
+         */
+        > * {
+            min-width: 0;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        /*
+         * Left side gets the flexible space.
+         */
+        > :first-child {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        /*
+         * Right side contains Transfer.
+         * It must never create horizontal overflow.
+         */
+        > :last-child {
+            flex: 0 0 auto;
+            min-width: 0;
+            max-width: 42%;
+        }
+
         .auth-actions {
             gap: 0.4rem;
+            min-width: 0;
+            max-width: 100%;
 
             button {
                 min-height: 3.8rem;
             }
+
+            .account-info {
+                min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
+            }
+        }
+
+        /*
+         * Account switcher must shrink rather than push the
+         * Transfer button outside the viewport.
+         */
+        .deriv-account-switcher__button {
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+
+            display: flex;
+            align-items: center;
+        }
+
+        .deriv-account-switcher {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        /*
+         * Keep account text inside its available space.
+         */
+        .deriv-account-switcher__currency,
+        .deriv-account-switcher__balance {
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /*
+         * Compact Transfer button on mobile.
+         */
+        .auth-actions button {
+            padding-inline: 1.2rem;
+            white-space: nowrap;
         }
     }
 }
@@ -115,6 +206,7 @@
         border: none;
         max-width: 100%;
         width: 100%;
+        min-width: 0;
 
         &.no-scroll {
             overflow: hidden;
@@ -163,12 +255,22 @@
                 border-bottom: 1px solid rgba(130, 110, 255, 0.14);
 
                 @include mobile-or-tablet-screen {
-                    overflow-x: auto;
+                    /*
+                     * IMPORTANT:
+                     * Do not allow the tab bar itself to create
+                     * page-level horizontal scrolling.
+                     */
+                    width: 100%;
+                    max-width: 100%;
+                    box-sizing: border-box;
+
+                    overflow-x: hidden;
                     overflow-y: hidden;
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
 
                     padding: 0.8rem 0.8rem 0;
+
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
 
                     &::-webkit-scrollbar {
                         display: none;
@@ -180,8 +282,10 @@
                         &__tabs {
                             @include mobile-or-tablet-screen {
                                 width: 100%;
-                                overflow-x: auto;
-                                padding: 0.8rem 1.6rem 0;
+                                max-width: 100%;
+                                overflow: hidden;
+                                padding: 0.8rem 0.8rem 0;
+                                box-sizing: border-box;
                             }
                         }
                     }
@@ -275,21 +379,32 @@
                 }
 
                 @include mobile-or-tablet-screen {
-                    flex: 0 0 auto;
+                    /*
+                     * Three navigation items must fit into the
+                     * mobile viewport instead of forcing the
+                     * entire page sideways.
+                     */
+                    flex: 1 1 0;
+                    min-width: 0;
+                    width: auto;
 
-                    min-width: 11rem;
                     height: 5.2rem;
 
-                    padding: 0 1.6rem;
+                    padding: 0 0.8rem;
 
                     border-radius: 0.9rem 0.9rem 0 0;
+
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
             }
 
             &__content {
                 @include mobile-or-tablet-screen {
                     width: 100%;
-                    overflow-x: auto;
+                    max-width: 100%;
+                    overflow-x: hidden;
 
                     &--no-result {
                         @include flex-center;
