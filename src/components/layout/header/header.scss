@@ -3,10 +3,12 @@
 
 /* ============================================================
    APPLICATION HEADER
+   Professional navy application shell
    ============================================================ */
 
 .app-header {
-    background: #080d1a;
+    background: #0b1220;
+
     min-height: 5.6rem;
 
     border-bottom: 1px solid rgba(130, 110, 255, 0.12);
@@ -16,18 +18,26 @@
         0 4px 18px rgba(0, 0, 0, 0.18);
 
     position: relative;
+
     z-index: 20;
 
     &--desktop {
         min-height: 5.6rem;
+        background: #0b1220;
     }
 
     &--mobile {
         min-height: 5.6rem;
+        background: #0b1220;
     }
+
+    /* ========================================================
+       ACCOUNT SETTINGS
+       ======================================================== */
 
     &__account-settings {
         padding-inline-end: 1.6rem;
+
         border-inline-end: 1px solid rgba(130, 110, 255, 0.14);
     }
 
@@ -46,19 +56,26 @@
 
     .auth-actions {
         display: flex;
+
         align-items: center;
+
         gap: 0.8rem;
+
         padding-block: 0;
 
         .account-info {
             display: flex;
+
             align-items: center;
+
             min-width: 0;
         }
 
         button {
             min-height: 4rem;
+
             border-radius: 1rem;
+
             margin-inline-end: 0;
 
             transition:
@@ -71,8 +88,13 @@
         }
     }
 
+    /* ========================================================
+       ACCOUNT SWITCHER
+       ======================================================== */
+
     .deriv-account-switcher__button {
         border-radius: 1rem;
+
         padding: 0.6rem 0.8rem;
 
         transition: background-color 0.2s ease;
@@ -82,8 +104,14 @@
         }
     }
 
+    /* ========================================================
+       MOBILE HEADER
+       ======================================================== */
+
     @include mobile-or-tablet-screen {
         min-height: 5.6rem;
+
+        background: #0b1220;
 
         .auth-actions {
             gap: 0.4rem;
@@ -101,14 +129,28 @@
 
 .main {
     display: flex;
+
     overflow: hidden;
+
     width: 100%;
+
     height: calc(100vh - 9rem);
+
     padding: 1.6rem;
+
+    background: #10182b;
+
+    box-sizing: border-box;
 
     @include mobile-or-tablet-screen {
         height: calc(100vh - 6rem);
+
         padding: 0;
+
+        width: 100%;
+        max-width: 100%;
+
+        background: #10182b;
     }
 
     &__container {
@@ -119,6 +161,8 @@
         min-width: 0;
 
         border: none;
+
+        background: #10182b;
 
         &.no-scroll {
             overflow: hidden;
@@ -172,7 +216,8 @@
                ================================================= */
 
             &__active {
-                background: #141d31;
+                background: #151d32;
+
                 color: #ffffff;
             }
 
@@ -184,9 +229,10 @@
                 display: flex;
 
                 align-items: stretch;
+
                 justify-content: flex-start;
 
-                background: #0b1224;
+                background: #0d1425;
 
                 gap: 0.4rem;
 
@@ -201,18 +247,12 @@
                 min-width: 0;
 
                 @include mobile-or-tablet-screen {
-                    /*
-                     * MOBILE NAVIGATION
-                     *
-                     * Do not use a four-column grid here.
-                     * Each tab needs enough room for its icon
-                     * and label.
-                     */
                     display: flex;
 
                     flex-direction: row;
 
                     align-items: stretch;
+
                     justify-content: flex-start;
 
                     width: 100%;
@@ -221,26 +261,22 @@
 
                     height: 5.6rem;
 
-                    gap: 0.2rem;
+                    gap: 0;
 
                     padding: 0.4rem 0.4rem 0;
 
                     margin: 0;
 
-                    overflow-x: auto;
-                    overflow-y: hidden;
+                    overflow: hidden;
 
                     box-sizing: border-box;
 
-                    /*
-                     * Keep the first tab anchored to the
-                     * beginning of the visible navigation.
-                     */
                     transform: none;
 
                     direction: ltr;
 
                     scrollbar-width: none;
+
                     -ms-overflow-style: none;
 
                     &::-webkit-scrollbar {
@@ -287,6 +323,7 @@
                 display: flex;
 
                 align-items: center;
+
                 justify-content: center;
 
                 height: 5.6rem;
@@ -319,6 +356,7 @@
 
                 svg {
                     width: 2rem;
+
                     height: 2rem;
 
                     flex: 0 0 auto;
@@ -352,7 +390,8 @@
                    -------------------------------------------- */
 
                 &:hover {
-                    background: #121a2d;
+                    background: #18223a;
+
                     color: #f5f7ff;
                 }
 
@@ -362,7 +401,7 @@
 
                 &.dc-tabs__active,
                 &[aria-selected='true'] {
-                    background: #141d31;
+                    background: #151d32;
 
                     color: #ffffff;
 
@@ -391,20 +430,12 @@
                    ================================================= */
 
                 @include mobile-or-tablet-screen {
-                    /*
-                     * IMPORTANT:
-                     *
-                     * Do not force 25% width.
-                     *
-                     * The tab gets a real minimum width so the
-                     * icon and text cannot collide with the next
-                     * tab.
-                     */
                     position: relative;
 
                     display: flex;
 
                     align-items: center;
+
                     justify-content: center;
 
                     flex: 0 0 auto;
@@ -429,11 +460,6 @@
 
                     gap: 0.55rem;
 
-                    /*
-                     * Explicitly cancel any positioning that
-                     * could move the first tab outside the
-                     * viewport.
-                     */
                     left: auto;
                     right: auto;
 
@@ -444,11 +470,9 @@
 
                     direction: ltr;
 
-                    /*
-                     * ICON
-                     */
                     svg {
                         width: 1.7rem;
+
                         height: 1.7rem;
 
                         min-width: 1.7rem;
@@ -462,14 +486,12 @@
                         display: block;
                     }
 
-                    /*
-                     * LABEL
-                     */
                     .derivs-text,
                     span {
                         display: block;
 
                         min-width: 0;
+
                         max-width: none;
 
                         font-size: 1.3rem;
@@ -489,12 +511,9 @@
                         flex: 0 0 auto;
                     }
 
-                    /*
-                     * ACTIVE TAB
-                     */
                     &.dc-tabs__active,
                     &[aria-selected='true'] {
-                        background: #141d31;
+                        background: #151d32;
 
                         color: #ffffff;
 
@@ -553,6 +572,8 @@
 
                     overflow-x: hidden;
 
+                    background: #10182b;
+
                     &--no-result {
                         @include flex-center;
 
@@ -589,7 +610,7 @@
                         @include mobile-or-tablet-screen {
                             flex-direction: column;
 
-                            background-color: var(--general-section-1);
+                            background-color: #10182b;
                         }
                     }
                 }
@@ -624,7 +645,7 @@
             }
 
             &__container {
-                background-color: var(--general-main-1);
+                background-color: #151d32;
             }
         }
     }
@@ -690,7 +711,7 @@
     }
 
     &-footer {
-        background: var(--general-main-1);
+        background: var(--app-header-bg);
 
         &__actions {
             display: flex;
@@ -698,7 +719,7 @@
             justify-content: right;
             align-items: center;
 
-            background-color: var(--du-general-main-2);
+            background-color: var(--app-surface-bg);
 
             padding: 1.6rem 0.8rem;
 
