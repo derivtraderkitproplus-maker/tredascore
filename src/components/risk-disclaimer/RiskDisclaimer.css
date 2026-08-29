@@ -891,3 +891,43 @@
         font-size: 12px;
     }
 }
+/* ============================================================
+   FORCE RISK DISCLAIMER AREA TO NAVY
+   Keeps all existing content visible
+   ============================================================ */
+
+.risk-disclaimer,
+.risk-disclaimer-wrapper,
+.risk-disclaimer-container,
+.risk-disclaimer-bar,
+.risk-disclaimer-area {
+    background: var(--general-main-1) !important;
+    background-color: var(--general-main-1) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border-color: transparent !important;
+}
+
+/* Keep the chevron area transparent so the navy shows through */
+.risk-disclaimer-chevron,
+.risk-disclaimer-wrapper .chevron,
+.risk-disclaimer-container .chevron {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+/* Preserve the yellow button */
+.risk-disclaimer-button {
+    background: #f5c400 !important;
+    color: #0b1220 !important;
+}
+
+/* Do NOT allow the disclaimer layer to hide anything */
+.risk-disclaimer,
+.risk-disclaimer-wrapper,
+.risk-disclaimer-container {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
