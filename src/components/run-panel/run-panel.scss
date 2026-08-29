@@ -25,14 +25,6 @@
                 position: unset;
             }
         }
-
-        /* Fix for iOS devices to prevent run panel overlap */
-        // @supports (-webkit-touch-callout: none) {
-        //     &--mobile {
-        //         //height: calc(100% - env(safe-area-inset-bottom, 0));
-        //         //padding-bottom: env(safe-area-inset-bottom, 0);
-        //     }
-        // }
     }
 
     &__tile {
@@ -67,7 +59,6 @@
             margin: 0;
             position: fixed;
 
-            /* Fix for iOS devices to prevent stats panel overlap */
             @supports (-webkit-touch-callout: none) {
                 padding-bottom: env(safe-area-inset-bottom, 0);
             }
@@ -168,7 +159,6 @@
                 width: 100vw;
                 padding: 0.4rem 0;
 
-                /* Fix for iOS devices to prevent tab content overlap with bottom controls */
                 @supports (-webkit-touch-callout: none) {
                     bottom: calc(15.7rem + env(safe-area-inset-bottom, 0));
                 }
@@ -193,11 +183,12 @@
 
 /* ============================================================
    BOTTOM CONTROLS
-   Match the bottom panel with the application's deep navy
-   background instead of the remaining black area.
    ============================================================ */
 
 .controls {
+    position: relative;
+    background: #0b1428 !important;
+
     &__section {
         @include flex-center(space-between);
 
@@ -206,27 +197,43 @@
         bottom: 0;
         width: 100%;
 
-        /* Match the main application background */
-        background-color: #0b1428 !important;
-
-        /* Subtle separation from the page */
+        background: #0b1428 !important;
         border-top: 1px solid rgba(130, 110, 255, 0.12);
 
         z-index: 8;
-
         box-sizing: border-box;
 
-        /* Fix for iOS devices to respect safe area */
+        /*
+         * IMPORTANT:
+         * The black strip visible above the Run panel is produced
+         * by an inner controls wrapper. Force every immediate
+         * controls layer to use the same navy background.
+         */
+        &,
+        > div,
+        > section,
+        > header,
+        > footer {
+            background-color: #0b1428 !important;
+        }
+
         @supports (-webkit-touch-callout: none) {
             bottom: env(safe-area-inset-bottom, 0);
             padding-bottom: env(safe-area-inset-bottom, 0);
         }
 
-        /* Additional class for iOS detection via JS */
         &.ios-device {
             bottom: env(safe-area-inset-bottom, 0);
             padding-bottom: env(safe-area-inset-bottom, 0);
         }
+    }
+
+    /*
+     * This specifically removes the black backing behind
+     * the Risk Disclaimer / collapse area.
+     */
+    &__section > * {
+        background-color: #0b1428 !important;
     }
 
     &__buttons {
@@ -235,7 +242,6 @@
         display: flex;
         width: inherit;
 
-        /* Prevent black background inside the controls */
         background-color: #0b1428 !important;
 
         @include tablet-screen {
@@ -243,7 +249,6 @@
             padding: 0.8rem 0;
         }
 
-        /* Fix for iOS devices to ensure buttons are properly sized */
         @supports (-webkit-touch-callout: none) {
             height: auto;
             min-height: 6rem;
@@ -263,7 +268,32 @@
     }
 }
 
-// animation
+/* ============================================================
+   MOBILE RUN-PANEL BACKGROUND
+   ============================================================ */
+
+@include mobile-or-tablet-screen {
+    .run-panel,
+    .run-panel__container,
+    .run-panel__container--mobile,
+    .controls,
+    .controls__section {
+        background-color: #0b1428 !important;
+    }
+
+    /*
+     * Prevent a black parent/wrapper from showing through
+     * the Risk Disclaimer strip.
+     */
+    .controls__section > * {
+        background-color: #0b1428 !important;
+    }
+}
+
+/* ============================================================
+   ANIMATION
+   ============================================================ */
+
 .list {
     &__animation {
         &-enter {
@@ -289,6 +319,10 @@
         }
     }
 }
+
+/* ============================================================
+   SELF EXCLUSION
+   ============================================================ */
 
 .db-self-exclusion {
     font-size: var(--text-size-xs);
@@ -321,7 +355,6 @@
         padding: 1.4rem;
         border-top: 2px solid var(--general-section-2);
 
-        /* Fix for iOS devices to respect safe area */
         @supports (-webkit-touch-callout: none) {
             bottom: env(safe-area-inset-bottom, 0);
             padding-bottom: calc(1.4rem + env(safe-area-inset-bottom, 0));
@@ -333,7 +366,6 @@
             bottom: 40px;
             left: 0;
 
-            /* Fix for iOS devices on mobile */
             @supports (-webkit-touch-callout: none) {
                 bottom: calc(40px + env(safe-area-inset-bottom, 0));
             }
@@ -376,6 +408,10 @@
     }
 }
 
+/* ============================================================
+   LIMITS
+   ============================================================ */
+
 .limits__wrapper {
     @include mobile-or-tablet-screen {
         position: fixed;
@@ -402,6 +438,10 @@
         }
     }
 }
+
+/* ============================================================
+   MODALS
+   ============================================================ */
 
 .dc-modal__container_self-exclusion__modal {
     display: flex;
