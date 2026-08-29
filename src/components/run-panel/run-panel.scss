@@ -1,10 +1,19 @@
 @use 'components/shared/styles/mixins' as *;
 
 /**
-* @define -panel
-**/
+ * ============================================================
+ * RUN PANEL
+ * ============================================================
+ */
+
 .run-panel {
-    height: 0;
+    /*
+     * IMPORTANT:
+     * The mobile Drawer receives the `run-panel` class directly.
+     * It must NOT have height: 0, otherwise its parent can expose
+     * an empty/black area.
+     */
+    height: 100%;
 
     &__container {
         height: var(--bot-content-height) !important;
@@ -12,17 +21,49 @@
         width: 36.6rem !important;
         right: 0;
 
+        /*
+         * Desktop Drawer itself.
+         */
+        &.run-panel {
+            height: var(--bot-content-height) !important;
+        }
+
         &--mobile {
             position: absolute;
             top: 0;
             left: 0;
             width: 100vw;
-            z-index: var(--zindex-drawer);
             height: calc(100% - env(safe-area-inset-bottom, 0));
             padding-bottom: env(safe-area-inset-bottom, 0);
+            z-index: var(--zindex-drawer);
+
+            /*
+             * The mobile wrapper must occupy the actual available
+             * drawer area instead of collapsing.
+             */
+            box-sizing: border-box;
 
             &-closed {
                 position: unset;
+            }
+
+            /*
+             * The Drawer inside this wrapper receives the generic
+             * `.run-panel` class. Give that Drawer the full wrapper
+             * height explicitly.
+             */
+            .run-panel {
+                width: 100vw !important;
+                height: 100% !important;
+                min-height: 0;
+                top: 0 !important;
+                left: 0 !important;
+                right: auto !important;
+            }
+
+            .run-panel__content {
+                height: 100% !important;
+                min-height: 0;
             }
         }
     }
@@ -123,9 +164,17 @@
         display: flex;
         justify-content: space-between;
         flex-direction: column;
+
+        /*
+         * Do not allow the content wrapper to create an extra
+         * scrolling/empty region.
+         */
         overflow: hidden !important;
+        min-height: 0;
 
         .dc-tabs {
+            min-height: 0;
+
             &__item {
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -160,7 +209,9 @@
                 padding: 0.4rem 0;
 
                 @supports (-webkit-touch-callout: none) {
-                    bottom: calc(15.7rem + env(safe-area-inset-bottom, 0));
+                    bottom: calc(
+                        15.7rem + env(safe-area-inset-bottom, 0)
+                    );
                 }
             }
 
@@ -181,9 +232,12 @@
     }
 }
 
-/* ============================================================
-   BOTTOM CONTROLS
-   ============================================================ */
+
+/**
+ * ============================================================
+ * BOTTOM CONTROLS
+ * ============================================================
+ */
 
 .controls {
     position: relative;
@@ -195,7 +249,6 @@
         flex-direction: column;
         position: fixed;
         bottom: 0;
-        left: 0;
         width: 100%;
 
         background: #0b1428 !important;
@@ -203,21 +256,6 @@
 
         z-index: 8;
         box-sizing: border-box;
-
-        /*
-         * Keep every direct child of the controls section
-         * on the same navy surface.
-         *
-         * This removes the black strip that was appearing
-         * behind the Risk Disclaimer / collapse area.
-         */
-        > *,
-        > div,
-        > section,
-        > header,
-        > footer {
-            background: #0b1428 !important;
-        }
 
         @supports (-webkit-touch-callout: none) {
             bottom: env(safe-area-inset-bottom, 0);
@@ -234,9 +272,9 @@
         padding: 0.8rem 2.4rem;
         height: 6rem;
         display: flex;
-        width: 100%;
+        width: inherit;
 
-        background: #0b1428 !important;
+        background-color: #0b1428 !important;
 
         @include tablet-screen {
             max-width: 60rem;
@@ -262,54 +300,91 @@
     }
 }
 
-/* ============================================================
-   MOBILE RUN-PANEL / DISCLAIMER SURFACE
-   ============================================================ */
+
+/**
+ * ============================================================
+ * MOBILE RUN PANEL
+ * ============================================================
+ */
 
 @include mobile-or-tablet-screen {
     /*
-     * Make the complete mobile Run Panel use the same
-     * navy surface as the rest of the application.
-     */
-    .run-panel,
-    .run-panel__container,
-    .run-panel__container--mobile,
-    .controls,
-    .controls__section {
-        background: #0b1428 !important;
-    }
-
-    /*
-     * Cover child wrappers which may otherwise expose
-     * the default black page background.
-     */
-    .run-panel__container > *,
-    .run-panel__container--mobile > *,
-    .controls__section > * {
-        background: #0b1428 !important;
-    }
-
-    /*
-     * The Risk Disclaimer should not introduce another
-     * background layer. It should sit directly on the
-     * Run Panel surface.
-     */
-    .risk-disclaimer {
-        background: transparent !important;
-    }
-
-    /*
-     * Prevent the mobile Run Panel from exposing a black
-     * area outside its intended surface.
+     * The outer mobile Run Panel wrapper occupies the screen.
      */
     .run-panel__container--mobile {
-        overflow: hidden;
+        position: absolute;
+        top: 0;
+        left: 0;
+
+        width: 100vw;
+        height: calc(100% - env(safe-area-inset-bottom, 0));
+
+        padding-bottom: env(safe-area-inset-bottom, 0);
+
+        box-sizing: border-box;
+
+        z-index: var(--zindex-drawer);
+    }
+
+    /*
+     * This is the actual Drawer generated by RunPanel.tsx.
+     *
+     * The important part is that it no longer collapses to the
+     * generic `.run-panel { height: 0; }` state.
+     */
+    .run-panel__container--mobile > .run-panel {
+        position: absolute;
+
+        top: 0 !important;
+        left: 0 !important;
+        right: auto !important;
+
+        width: 100vw !important;
+        height: 100% !important;
+
+        min-height: 0;
+
+        box-sizing: border-box;
+    }
+
+    /*
+     * Drawer content must fill the Drawer rather than leaving an
+     * unowned area behind it.
+     */
+    .run-panel__container--mobile
+        > .run-panel
+        .run-panel__content {
+        height: 100% !important;
+        min-height: 0;
+        overflow: hidden !important;
+    }
+
+    /*
+     * Keep the actual controls separate from the Run Panel.
+     */
+    .controls {
+        position: relative;
+        width: 100%;
+        background: #0b1428 !important;
+    }
+
+    .controls__section {
+        width: 100%;
+        background: #0b1428 !important;
+    }
+
+    .controls__buttons {
+        width: 100%;
+        background: #0b1428 !important;
     }
 }
 
-/* ============================================================
-   ANIMATION
-   ============================================================ */
+
+/**
+ * ============================================================
+ * ANIMATION
+ * ============================================================
+ */
 
 .list {
     &__animation {
@@ -337,9 +412,12 @@
     }
 }
 
-/* ============================================================
-   SELF EXCLUSION
-   ============================================================ */
+
+/**
+ * ============================================================
+ * SELF EXCLUSION
+ * ============================================================
+ */
 
 .db-self-exclusion {
     font-size: var(--text-size-xs);
@@ -374,7 +452,9 @@
 
         @supports (-webkit-touch-callout: none) {
             bottom: env(safe-area-inset-bottom, 0);
-            padding-bottom: calc(1.4rem + env(safe-area-inset-bottom, 0));
+            padding-bottom: calc(
+                1.4rem + env(safe-area-inset-bottom, 0)
+            );
         }
 
         @include mobile-or-tablet-screen {
@@ -384,7 +464,9 @@
             left: 0;
 
             @supports (-webkit-touch-callout: none) {
-                bottom: calc(40px + env(safe-area-inset-bottom, 0));
+                bottom: calc(
+                    40px + env(safe-area-inset-bottom, 0)
+                );
             }
 
             &--relative {
@@ -425,9 +507,12 @@
     }
 }
 
-/* ============================================================
-   LIMITS
-   ============================================================ */
+
+/**
+ * ============================================================
+ * LIMITS
+ * ============================================================
+ */
 
 .limits__wrapper {
     @include mobile-or-tablet-screen {
@@ -456,9 +541,12 @@
     }
 }
 
-/* ============================================================
-   MODALS
-   ============================================================ */
+
+/**
+ * ============================================================
+ * MODALS
+ * ============================================================
+ */
 
 .dc-modal__container_self-exclusion__modal {
     display: flex;
