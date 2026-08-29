@@ -2,16 +2,31 @@
 @use 'components/shared/styles/mixins' as *;
 
 /* ============================================================
+   APPLICATION SHELL COLORS
+   ============================================================ */
+
+:root {
+    --app-shell-bg: #0a1020;
+    --app-header-bg: #0b1220;
+    --app-nav-bg: #0d1425;
+    --app-content-bg: #10182b;
+    --app-surface-bg: #151d32;
+    --app-surface-hover: #18223a;
+    --app-border: rgb(255 255 255 / 6%);
+}
+
+/* ============================================================
    RUN PANEL
    ============================================================ */
 
 .run-panel {
-    // Fix for the RTL issue on tab active line
+    background: var(--app-header-bg);
+    border-top: 1px solid var(--app-border);
+
     .dc-tabs__active-line {
         right: auto;
         left: 0;
 
-        /* Professional active indicator */
         background: #7c4dff;
         height: 0.3rem;
         border-radius: 0.3rem 0.3rem 0 0;
@@ -59,6 +74,9 @@
     width: 100%;
     height: calc(100vh - 9rem);
     padding: 1.6rem;
+
+    background: var(--app-content-bg);
+
     box-sizing: border-box;
 
     @include mobile-or-tablet-screen {
@@ -67,15 +85,23 @@
         width: 100%;
         max-width: 100%;
         min-width: 0;
+
+        background: var(--app-content-bg);
     }
 
     &__container {
         position: relative;
+
         border: none;
+
         max-width: 100%;
         min-width: 0;
         width: 100%;
+
         overflow: hidden;
+
+        background: var(--app-content-bg);
+
         box-sizing: border-box;
 
         &.no-scroll {
@@ -83,16 +109,20 @@
         }
 
         &--active {
-            // CSS for onboard tour overlay
             &:before {
                 content: '';
+
                 position: fixed;
                 left: 0;
                 top: 0;
+
                 width: 100%;
                 height: 100%;
+
                 background: rgb(0 0 0 / 72%);
+
                 opacity: 0.7;
+
                 z-index: 100;
             }
         }
@@ -105,7 +135,8 @@
             width: 100%;
             max-width: 100%;
             min-width: 0;
-            box-sizing: border-box;
+
+            background: var(--app-content-bg);
 
             /* =================================================
                ACTIVE LINE
@@ -124,7 +155,7 @@
                ================================================= */
 
             &__active {
-                background: #151d32;
+                background: var(--app-surface-bg);
                 color: #ffffff;
             }
 
@@ -141,16 +172,13 @@
                 max-width: 100%;
                 min-width: 0;
 
-                /*
-                 * Slightly deeper navigation surface.
-                 * Keeps the navigation visually separate from
-                 * the application content.
-                 */
-                background: #0d1425;
+                background: var(--app-nav-bg);
 
                 box-sizing: border-box;
 
                 overflow: hidden;
+
+                border-bottom: 1px solid var(--app-border);
 
                 /* ---------------------------------------------
                    MOBILE TAB LIST
@@ -176,8 +204,6 @@
 
                     scrollbar-width: none;
                     -ms-overflow-style: none;
-
-                    border-bottom: 1px solid rgb(255 255 255 / 4%);
 
                     &::-webkit-scrollbar {
                         display: none;
@@ -289,7 +315,7 @@
                    --------------------------------------------- */
 
                 &:hover {
-                    background: #111a2d;
+                    background: var(--app-surface-hover);
                     color: #e8ecf5;
 
                     svg {
@@ -303,13 +329,9 @@
 
                 &.dc-tabs__active,
                 &[aria-selected='true'] {
-                    background: #151d32;
+                    background: var(--app-surface-bg);
                     color: #ffffff;
 
-                    /*
-                     * Subtle inner separation makes the active
-                     * tab feel like part of the content surface.
-                     */
                     box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%);
 
                     .derivs-text,
@@ -336,16 +358,6 @@
                    ================================================= */
 
                 @include mobile-or-tablet-screen {
-                    /*
-                     * CRITICAL MOBILE FIX
-                     *
-                     * Every tab gets exactly 25% of the available
-                     * navigation width.
-                     *
-                     * This is intentionally preserved because it
-                     * solved the mobile navigation clipping.
-                     */
-
                     width: 25%;
                     max-width: 25%;
                     min-width: 0;
@@ -387,7 +399,6 @@
                         flex: 0 0 1.7rem;
 
                         margin: 0;
-
                         padding: 0;
 
                         opacity: 0.82;
@@ -426,7 +437,7 @@
                        --------------------------------------------- */
 
                     &:hover {
-                        background: #111a2d;
+                        background: var(--app-surface-hover);
                         color: #e8ecf5;
                     }
 
@@ -436,7 +447,7 @@
 
                     &.dc-tabs__active,
                     &[aria-selected='true'] {
-                        background: #151d32;
+                        background: var(--app-surface-bg);
                         color: #ffffff;
 
                         .derivs-text,
@@ -483,6 +494,8 @@
                ================================================= */
 
             &__content {
+                background: var(--app-content-bg);
+
                 @include mobile-or-tablet-screen {
                     width: 100%;
                     max-width: 100%;
@@ -490,6 +503,8 @@
 
                     overflow-x: hidden;
                     box-sizing: border-box;
+
+                    background: var(--app-content-bg);
 
                     &--no-result {
                         @include flex-center;
@@ -522,7 +537,7 @@
 
                         @include mobile-or-tablet-screen {
                             flex-direction: column;
-                            background-color: var(--general-section-1);
+                            background-color: var(--app-content-bg);
                         }
                     }
                 }
@@ -555,7 +570,7 @@
             }
 
             &__container {
-                background-color: var(--general-main-1);
+                background-color: var(--app-surface-bg);
             }
         }
     }
@@ -590,6 +605,10 @@
             &__stop-button {
                 background-color: var(--button-primary-hover);
             }
+        }
+
+        &__container {
+            background-color: var(--app-surface-bg);
         }
     }
 }
@@ -648,13 +667,17 @@
 .dashboard {
     &__chart-wrapper {
         position: relative;
+
         height: var(--tab-content-height);
         width: 100%;
+
+        background: var(--app-content-bg);
+
         transition: all 0.4s;
 
         @include mobile-or-tablet-screen {
             height: var(--tab-content-height-mobile);
-            background: var(--general-main-1);
+            background: var(--app-content-bg);
 
             .smartcharts {
                 height: calc(100% - 4rem);
@@ -680,9 +703,13 @@
         position: absolute;
         top: 0;
         inset-inline-start: 0;
+
         width: 23.6rem;
+
         padding: 0.8rem;
-        background: var(--general-main-1);
+
+        background: var(--app-content-bg);
+
         z-index: 1;
 
         .db-toolbox {
@@ -706,7 +733,7 @@
             }
 
             &__content {
-                border: solid 1px var(--general-section-1);
+                border: solid 1px var(--app-border);
             }
 
             &__category-menu {
@@ -744,7 +771,7 @@
             }
 
             &__container {
-                background-color: var(--general-main-1);
+                background-color: var(--app-surface-bg);
             }
         }
     }
@@ -767,10 +794,14 @@
 
 .bot-builder {
     position: absolute;
+
     top: 6.6rem;
     inset-inline-start: 1.6rem;
+
     z-index: -1;
-    background: var(--general-main-1);
+
+    background: var(--app-content-bg);
+
     height: var(--tab-content-height);
 
     .injectionDiv {
@@ -800,9 +831,13 @@
     @include mobile-or-tablet-screen {
         top: 5.6rem;
         inset-inline-start: 0;
+
         width: 100vw;
         max-width: 100vw;
+
         height: var(--tab-content-height-mobile);
+
+        background: var(--app-content-bg);
     }
 }
 
@@ -832,6 +867,7 @@
     &__header {
         display: flex;
         justify-content: space-between;
+
         margin-bottom: 2.4rem;
         margin-top: -2rem;
 
@@ -855,8 +891,10 @@
     &__container {
         width: 100%;
         height: 100%;
+
         display: flex;
         justify-content: center;
+
         margin-bottom: 2.4rem;
 
         img {
@@ -957,15 +995,22 @@
     @include flex-center(flex-start);
 
     flex-direction: column;
+
     position: fixed;
+
     left: 0;
     bottom: 0;
+
     width: 100%;
     height: 100vh;
+
     padding: 1.6rem;
+
     border-top: solid 1px var(--border-normal);
+
     z-index: 1000;
-    background-color: var(--general-main-1);
+
+    background-color: var(--app-header-bg);
 
     &--tour-position {
         top: 0;
@@ -983,8 +1028,11 @@
     &__navbar {
         display: flex;
         justify-content: space-between;
+
         padding: 0 1.6rem;
+
         width: 100%;
+
         margin-bottom: 1.8rem;
     }
 
@@ -998,6 +1046,7 @@
 
     &__content {
         text-align: center;
+
         padding: 0 1.6rem;
 
         @include mobile-or-tablet-screen {
@@ -1011,10 +1060,13 @@
 
     &__image,
     &__media {
-        background: var(--general-section-1);
+        background: var(--app-content-bg);
+
         text-align: center;
+
         width: 100%;
         height: 55%;
+
         margin-bottom: auto;
     }
 
@@ -1037,17 +1089,25 @@
 
     &__button-group {
         display: flex;
+
         padding: 0 1.6rem;
 
         button {
             height: 4rem;
             width: 100%;
+
             border: 0.2rem solid $color-grey-1;
+
             background: $color-white;
+
             border-radius: 0.4rem;
+
             outline: none;
+
             cursor: pointer;
+
             margin-inline-end: 0.8rem;
+
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1058,7 +1118,9 @@
 
             &.danger {
                 background: $color-red;
+
                 border: none;
+
                 margin-right: 0;
 
                 span {
@@ -1070,7 +1132,8 @@
 
     &__bot-builder-tour {
         height: auto;
-        background: var(--general-section-1);
+
+        background: var(--app-content-bg);
 
         .dbot-slider {
             width: 100%;
@@ -1098,8 +1161,10 @@
 
             &__button-group {
                 width: 50%;
+
                 display: flex;
                 justify-content: center;
+
                 padding: 1rem 0;
 
                 .default {
@@ -1131,9 +1196,12 @@
 
 .dbot-tour-blink {
     animation: blink 1.25s ease-in infinite;
+
     border-radius: $BORDER-RADIUS * 12.5;
+
     height: 2.5rem !important;
     width: 2.5rem !important;
+
     padding: 0.2rem 0;
 
     @include flex-center;
@@ -1145,168 +1213,19 @@
 
 .beta-server-bot {
     color: var(--brand-red-coral);
+
     margin-left: 8px;
     padding: 4px 8px;
+
     height: 22px;
+
     border-radius: 16px;
+
     font-size: 1.2rem;
+
     border: 2px solid var(--brand-red-coral);
+
     display: flex;
     align-items: center;
     justify-content: center;
-}
-/* ============================================================
-   PROFESSIONAL APPLICATION SHELL
-   Unified navy hierarchy for main + bottom areas
-   ============================================================ */
-
-:root {
-    --app-shell-bg: #0a1020;
-    --app-header-bg: #0b1220;
-    --app-nav-bg: #0d1425;
-    --app-content-bg: #10182b;
-    --app-surface-bg: #151d32;
-    --app-surface-hover: #18223a;
-    --app-border: rgb(255 255 255 / 6%);
-}
-
-/* ============================================================
-   MAIN APPLICATION SURFACE
-   ============================================================ */
-
-.main {
-    background: var(--app-shell-bg);
-}
-
-/* ============================================================
-   MAIN CONTENT CONTAINER
-   ============================================================ */
-
-.main__container {
-    background: var(--app-content-bg);
-}
-
-/* ============================================================
-   MAIN NAVIGATION
-   ============================================================ */
-
-.main__container .dc-tabs__list {
-    background: var(--app-nav-bg);
-    border-bottom: 1px solid var(--app-border);
-}
-
-/* ============================================================
-   ACTIVE TAB
-   ============================================================ */
-
-.main__container .dc-tabs__item.dc-tabs__active,
-.main__container .dc-tabs__item[aria-selected='true'] {
-    background: var(--app-surface-bg);
-}
-
-/* ============================================================
-   TAB HOVER
-   ============================================================ */
-
-.main__container .dc-tabs__item:hover {
-    background: var(--app-surface-hover);
-}
-
-/* ============================================================
-   TAB CONTENT
-   ============================================================ */
-
-.main__container .dc-tabs__content {
-    background: var(--app-content-bg);
-}
-
-/* ============================================================
-   DASHBOARD CONTENT
-   ============================================================ */
-
-.dashboard__chart-wrapper,
-.dashboard__toolbox {
-    background: var(--app-content-bg);
-}
-
-/* ============================================================
-   BOT BUILDER
-   ============================================================ */
-
-.bot-builder {
-    background: var(--app-content-bg);
-}
-
-/* ============================================================
-   RUN PANEL
-   ============================================================ */
-
-.run-panel {
-    background: var(--app-header-bg);
-    border-top: 1px solid var(--app-border);
-}
-
-/* ============================================================
-   RUN PANEL INTERNAL SURFACES
-   ============================================================ */
-
-.run-panel > *,
-.run-panel__container,
-.run-panel__content,
-.run-panel__footer {
-    background-color: transparent;
-}
-
-/* ============================================================
-   RUN STRATEGY CONTAINER
-   ============================================================ */
-
-.main__run-strategy-wrapper .animation__container,
-.dashboard__run-strategy-wrapper .animation__container,
-.animation__wrapper .animation__container {
-    background-color: var(--app-surface-bg);
-}
-
-/* ============================================================
-   BOTTOM DBOT SLIDER
-   ============================================================ */
-
-.dbot-slider {
-    background-color: var(--app-header-bg);
-    border-top: 1px solid var(--app-border);
-}
-
-/* ============================================================
-   DBOT SLIDER INNER SURFACES
-   ============================================================ */
-
-.dbot-slider__image,
-.dbot-slider__media {
-    background-color: var(--app-content-bg);
-}
-
-/* ============================================================
-   MOBILE APP SHELL
-   ============================================================ */
-
-@include mobile-or-tablet-screen {
-    .main {
-        background: var(--app-shell-bg);
-    }
-
-    .main__container {
-        background: var(--app-content-bg);
-    }
-
-    .main__container .dc-tabs__list {
-        background: var(--app-nav-bg);
-    }
-
-    .main__container .dc-tabs__content {
-        background: var(--app-content-bg);
-    }
-
-    .run-panel {
-        background: var(--app-header-bg);
-    }
 }
