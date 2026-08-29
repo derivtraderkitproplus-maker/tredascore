@@ -204,21 +204,6 @@
         z-index: 8;
         box-sizing: border-box;
 
-        /*
-         * Keep every direct child of the controls section
-         * on the same navy surface.
-         *
-         * This removes the black strip that was appearing
-         * behind the Risk Disclaimer / collapse area.
-         */
-        > *,
-        > div,
-        > section,
-        > header,
-        > footer {
-            background: #0b1428 !important;
-        }
-
         @supports (-webkit-touch-callout: none) {
             bottom: env(safe-area-inset-bottom, 0);
             padding-bottom: env(safe-area-inset-bottom, 0);
@@ -263,47 +248,24 @@
 }
 
 /* ============================================================
-   MOBILE RUN-PANEL / DISCLAIMER SURFACE
+   MOBILE RUN PANEL SURFACE
    ============================================================ */
 
 @include mobile-or-tablet-screen {
-    /*
-     * Make the complete mobile Run Panel use the same
-     * navy surface as the rest of the application.
-     */
-    .run-panel,
-    .run-panel__container,
-    .run-panel__container--mobile,
-    .controls,
+    .run-panel__container--mobile {
+        background: #0b1428 !important;
+    }
+
+    .controls {
+        background: #0b1428 !important;
+    }
+
     .controls__section {
         background: #0b1428 !important;
     }
 
-    /*
-     * Cover child wrappers which may otherwise expose
-     * the default black page background.
-     */
-    .run-panel__container > *,
-    .run-panel__container--mobile > *,
-    .controls__section > * {
+    .controls__buttons {
         background: #0b1428 !important;
-    }
-
-    /*
-     * The Risk Disclaimer should not introduce another
-     * background layer. It should sit directly on the
-     * Run Panel surface.
-     */
-    .risk-disclaimer {
-        background: transparent !important;
-    }
-
-    /*
-     * Prevent the mobile Run Panel from exposing a black
-     * area outside its intended surface.
-     */
-    .run-panel__container--mobile {
-        overflow: hidden;
     }
 }
 
