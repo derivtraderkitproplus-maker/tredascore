@@ -1155,3 +1155,158 @@
     align-items: center;
     justify-content: center;
 }
+/* ============================================================
+   PROFESSIONAL APPLICATION SHELL
+   Unified navy hierarchy for main + bottom areas
+   ============================================================ */
+
+:root {
+    --app-shell-bg: #0a1020;
+    --app-header-bg: #0b1220;
+    --app-nav-bg: #0d1425;
+    --app-content-bg: #10182b;
+    --app-surface-bg: #151d32;
+    --app-surface-hover: #18223a;
+    --app-border: rgb(255 255 255 / 6%);
+}
+
+/* ============================================================
+   MAIN APPLICATION SURFACE
+   ============================================================ */
+
+.main {
+    background: var(--app-shell-bg);
+}
+
+/* ============================================================
+   MAIN CONTENT CONTAINER
+   ============================================================ */
+
+.main__container {
+    background: var(--app-content-bg);
+}
+
+/* ============================================================
+   MAIN NAVIGATION
+   ============================================================ */
+
+.main__container .dc-tabs__list {
+    background: var(--app-nav-bg);
+    border-bottom: 1px solid var(--app-border);
+}
+
+/* ============================================================
+   ACTIVE TAB
+   ============================================================ */
+
+.main__container .dc-tabs__item.dc-tabs__active,
+.main__container .dc-tabs__item[aria-selected='true'] {
+    background: var(--app-surface-bg);
+}
+
+/* ============================================================
+   TAB HOVER
+   ============================================================ */
+
+.main__container .dc-tabs__item:hover {
+    background: var(--app-surface-hover);
+}
+
+/* ============================================================
+   TAB CONTENT
+   ============================================================ */
+
+.main__container .dc-tabs__content {
+    background: var(--app-content-bg);
+}
+
+/* ============================================================
+   DASHBOARD CONTENT
+   ============================================================ */
+
+.dashboard__chart-wrapper,
+.dashboard__toolbox {
+    background: var(--app-content-bg);
+}
+
+/* ============================================================
+   BOT BUILDER
+   ============================================================ */
+
+.bot-builder {
+    background: var(--app-content-bg);
+}
+
+/* ============================================================
+   RUN PANEL
+   ============================================================ */
+
+.run-panel {
+    background: var(--app-header-bg);
+    border-top: 1px solid var(--app-border);
+}
+
+/* ============================================================
+   RUN PANEL INTERNAL SURFACES
+   ============================================================ */
+
+.run-panel > *,
+.run-panel__container,
+.run-panel__content,
+.run-panel__footer {
+    background-color: transparent;
+}
+
+/* ============================================================
+   RUN STRATEGY CONTAINER
+   ============================================================ */
+
+.main__run-strategy-wrapper .animation__container,
+.dashboard__run-strategy-wrapper .animation__container,
+.animation__wrapper .animation__container {
+    background-color: var(--app-surface-bg);
+}
+
+/* ============================================================
+   BOTTOM DBOT SLIDER
+   ============================================================ */
+
+.dbot-slider {
+    background-color: var(--app-header-bg);
+    border-top: 1px solid var(--app-border);
+}
+
+/* ============================================================
+   DBOT SLIDER INNER SURFACES
+   ============================================================ */
+
+.dbot-slider__image,
+.dbot-slider__media {
+    background-color: var(--app-content-bg);
+}
+
+/* ============================================================
+   MOBILE APP SHELL
+   ============================================================ */
+
+@include mobile-or-tablet-screen {
+    .main {
+        background: var(--app-shell-bg);
+    }
+
+    .main__container {
+        background: var(--app-content-bg);
+    }
+
+    .main__container .dc-tabs__list {
+        background: var(--app-nav-bg);
+    }
+
+    .main__container .dc-tabs__content {
+        background: var(--app-content-bg);
+    }
+
+    .run-panel {
+        background: var(--app-header-bg);
+    }
+}
