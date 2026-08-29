@@ -1,16 +1,31 @@
 @use 'components/shared/styles/mixins' as *;
 
+/* ============================================================
+   GLOBAL MOBILE SURFACE
+   Forces the area behind the fixed bottom controls to navy.
+   Does NOT hide, reposition, or remove any content.
+   ============================================================ */
+
+html,
+body,
+#root {
+    background: #0b1428 !important;
+}
+
 /**
 * @define -panel
 **/
 .run-panel {
     height: 0;
+    background: #0b1428 !important;
 
     &__container {
         height: var(--bot-content-height) !important;
         top: 10.4rem !important;
         width: 36.6rem !important;
         right: 0;
+
+        background: #0b1428 !important;
 
         &--mobile {
             position: absolute;
@@ -20,6 +35,9 @@
             z-index: var(--zindex-drawer);
             height: calc(100% - env(safe-area-inset-bottom, 0));
             padding-bottom: env(safe-area-inset-bottom, 0);
+
+            background: #0b1428 !important;
+            background-color: #0b1428 !important;
 
             &-closed {
                 position: unset;
@@ -125,6 +143,8 @@
         flex-direction: column;
         overflow: hidden !important;
 
+        background: #0b1428 !important;
+
         .dc-tabs {
             &__item {
                 overflow: hidden;
@@ -147,6 +167,8 @@
             height: calc(100vh - 42rem);
             overflow: hidden;
 
+            background: #0b1428 !important;
+
             &--no-stat {
                 height: var(--drawer-content-height-no-stat);
             }
@@ -159,8 +181,12 @@
                 width: 100vw;
                 padding: 0.4rem 0;
 
+                background: #0b1428 !important;
+
                 @supports (-webkit-touch-callout: none) {
-                    bottom: calc(15.7rem + env(safe-area-inset-bottom, 0));
+                    bottom: calc(
+                        15.7rem + env(safe-area-inset-bottom, 0)
+                    );
                 }
             }
 
@@ -181,13 +207,16 @@
     }
 }
 
+
 /* ============================================================
    BOTTOM CONTROLS
    ============================================================ */
 
 .controls {
     position: relative;
+
     background: #0b1428 !important;
+    background-color: #0b1428 !important;
 
     &__section {
         @include flex-center(space-between);
@@ -199,6 +228,8 @@
         width: 100%;
 
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
+
         border-top: 1px solid rgba(130, 110, 255, 0.12);
 
         z-index: 8;
@@ -222,6 +253,7 @@
         width: 100%;
 
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
 
         @include tablet-screen {
             max-width: 60rem;
@@ -244,30 +276,76 @@
         width: 100%;
         height: 4rem;
         border-radius: 0 4px 4px 0;
+
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
     }
 }
+
 
 /* ============================================================
    MOBILE RUN PANEL SURFACE
    ============================================================ */
 
 @include mobile-or-tablet-screen {
+    html,
+    body,
+    #root {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
+    .run-panel {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
+    .run-panel__container {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
     .run-panel__container--mobile {
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
+    .run-panel__content {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
+    .run-panel-tab__content {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
+    .run-panel-tab__content--mobile {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
     }
 
     .controls {
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
     }
 
     .controls__section {
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
     }
 
     .controls__buttons {
         background: #0b1428 !important;
+        background-color: #0b1428 !important;
+    }
+
+    .controls__animation {
+        background: #0b1428 !important;
+        background-color: #0b1428 !important;
     }
 }
+
 
 /* ============================================================
    ANIMATION
@@ -298,6 +376,7 @@
         }
     }
 }
+
 
 /* ============================================================
    SELF EXCLUSION
@@ -336,7 +415,9 @@
 
         @supports (-webkit-touch-callout: none) {
             bottom: env(safe-area-inset-bottom, 0);
-            padding-bottom: calc(1.4rem + env(safe-area-inset-bottom, 0));
+            padding-bottom: calc(
+                1.4rem + env(safe-area-inset-bottom, 0)
+            );
         }
 
         @include mobile-or-tablet-screen {
@@ -346,7 +427,9 @@
             left: 0;
 
             @supports (-webkit-touch-callout: none) {
-                bottom: calc(40px + env(safe-area-inset-bottom, 0));
+                bottom: calc(
+                    40px + env(safe-area-inset-bottom, 0)
+                );
             }
 
             &--relative {
@@ -387,6 +470,7 @@
     }
 }
 
+
 /* ============================================================
    LIMITS
    ============================================================ */
@@ -417,6 +501,7 @@
         }
     }
 }
+
 
 /* ============================================================
    MODALS
