@@ -712,9 +712,29 @@ const FloatingAI = () => {
                     return nextTargets;
                 });
 
-                // Flush calculations to the interface viewport layout cards
-                setScannerResults(rankedResults);
+                                // Flush calculations to the interface viewport layout cards
+                if (hasUsableLiveData) {
+                    setScannerResults(rankedResults);
+                } else {
+                    // SEEDING PHASE: Pass your standard profiles matrix into the array block.
+                    // This forces your UI markup container blocks to dismiss the loading loop
+                    // and immediately show your beautiful strategic grid panels!
+                    const initialSeedingList = AI_STRATEGIES.map((strategy, idx) => ({
+                        ...strategy,
+                        scannerScore: 0,
+                        marketCompatibility: 0,
+                        rank: idx + 1,
+                        marketState: 'INSUFFICIENT_DATA' as const,
+                        marketDirection: 'FLAT' as const,
+                        marketConfidence: 0,
+                        confidenceQualified: false,
+                        liveTickCount: tickBuffersRef.current[strategy.symbol]?.length || 0
+                    }));
+                    setScannerResults(initialSeedingList);
+                }
                 return true;
+            };
+
             };
 
             /*
