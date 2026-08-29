@@ -42,20 +42,17 @@
 
 .floating-ai-button {
     position: fixed;
-
     right: 24px;
     bottom: 90px;
 
     width: 62px;
     height: 62px;
-
     padding: 0;
 
     border: 1px solid rgba(139, 92, 246, 0.55);
     border-radius: 50%;
 
     cursor: pointer;
-
     z-index: 99999;
 
     display: flex;
@@ -97,10 +94,6 @@
     transform: scale(0.95);
 }
 
-/*
- * Hide the launcher while the scanner is open so it
- * never sits on top of scanner content or strategy cards.
- */
 .floating-ai-button.active {
     opacity: 0;
     pointer-events: none;
@@ -126,7 +119,6 @@
     border-radius: 50%;
 
     color: #ffffff;
-
     font-size: 24px;
     font-weight: 700;
 
@@ -173,7 +165,6 @@
     height: 62px;
 
     border-radius: 50%;
-
     border: 1px solid rgba(139, 92, 246, 0.38);
 
     pointer-events: none;
@@ -228,9 +219,7 @@
     flex-direction: column;
 
     min-height: 0;
-
     overflow: hidden;
-
     box-sizing: border-box;
 
     border-radius: 24px;
@@ -281,7 +270,6 @@
     position: relative;
 
     flex-shrink: 0;
-
     min-height: 64px;
 
     display: flex;
@@ -289,7 +277,6 @@
     justify-content: space-between;
 
     padding: 0 18px;
-
     box-sizing: border-box;
 
     background: rgba(8, 12, 20, 0.72);
@@ -350,7 +337,6 @@
     height: 8px;
 
     flex-shrink: 0;
-
     border-radius: 50%;
 
     background: var(--ai-green);
@@ -383,7 +369,6 @@
     height: 36px;
 
     padding: 0;
-
     flex-shrink: 0;
 
     display: flex;
@@ -412,11 +397,8 @@
 
 .ai-close:hover {
     background: rgba(255, 255, 255, 0.08);
-
     border-color: rgba(255, 255, 255, 0.12);
-
     color: #ffffff;
-
     transform: rotate(3deg);
 }
 
@@ -427,14 +409,12 @@
 
 .floating-ai-content {
     flex: 1 1 auto;
-
     min-height: 0;
 
     display: flex;
     flex-direction: column;
 
     padding: 22px 18px 18px;
-
     box-sizing: border-box;
 
     overflow: hidden;
@@ -457,7 +437,6 @@
     color: var(--ai-text-muted);
 
     font-size: 13px;
-
     line-height: 1.55;
 }
 
@@ -491,7 +470,6 @@
     border-radius: 20px;
 
     color: #ffffff;
-
     font-size: 28px;
 
     background:
@@ -518,11 +496,9 @@
     content: '';
 
     position: absolute;
-
     inset: -7px;
 
     border-radius: 25px;
-
     border: 1px solid rgba(139, 92, 246, 0.18);
 
     pointer-events: none;
@@ -530,15 +506,12 @@
 
 .ai-hero h3 {
     margin-bottom: 7px;
-
     font-size: 23px;
 }
 
 .ai-hero p {
     max-width: 390px;
-
     margin: 0 auto;
-
     font-size: 13px;
 }
 
@@ -561,7 +534,6 @@
     min-height: 54px;
 
     margin-bottom: 13px;
-
     padding: 12px 16px;
 
     box-sizing: border-box;
@@ -613,7 +585,6 @@
     position: relative;
 
     width: 100%;
-
     flex-shrink: 0;
 
     min-height: 48px;
@@ -702,7 +673,6 @@
 
 .ai-scanning-state {
     flex: 1 1 auto;
-
     min-height: 0;
 
     display: flex;
@@ -721,7 +691,6 @@
 
 .ai-scanning-state p {
     max-width: 320px;
-
     margin-bottom: 25px;
 }
 
@@ -796,7 +765,6 @@
     height: 4px;
 
     overflow: hidden;
-
     border-radius: 999px;
 
     background: rgba(255, 255, 255, 0.07);
@@ -847,19 +815,16 @@
     justify-content: space-between;
 
     gap: 12px;
-
     margin-bottom: 13px;
 }
 
 .scanner-heading h3 {
     margin-bottom: 3px;
-
     font-size: 20px;
 }
 
 .scanner-heading p {
     margin: 0;
-
     font-size: 11px;
 }
 
@@ -924,7 +889,6 @@
     font-weight: 700;
 
     text-transform: uppercase;
-
     letter-spacing: 0.55px;
 }
 
@@ -1011,7 +975,6 @@
 
 .strategy-list::-webkit-scrollbar-thumb {
     background: rgba(139, 92, 246, 0.45);
-
     border-radius: 999px;
 }
 
@@ -1266,7 +1229,6 @@
     font-weight: 800;
 
     letter-spacing: -0.2px;
-
     line-height: 1.3;
 }
 
@@ -1281,7 +1243,6 @@
     color: #7f8da2;
 
     font-size: 11px;
-
     line-height: 1.5;
 }
 
@@ -1320,11 +1281,9 @@
     color: #5f6e83;
 
     font-size: 8px;
-
     font-weight: 700;
 
     text-transform: uppercase;
-
     letter-spacing: 0.35px;
 }
 
@@ -1336,11 +1295,9 @@
     color: #cbd5e1;
 
     font-size: 10px;
-
     font-weight: 800;
 
     text-overflow: ellipsis;
-
     white-space: nowrap;
 }
 
@@ -1376,7 +1333,6 @@
     color: #748197;
 
     font-size: 9px;
-
     font-weight: 600;
 }
 
@@ -1455,11 +1411,9 @@
     color: #5e6c80;
 
     font-size: 8px;
-
     font-weight: 700;
 
     text-transform: uppercase;
-
     letter-spacing: 0.45px;
 }
 
@@ -1471,11 +1425,9 @@
     color: #d5deea;
 
     font-size: 10px;
-
     font-weight: 750;
 
     text-overflow: ellipsis;
-
     white-space: nowrap;
 }
 
@@ -1571,7 +1523,6 @@
     font-family: inherit;
 
     font-size: 10px;
-
     font-weight: 750;
 
     line-height: 1;
@@ -1583,7 +1534,6 @@
 
 .strategy-input-wrapper input::placeholder {
     color: #475569;
-
     opacity: 1;
 }
 
@@ -1610,13 +1560,11 @@
     position: relative;
 
     width: 100%;
-
     flex-shrink: 0;
 
     min-height: 42px;
 
     border: 1px solid rgba(139, 92, 246, 0.25);
-
     border-radius: 11px;
 
     padding: 11px 13px;
@@ -1713,7 +1661,6 @@
 
 .rescan-button:disabled {
     cursor: not-allowed;
-
     opacity: 0.5;
 }
 
@@ -1759,7 +1706,6 @@
         height: 58px;
     }
 
-
     .floating-ai-panel {
         top: 7px;
         right: 7px;
@@ -1772,7 +1718,6 @@
 
         border-radius: 20px;
     }
-
 
     .floating-ai-header {
         min-height: 58px;
@@ -1791,7 +1736,6 @@
         font-size: 23px;
     }
 
-
     .floating-ai-content {
         flex: 1 1 auto;
 
@@ -1799,7 +1743,6 @@
 
         padding: 18px 11px 13px;
     }
-
 
     .ai-hero {
         padding-top: 3px;
@@ -1825,18 +1768,15 @@
         font-size: 12px;
     }
 
-
     .strategy-count {
         min-height: 50px;
 
         margin-bottom: 10px;
     }
 
-
     .scan-button {
         min-height: 46px;
     }
-
 
     .scanner-heading h3 {
         font-size: 18px;
@@ -1845,7 +1785,6 @@
     .scanner-heading p {
         font-size: 10px;
     }
-
 
     .scanner-market-status {
         gap: 5px;
@@ -1863,10 +1802,6 @@
         font-size: 9px;
     }
 
-
-    /*
-     * Only the strategy list scrolls on mobile.
-     */
     .strategy-list {
         flex: 1 1 auto;
 
@@ -1881,7 +1816,6 @@
         -webkit-overflow-scrolling: touch;
     }
 
-
     .strategy-card {
         padding: 13px;
 
@@ -1890,7 +1824,6 @@
         border-radius: 15px;
     }
 
-
     .strategy-name {
         font-size: 15px;
     }
@@ -1898,7 +1831,6 @@
     .strategy-description {
         font-size: 10px;
     }
-
 
     .strategy-market-live {
         gap: 5px;
@@ -1916,11 +1848,9 @@
         font-size: 9px;
     }
 
-
     .scanner-score {
         padding: 8px 9px;
     }
-
 
     .strategy-details {
         gap: 5px;
@@ -1938,7 +1868,6 @@
         font-size: 9px;
     }
 
-
     .strategy-input-wrapper {
         height: 25px;
 
@@ -1949,7 +1878,6 @@
     .strategy-input-wrapper input {
         font-size: 10px;
     }
-
 
     .load-bot-button {
         min-height: 41px;
@@ -1988,18 +1916,15 @@
         padding-right: 12px;
     }
 
-
     .scanner-market-status > div {
         padding: 7px 6px;
     }
-
 
     .strategy-card {
         padding: 11px;
 
         border-radius: 14px;
     }
-
 
     .strategy-details {
         gap: 5px;
@@ -2008,7 +1933,6 @@
     .strategy-detail {
         padding: 7px 6px;
     }
-
 
     .strategy-input-wrapper {
         height: 24px;
@@ -2024,6 +1948,51 @@
     .strategy-input-prefix {
         font-size: 8px !important;
     }
+}
+
+
+/* ============================================================
+   CHEVRON BAR — BLUE OVERRIDE
+   ============================================================
+   This is intentionally placed at the END so it wins against
+   the existing dark/black toolbox styling.
+
+   The risk-disclaimer is NOT touched.
+   ============================================================ */
+
+.db-toolbox {
+    background: #0d6efd !important;
+}
+
+.db-toolbox__header,
+.db-toolbox__top,
+.db-toolbox__title-container {
+    background: #0d6efd !important;
+}
+
+.db-toolbox button,
+.db-toolbox [role='button'] {
+    background-color: #0d6efd !important;
+}
+
+
+/*
+ * Keep the chevron itself visible.
+ */
+.db-toolbox svg,
+.db-toolbox svg path {
+    color: #ffffff;
+    fill: currentColor;
+}
+
+
+/*
+ * If the chevron sits inside a separate strip/container,
+ * force that strip to use the same blue.
+ */
+.db-toolbox > div:first-child,
+.db-toolbox > div:first-child > div:first-child {
+    background-color: #0d6efd !important;
 }
 
 
