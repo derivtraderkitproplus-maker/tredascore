@@ -191,6 +191,12 @@
     }
 }
 
+/* ============================================================
+   BOTTOM CONTROLS
+   Match the bottom panel with the application's deep navy
+   background instead of the remaining black area.
+   ============================================================ */
+
 .controls {
     &__section {
         @include flex-center(space-between);
@@ -199,9 +205,16 @@
         position: fixed;
         bottom: 0;
         width: 100%;
-        background-color: var(--general-main-1);
-        border-top: solid 2px var(--general-section-1);
+
+        /* Match the main application background */
+        background-color: #0b1428 !important;
+
+        /* Subtle separation from the page */
+        border-top: 1px solid rgba(130, 110, 255, 0.12);
+
         z-index: 8;
+
+        box-sizing: border-box;
 
         /* Fix for iOS devices to respect safe area */
         @supports (-webkit-touch-callout: none) {
@@ -221,6 +234,9 @@
         height: 6rem;
         display: flex;
         width: inherit;
+
+        /* Prevent black background inside the controls */
+        background-color: #0b1428 !important;
 
         @include tablet-screen {
             max-width: 60rem;
