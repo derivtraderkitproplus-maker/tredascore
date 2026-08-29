@@ -1999,3 +1999,82 @@
         transition: none !important;
     }
        }
+/* ============================================================
+   AI BUTTON — KEEP OUT OF SCANNER CONTENT
+   ============================================================ */
+
+/*
+ * When the scanner is open, the floating launcher should
+ * no longer sit on top of the strategy cards.
+ *
+ * This uses the .active state already present on the button.
+ */
+.floating-ai-button.active {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.75);
+}
+
+
+/* ============================================================
+   SCANNER CONTENT LAYOUT
+   ============================================================ */
+
+.floating-ai-panel {
+    box-sizing: border-box;
+}
+
+.floating-ai-content {
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+
+/* ============================================================
+   RESULTS — ONLY THE STRATEGY LIST SCROLLS
+   ============================================================ */
+
+.strategy-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+
+/* ============================================================
+   PREVENT CARDS FROM BEING HIDDEN UNDER THE BOTTOM AREA
+   ============================================================ */
+
+.strategy-list {
+    padding-bottom: 24px;
+}
+
+
+/* ============================================================
+   MOBILE RESULTS
+   ============================================================ */
+
+@media (max-width: 600px) {
+
+    .floating-ai-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .floating-ai-content {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .strategy-list {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-bottom: 24px;
+        -webkit-overflow-scrolling: touch;
+    }
+}
