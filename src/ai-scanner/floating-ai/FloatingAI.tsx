@@ -127,12 +127,6 @@ const FloatingAI = () => {
 
     const scanInProgressRef = useRef(false);
 
-    /*
-     * Every scan receives a unique generation.
-     *
-     * Any asynchronous operation belonging to an older
-     * generation is ignored.
-     */
     const scanGenerationRef = useRef(0);
 
     /*
@@ -187,8 +181,7 @@ const FloatingAI = () => {
     const ensureTickBuffer = useCallback(
         (symbol: string) => {
             if (!tickBuffersRef.current[symbol]) {
-                tickBuffersRef.current[symbol] =
-                    [];
+                tickBuffersRef.current[symbol] = [];
             }
 
             return tickBuffersRef.current[symbol];
@@ -200,17 +193,6 @@ const FloatingAI = () => {
      * ============================================================
      * LIVE DERIV TICK BRIDGE
      * ============================================================
-     *
-     * IMPORTANT:
-     *
-     * This function ONLY receives market data.
-     *
-     * It does NOT:
-     * - place trades
-     * - execute bots
-     * - press Run
-     * - load Blockly
-     * - modify Quick Strategy
      */
 
     const subscribeToLiveTicks = useCallback(() => {
@@ -267,11 +249,17 @@ const FloatingAI = () => {
         }
 
         /*
-         * Subscribe once per symbol.
+         * Subscribe once per exact strategy symbol.
+         *
+         * IMPORTANT:
+         *
+         * Do NOT translate 1HZ100V into R_100.
+         *
+         * The scanner buffer, Deriv subscription,
+         * incoming tick symbol and strategy symbol
+         * must all use the same symbol.
          */
-                symbols.forEach(strategySymbol => {
-            const symbol = strategySymbol === '1HZ100V' ? 'R_100' : strategySymbol;
-
+        symbols.forEach(symbol => {
             if (
                 subscribedSymbolsRef.current.has(
                     symbol
@@ -280,15 +268,7 @@ const FloatingAI = () => {
                 return;
             }
 
-            if (!tickBuffersRef.current[strategySymbol]) {
-                tickBuffersRef.current[strategySymbol] = [];
-            }
-            if (!tickBuffersRef.current[symbol]) {
-                tickBuffersRef.current[symbol] = tickBuffersRef.current[strategySymbol];
-            }
-
             ensureTickBuffer(symbol);
-
 
             try {
                 const unsubscribe =
@@ -314,6 +294,15 @@ const FloatingAI = () => {
                                 invalidTickCountRef.current +=
                                     1;
 
+                                console.warn(
+                                    '[AI Scanner] Invalid tick received:',
+                                    {
+                                        expectedSymbol:
+                                            symbol,
+                                        tick,
+                                    }
+                                );
+
                                 return;
                             }
 
@@ -337,6 +326,26 @@ const FloatingAI = () => {
                             lastTickTimeRef.current[
                                 symbol
                             ] = Date.now();
+
+                            /*
+                             * Diagnostic logging.
+                             *
+                             * This confirms the tick has
+                             * successfully crossed from
+                             * api-base.ts into FloatingAI.
+                             */
+                            console.log(
+                                '[AI Scanner] TICK RECEIVED:',
+                                {
+                                    symbol,
+                                    quote: tick.quote,
+                                    epoch: tick.epoch,
+                                    count:
+                                        tickBuffersRef.current[
+                                            symbol
+                                        ].length,
+                                }
+                            );
                         }
                     );
 
@@ -410,27 +419,14 @@ const FloatingAI = () => {
      * ============================================================
      */
 
-        useEffect(() => {
+    useEffect(() => {
         isMountedRef.current = true;
-
-        // INJECT MOBILE DEVELOPMENT CONSOLE LOG TRACKER
-        const script = document.createElement('script');
-        script.src = "https://jsdelivr.net";
-        document.body.appendChild(script);
-        script.onload = () => { 
-            if ((window as any).eruda) {
-                (window as any).eruda.init(); 
-            }
-        };
 
         subscribeToLiveTicks();
 
         return () => {
             isMountedRef.current = false;
 
-            /*
-             * Invalidate all active asynchronous work.
-             */
             scanGenerationRef.current += 1;
 
             scanInProgressRef.current = false;
@@ -442,16 +438,10 @@ const FloatingAI = () => {
         subscribeToLiveTicks,
     ]);
 
-
     /*
      * ============================================================
      * PROFILE SCORE
      * ============================================================
-     *
-     * Static strategy profile score.
-     *
-     * NOT a win rate.
-     * NOT a profit prediction.
      */
 
     const calculateProfileScore = (
@@ -621,158 +611,370 @@ const FloatingAI = () => {
         );
     };
 
-            /*
+    /*
      * ============================================================
-     * SCAN ALL STRATEGIES (REAL-TIME STREAMING ENHANCEMENT)
+     * SCAN ALL STRATEGIES
      * ============================================================
      */
+
     const scanAllStrategies = async () => {
         if (scanInProgressRef.current) {
             return;
         }
 
         scanInProgressRef.current = true;
-        const currentScanGeneration = ++scanGenerationRef.current;
+
+        const currentScanGeneration =
+            ++scanGenerationRef.current;
 
         setIsScanning(true);
         setScannerResults([]);
 
         try {
             /*
-             * 1. Kick off the WebSocket connections via your existing bridge hooks
+             * Make sure the existing Deriv WebSocket
+             * tick streams are registered.
              */
             subscribeToLiveTicks();
 
             /*
-             * 2. Give incoming network feeds an initial setup cushion window
+             * Give the WebSocket a short setup window.
              */
-            await new Promise(resolve => setTimeout(resolve, SCAN_SETTLE_MS));
+            await new Promise(resolve =>
+                setTimeout(
+                    resolve,
+                    SCAN_SETTLE_MS
+                )
+            );
 
-            if (!isMountedRef.current || currentScanGeneration !== scanGenerationRef.current) {
+            if (
+                !isMountedRef.current ||
+                currentScanGeneration !==
+                    scanGenerationRef.current
+            ) {
                 return;
             }
 
             /*
-             * 3. Define the real-time processing ticker execution engine
+             * Scanner iteration.
              */
             const runScannerIteration = () => {
-                if (!isMountedRef.current || currentScanGeneration !== scanGenerationRef.current) {
+                if (
+                    !isMountedRef.current ||
+                    currentScanGeneration !==
+                        scanGenerationRef.current
+                ) {
                     return false;
                 }
 
-                // Map your 30 strategy profiles against their respective live memory buffers
-                const results: ScannerResult[] = AI_STRATEGIES.map(strategy => {
-                    const liveTicks = tickBuffersRef.current[strategy.symbol] || [];
-                    const analysis = analyzeMarket(liveTicks);
-                    const scores = calculateFinalScannerScore(strategy, analysis);
+                const results =
+                    AI_STRATEGIES.map(
+                        strategy => {
+                            /*
+                             * IMPORTANT:
+                             *
+                             * Exact same symbol used by
+                             * subscribeToLiveTicks().
+                             */
+                            const liveTicks =
+                                tickBuffersRef
+                                    .current[
+                                    strategy.symbol
+                                ] || [];
 
-                    return {
-                        ...strategy,
-                        scannerScore: scores.scannerScore,
-                        marketCompatibility: scores.marketCompatibility,
-                        rank: 0,
-                        marketState: analysis.state,
-                        marketDirection: analysis.direction,
-                        marketConfidence: analysis.confidence,
-                        confidenceQualified: scores.confidenceQualified,
-                        liveTickCount: liveTicks.length,
-                    };
+                            const analysis =
+                                analyzeMarket(
+                                    liveTicks
+                                );
+
+                            const scores =
+                                calculateFinalScannerScore(
+                                    strategy,
+                                    analysis
+                                );
+
+                            return {
+                                ...strategy,
+
+                                scannerScore:
+                                    scores.scannerScore,
+
+                                marketCompatibility:
+                                    scores.marketCompatibility,
+
+                                rank: 0,
+
+                                marketState:
+                                    analysis.state,
+
+                                marketDirection:
+                                    analysis.direction,
+
+                                marketConfidence:
+                                    analysis.confidence,
+
+                                confidenceQualified:
+                                    scores.confidenceQualified,
+
+                                liveTickCount:
+                                    liveTicks.length,
+                            };
+                        }
+                    );
+
+                const hasUsableLiveData =
+                    results.some(
+                        result =>
+                            result.liveTickCount >=
+                                MIN_TICKS_FOR_LIVE_SCANNER &&
+                            result.marketState !==
+                                'INSUFFICIENT_DATA'
+                    );
+
+                /*
+                 * Rank dynamically.
+                 */
+                results.sort((a, b) => {
+                    if (
+                        hasUsableLiveData &&
+                        a.confidenceQualified !==
+                            b.confidenceQualified
+                    ) {
+                        return a.confidenceQualified
+                            ? -1
+                            : 1;
+                    }
+
+                    if (
+                        b.scannerScore !==
+                        a.scannerScore
+                    ) {
+                        return (
+                            b.scannerScore -
+                            a.scannerScore
+                        );
+                    }
+
+                    if (
+                        b.marketCompatibility !==
+                        a.marketCompatibility
+                    ) {
+                        return (
+                            b.marketCompatibility -
+                            a.marketCompatibility
+                        );
+                    }
+
+                    if (
+                        b.marketConfidence !==
+                        a.marketConfidence
+                    ) {
+                        return (
+                            b.marketConfidence -
+                            a.marketConfidence
+                        );
+                    }
+
+                    return a.name.localeCompare(
+                        b.name
+                    );
                 });
 
-                const hasUsableLiveData = results.some(
-                    result =>
-                        result.liveTickCount >= MIN_TICKS_FOR_LIVE_SCANNER &&
-                        result.marketState !== 'INSUFFICIENT_DATA'
+                const rankedResults =
+                    results.map(
+                        (
+                            strategy,
+                            index
+                        ) => ({
+                            ...strategy,
+                            rank:
+                                index + 1,
+                        })
+                    );
+
+                /*
+                 * Update broader market analysis.
+                 */
+                if (
+                    rankedResults.length >
+                    0
+                ) {
+                    const topStrategy =
+                        rankedResults[0];
+
+                    const topTicks =
+                        tickBuffersRef
+                            .current[
+                            topStrategy.symbol
+                        ] || [];
+
+                    const topAnalysis =
+                        analyzeMarket(
+                            topTicks
+                        );
+
+                    setMarketAnalysis(
+                        topAnalysis
+                    );
+                } else {
+                    setMarketAnalysis(
+                        analyzeMarket([])
+                    );
+                }
+
+                /*
+                 * Preserve editable values.
+                 */
+                setStakeValues(
+                    prev => {
+                        const nextStakes =
+                            {
+                                ...prev,
+                            };
+
+                        rankedResults.forEach(
+                            strategy => {
+                                if (
+                                    nextStakes[
+                                        strategy.id
+                                    ] ===
+                                    undefined
+                                ) {
+                                    nextStakes[
+                                        strategy.id
+                                    ] =
+                                        String(
+                                            strategy.stake
+                                        );
+                                }
+                            }
+                        );
+
+                        return nextStakes;
+                    }
+                );
+
+                setTargetValues(
+                    prev => {
+                        const nextTargets =
+                            {
+                                ...prev,
+                            };
+
+                        rankedResults.forEach(
+                            strategy => {
+                                if (
+                                    nextTargets[
+                                        strategy.id
+                                    ] ===
+                                    undefined
+                                ) {
+                                    nextTargets[
+                                        strategy.id
+                                    ] =
+                                        String(
+                                            strategy.profit
+                                        );
+                                }
+                            }
+                        );
+
+                        return nextTargets;
+                    }
                 );
 
                 /*
-                 * Rank results dynamically based on compatibility profiles
+                 * Flush results.
                  */
-                results.sort((a, b) => {
-                    if (hasUsableLiveData && a.confidenceQualified !== b.confidenceQualified) {
-                        return a.confidenceQualified ? -1 : 1;
-                    }
-                    if (b.scannerScore !== a.scannerScore) return b.scannerScore - a.scannerScore;
-                    if (b.marketCompatibility !== a.marketCompatibility) return b.marketCompatibility - a.marketCompatibility;
-                    if (b.marketConfidence !== a.marketConfidence) return b.marketConfidence - a.marketConfidence;
-                    return a.name.localeCompare(b.name);
-                });
-
-                const rankedResults = results.map((strategy, index) => ({
-                    ...strategy,
-                    rank: index + 1,
-                }));
-
-                // Feed broader metrics down to your top indicators panel
-                if (rankedResults.length > 0) {
-                    const topStrategy = rankedResults[0];
-                    const topTicks = tickBuffersRef.current[topStrategy.symbol] || [];
-                    const topAnalysis = analyzeMarket(topTicks);
-                    setMarketAnalysis(topAnalysis);
-                } else {
-                    setMarketAnalysis(analyzeMarket([]));
-                }
-
-                // Initialize fields without wiping away active manual cursor inputs
-                setStakeValues(prev => {
-                    const nextStakes = { ...prev };
-                    rankedResults.forEach(s => {
-                        if (nextStakes[s.id] === undefined) nextStakes[s.id] = String(s.stake);
-                    });
-                    return nextStakes;
-                });
-
-                setTargetValues(prev => {
-                    const nextTargets = { ...prev };
-                    rankedResults.forEach(s => {
-                        if (nextTargets[s.id] === undefined) nextTargets[s.id] = String(s.profit);
-                    });
-                    return nextTargets;
-                });
-
-                // Flush calculations to the interface viewport layout cards
                 if (hasUsableLiveData) {
-                    setScannerResults(rankedResults);
+                    setScannerResults(
+                        rankedResults
+                    );
                 } else {
-                    const initialSeedingList = AI_STRATEGIES.map((strategy, idx) => ({
-                        ...strategy,
-                        scannerScore: 0,
-                        marketCompatibility: 0,
-                        rank: idx + 1,
-                        marketState: 'INSUFFICIENT_DATA' as const,
-                        marketDirection: 'FLAT' as const,
-                        marketConfidence: 0,
-                        confidenceQualified: false,
-                        liveTickCount: tickBuffersRef.current[strategy.symbol]?.length || 0
-                    }));
-                    setScannerResults(initialSeedingList);
+                    const initialSeedingList =
+                        AI_STRATEGIES.map(
+                            (
+                                strategy,
+                                idx
+                            ) => ({
+                                ...strategy,
+
+                                scannerScore:
+                                    0,
+
+                                marketCompatibility:
+                                    0,
+
+                                rank:
+                                    idx + 1,
+
+                                marketState:
+                                    'INSUFFICIENT_DATA' as const,
+
+                                marketDirection:
+                                    'FLAT' as const,
+
+                                marketConfidence:
+                                    0,
+
+                                confidenceQualified:
+                                    false,
+
+                                liveTickCount:
+                                    tickBuffersRef
+                                        .current[
+                                        strategy
+                                            .symbol
+                                    ]
+                                        ?.length ||
+                                    0,
+                            })
+                        );
+
+                    setScannerResults(
+                        initialSeedingList
+                    );
                 }
+
                 return true;
             };
 
             /*
-             * 4. Start the processing loop interval to track live ticks continually
+             * Run immediately.
              */
             runScannerIteration();
 
-            const streamingIntervalId = setInterval(() => {
-                const keepAlive = runScannerIteration();
-                if (!keepAlive) {
-                    clearInterval(streamingIntervalId);
-                }
-            }, 1000); // Recalculates dynamically every 1,000ms as ticks arrive
+            /*
+             * Continue processing live data.
+             */
+            const streamingIntervalId =
+                setInterval(() => {
+                    const keepAlive =
+                        runScannerIteration();
 
+                    if (!keepAlive) {
+                        clearInterval(
+                            streamingIntervalId
+                        );
+                    }
+                }, 1000);
         } catch (error) {
-            console.error('[AI Scanner] Core Evaluation Error:', error);
+            console.error(
+                '[AI Scanner] Core Evaluation Error:',
+                error
+            );
         } finally {
-            if (isMountedRef.current && currentScanGeneration === scanGenerationRef.current) {
+            if (
+                isMountedRef.current &&
+                currentScanGeneration ===
+                    scanGenerationRef.current
+            ) {
                 setIsScanning(false);
-                scanInProgressRef.current = false;
+                scanInProgressRef.current =
+                    false;
             }
         }
     };
-
-                
 
     /*
      * ============================================================
@@ -822,12 +1024,6 @@ const FloatingAI = () => {
      * ============================================================
      * LOAD SELECTED STRATEGY
      * ============================================================
-     *
-     * IMPORTANT:
-     *
-     * This ONLY loads the existing Quick Strategy.
-     *
-     * It does NOT execute the bot.
      */
 
     const loadStrategy = async (
@@ -851,12 +1047,6 @@ const FloatingAI = () => {
                 targetValues[strategy.id] ?? ''
             );
 
-        /*
-         * --------------------------------------------------------
-         * VALIDATE STAKE
-         * --------------------------------------------------------
-         */
-
         if (
             !Number.isFinite(
                 editedStake
@@ -870,12 +1060,6 @@ const FloatingAI = () => {
             return;
         }
 
-        /*
-         * --------------------------------------------------------
-         * VALIDATE TARGET
-         * --------------------------------------------------------
-         */
-
         if (
             !Number.isFinite(
                 editedTarget
@@ -888,12 +1072,6 @@ const FloatingAI = () => {
 
             return;
         }
-
-        /*
-         * --------------------------------------------------------
-         * LIVE DATA SAFETY CHECK
-         * --------------------------------------------------------
-         */
 
         if (
             strategy.marketState ===
@@ -913,18 +1091,10 @@ const FloatingAI = () => {
         );
 
         try {
-            /*
-             * Select the existing Quick Strategy engine.
-             */
             quick_strategy.setSelectedStrategy(
                 strategy.engine
             );
 
-            /*
-             * LOAD ONLY.
-             *
-             * This does NOT execute a trade.
-             */
             await quick_strategy.onSubmit({
                 symbol:
                     strategy.symbol,
@@ -960,9 +1130,6 @@ const FloatingAI = () => {
                     'LOAD',
             });
 
-            /*
-             * Close scanner after successful load.
-             */
             if (
                 isMountedRef.current
             ) {
@@ -1001,17 +1168,8 @@ const FloatingAI = () => {
      */
 
     const closeScanner = () => {
-        /*
-         * IMPORTANT:
-         *
-         * Incrementing the generation immediately invalidates
-         * every asynchronous scan currently waiting.
-         */
         scanGenerationRef.current += 1;
 
-        /*
-         * Mark scan as no longer active.
-         */
         scanInProgressRef.current = false;
 
         setIsScanning(false);
@@ -1039,10 +1197,6 @@ const FloatingAI = () => {
 
     return (
         <>
-            {/* ================================================== */}
-            {/* FLOATING AI BUTTON */}
-            {/* ================================================== */}
-
             <button
                 type="button"
                 className={`floating-ai-button ${
@@ -1072,16 +1226,8 @@ const FloatingAI = () => {
                 </span>
             </button>
 
-            {/* ================================================== */}
-            {/* AI SCANNER PANEL */}
-            {/* ================================================== */}
-
             {isOpen && (
                 <div className="floating-ai-panel">
-
-                    {/* ================================================== */}
-                    {/* HEADER */}
-                    {/* ================================================== */}
 
                     <div className="floating-ai-header">
                         <div>
@@ -1104,15 +1250,7 @@ const FloatingAI = () => {
                         </button>
                     </div>
 
-                    {/* ================================================== */}
-                    {/* CONTENT */}
-                    {/* ================================================== */}
-
                     <div className="floating-ai-content">
-
-                        {/* ================================================== */}
-                        {/* INITIAL SCANNER */}
-                        {/* ================================================== */}
 
                         {scannerResults.length ===
                             0 &&
@@ -1177,10 +1315,6 @@ const FloatingAI = () => {
                                 </>
                             )}
 
-                        {/* ================================================== */}
-                        {/* SCANNING */}
-                        {/* ================================================== */}
-
                         {isScanning && (
                             <div className="ai-scanning-state">
                                 <div className="scanner-loader">
@@ -1210,10 +1344,6 @@ const FloatingAI = () => {
                                 </div>
                             </div>
                         )}
-
-                        {/* ================================================== */}
-                        {/* RESULTS */}
-                        {/* ================================================== */}
 
                         {scannerResults.length >
                             0 &&
@@ -1249,10 +1379,6 @@ const FloatingAI = () => {
                                             }
                                         </div>
                                     </div>
-
-                                    {/* ================================================== */}
-                                    {/* MARKET STATUS */}
-                                    {/* ================================================== */}
 
                                     <div className="scanner-market-status">
                                         <div>
@@ -1294,10 +1420,6 @@ const FloatingAI = () => {
                                         </div>
                                     </div>
 
-                                    {/* ================================================== */}
-                                    {/* LIVE DATA NOTICE */}
-                                    {/* ================================================== */}
-
                                     {marketAnalysis.state ===
                                         'INSUFFICIENT_DATA' && (
                                         <div className="scanner-data-notice">
@@ -1317,10 +1439,6 @@ const FloatingAI = () => {
                                         </div>
                                     )}
 
-                                    {/* ================================================== */}
-                                    {/* STRATEGY LIST */}
-                                    {/* ================================================== */}
-
                                     <div className="strategy-list">
                                         {scannerResults.map(
                                             strategy => (
@@ -1336,7 +1454,6 @@ const FloatingAI = () => {
                                                     }`}
                                                 >
 
-                                                    {/* RANK */}
                                                     <div className="strategy-card-top">
                                                         <div
                                                             className={`strategy-rank ${
@@ -1372,21 +1489,18 @@ const FloatingAI = () => {
                                                         </div>
                                                     </div>
 
-                                                    {/* NAME */}
                                                     <div className="strategy-name">
                                                         {
                                                             strategy.name
                                                         }
                                                     </div>
 
-                                                    {/* DESCRIPTION */}
                                                     <div className="strategy-description">
                                                         {
                                                             strategy.description
                                                         }
                                                     </div>
 
-                                                    {/* LIVE MARKET STATE */}
                                                     <div className="strategy-market-live">
                                                         <div>
                                                             <span>
@@ -1427,7 +1541,6 @@ const FloatingAI = () => {
                                                         </div>
                                                     </div>
 
-                                                    {/* LIVE TICK COUNT */}
                                                     <div className="strategy-market-live">
                                                         <div>
                                                             <span>
@@ -1475,7 +1588,6 @@ const FloatingAI = () => {
                                                         </div>
                                                     </div>
 
-                                                    {/* SCORE */}
                                                     <div className="scanner-score">
                                                         <div className="score-info">
                                                             <span>
@@ -1501,7 +1613,6 @@ const FloatingAI = () => {
                                                         </div>
                                                     </div>
 
-                                                    {/* MARKET COMPATIBILITY */}
                                                     <div className="scanner-score">
                                                         <div className="score-info">
                                                             <span>
@@ -1527,10 +1638,8 @@ const FloatingAI = () => {
                                                         </div>
                                                     </div>
 
-                                                    {/* DETAILS */}
                                                     <div className="strategy-details">
 
-                                                        {/* ENGINE */}
                                                         <div className="strategy-detail">
                                                             <span>
                                                                 Engine
@@ -1543,7 +1652,6 @@ const FloatingAI = () => {
                                                             </strong>
                                                         </div>
 
-                                                        {/* MARKET */}
                                                         <div className="strategy-detail">
                                                             <span>
                                                                 Market
@@ -1556,7 +1664,6 @@ const FloatingAI = () => {
                                                             </strong>
                                                         </div>
 
-                                                        {/* DIRECTION */}
                                                         <div className="strategy-detail">
                                                             <span>
                                                                 Direction
@@ -1570,7 +1677,6 @@ const FloatingAI = () => {
                                                             </strong>
                                                         </div>
 
-                                                        {/* STAKE */}
                                                         <div className="strategy-detail editable-strategy-detail">
                                                             <span>
                                                                 Stake
@@ -1604,7 +1710,6 @@ const FloatingAI = () => {
                                                             </div>
                                                         </div>
 
-                                                        {/* DURATION */}
                                                         <div className="strategy-detail">
                                                             <span>
                                                                 Duration
@@ -1621,7 +1726,6 @@ const FloatingAI = () => {
                                                             </strong>
                                                         </div>
 
-                                                        {/* TARGET */}
                                                         <div className="strategy-detail editable-strategy-detail">
                                                             <span>
                                                                 Target
@@ -1657,7 +1761,6 @@ const FloatingAI = () => {
 
                                                     </div>
 
-                                                    {/* LOAD BOT */}
                                                     <button
                                                         type="button"
                                                         className="load-bot-button"
@@ -1690,10 +1793,6 @@ const FloatingAI = () => {
                                             )
                                         )}
                                     </div>
-
-                                    {/* ================================================== */}
-                                    {/* RESCAN */}
-                                    {/* ================================================== */}
 
                                     <button
                                         type="button"
