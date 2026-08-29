@@ -1,10 +1,33 @@
 /* ============================================================
    RISK DISCLAIMER
+   Full-width navy strip above the Run panel
    ============================================================ */
 
 .risk-disclaimer {
+    position: fixed;
+
+    left: 0;
+    right: 0;
+    bottom: 68px;
+
+    width: 100%;
+    height: 68px;
+
     margin: 0;
     padding: 0;
+
+    background: var(--general-main-1) !important;
+    background-color: var(--general-main-1) !important;
+    background-image: none !important;
+
+    border: 0 !important;
+    box-shadow: none !important;
+
+    box-sizing: border-box;
+
+    z-index: 9998;
+
+    pointer-events: none;
 }
 
 
@@ -13,10 +36,10 @@
    ============================================================ */
 
 .risk-disclaimer-button {
-    position: fixed;
+    position: absolute;
 
     left: 22px;
-    bottom: 68px;
+    bottom: 11px;
 
     width: 118px;
     height: 26px;
@@ -27,7 +50,7 @@
     border: 0;
     border-radius: 5px;
 
-    background: #f5c400;
+    background: #f5c400 !important;
     color: #111111;
 
     font-family: inherit;
@@ -47,6 +70,8 @@
 
     z-index: 10000;
 
+    pointer-events: auto;
+
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 
     transition:
@@ -62,6 +87,11 @@
     transform: scale(0.98);
 }
 
+
+/* ============================================================
+   BUTTON ICON
+   ============================================================ */
+
 .risk-disclaimer-icon {
     display: inline-flex;
 
@@ -76,6 +106,11 @@
 
     flex: 0 0 auto;
 }
+
+
+/* ============================================================
+   BUTTON TEXT
+   ============================================================ */
 
 .risk-disclaimer-button-text {
     display: inline-block;
@@ -112,6 +147,8 @@
     overflow-y: auto;
 
     -webkit-overflow-scrolling: touch;
+
+    pointer-events: auto;
 }
 
 
@@ -185,6 +222,11 @@
     flex: 0 0 auto;
 }
 
+
+/* ============================================================
+   TITLE WRAPPER
+   ============================================================ */
+
 .risk-disclaimer-title-wrapper {
     display: flex;
 
@@ -196,6 +238,11 @@
 
     flex: 1;
 }
+
+
+/* ============================================================
+   TITLE
+   ============================================================ */
 
 .risk-disclaimer-title-wrapper h2 {
     display: block;
@@ -213,6 +260,11 @@
     white-space: nowrap;
 }
 
+
+/* ============================================================
+   WARNING ICON
+   ============================================================ */
+
 .risk-disclaimer-warning-icon {
     display: inline-flex;
 
@@ -228,6 +280,11 @@
 
     flex: 0 0 auto;
 }
+
+
+/* ============================================================
+   CLOSE BUTTON
+   ============================================================ */
 
 .risk-disclaimer-close {
     display: flex;
@@ -320,6 +377,11 @@
     box-sizing: border-box;
 }
 
+
+/* ============================================================
+   ALERT ICON
+   ============================================================ */
+
 .risk-disclaimer-alert-icon {
     display: inline-flex;
 
@@ -335,6 +397,11 @@
 
     flex: 0 0 auto;
 }
+
+
+/* ============================================================
+   ALERT TEXT
+   ============================================================ */
 
 .risk-disclaimer-alert strong {
     display: block;
@@ -617,9 +684,41 @@
 
 @media (max-width: 480px) {
 
+    /*
+     * Keep the navy strip aligned directly above
+     * the Run panel on mobile.
+     */
+    .risk-disclaimer {
+        bottom: 68px;
+
+        height: 68px;
+    }
+
+    .risk-disclaimer-button {
+        left: 22px;
+
+        bottom: 11px;
+
+        width: 118px;
+
+        height: 26px;
+
+        font-size: 8px;
+    }
+
+
+    /* -----------------------------------------
+       MODAL OVERLAY
+       ----------------------------------------- */
+
     .risk-disclaimer-overlay {
         padding: 12px;
     }
+
+
+    /* -----------------------------------------
+       MODAL
+       ----------------------------------------- */
 
     .risk-disclaimer-modal {
         width: 100%;
@@ -802,10 +901,16 @@
 
 @media (max-width: 360px) {
 
+    .risk-disclaimer {
+        bottom: 68px;
+
+        height: 68px;
+    }
+
     .risk-disclaimer-button {
         left: 16px;
 
-        bottom: 68px;
+        bottom: 11px;
 
         width: 118px;
 
@@ -890,44 +995,4 @@
 
         font-size: 12px;
     }
-}
-/* ============================================================
-   FORCE RISK DISCLAIMER AREA TO NAVY
-   Keeps all existing content visible
-   ============================================================ */
-
-.risk-disclaimer,
-.risk-disclaimer-wrapper,
-.risk-disclaimer-container,
-.risk-disclaimer-bar,
-.risk-disclaimer-area {
-    background: var(--general-main-1) !important;
-    background-color: var(--general-main-1) !important;
-    background-image: none !important;
-    box-shadow: none !important;
-    border-color: transparent !important;
-}
-
-/* Keep the chevron area transparent so the navy shows through */
-.risk-disclaimer-chevron,
-.risk-disclaimer-wrapper .chevron,
-.risk-disclaimer-container .chevron {
-    background: transparent !important;
-    background-color: transparent !important;
-    background-image: none !important;
-    box-shadow: none !important;
-}
-
-/* Preserve the yellow button */
-.risk-disclaimer-button {
-    background: #f5c400 !important;
-    color: #0b1220 !important;
-}
-
-/* Do NOT allow the disclaimer layer to hide anything */
-.risk-disclaimer,
-.risk-disclaimer-wrapper,
-.risk-disclaimer-container {
-    visibility: visible !important;
-    opacity: 1 !important;
-}
+                     }
