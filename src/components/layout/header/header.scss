@@ -144,7 +144,7 @@
 
             /* ------------------------------------------------
                MOBILE TRANSFER BUTTON
-               Reduced to exactly 50% of previous dimensions
+               Compact size + slight inward positioning
                ------------------------------------------------ */
 
             > button {
@@ -170,6 +170,15 @@
                 white-space: nowrap;
 
                 flex: 0 0 7.25rem;
+
+                /*
+                 * Move the Transfer button slightly inward
+                 * from the right edge without affecting the
+                 * account balance or hamburger menu.
+                 */
+                position: relative;
+
+                inset-inline-end: 0.7rem;
             }
         }
     }
