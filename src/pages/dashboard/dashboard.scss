@@ -5,6 +5,16 @@
     --translate-panel-ltr: 367px;
     --translate-panel-reset: 0px;
 
+    // AI Scanner visual theme
+    --ai-bg: #0b1224;
+    --ai-card: #141d31;
+    --ai-card-soft: #18223a;
+    --ai-border: rgba(130, 110, 255, 0.18);
+    --ai-border-strong: rgba(130, 110, 255, 0.28);
+    --ai-text: #f5f7ff;
+    --ai-muted: #8994ad;
+    --ai-gradient: linear-gradient(135deg, #743cff, #315eea);
+
     position: relative;
     height: calc(100vh - 4.4rem);
     overflow: hidden;
@@ -65,7 +75,10 @@
 
     &-sidebar {
         position: relative;
-        background-color: var(--general-main-1);
+
+        // Scanner-style navy surface
+        background: #0b1224;
+
         padding: 2.4rem;
         height: 100%;
         display: none;
@@ -75,7 +88,9 @@
         }
 
         &__images {
-            background: var(--general-section-6);
+            background: #141d31;
+            border: 1px solid rgba(130, 110, 255, 0.15);
+            border-radius: 1.6rem;
         }
     }
 
@@ -92,7 +107,7 @@
 
             &:hover {
                 cursor: pointer;
-                background: var(--general-section-1);
+                background: #18223a;
             }
         }
 
@@ -138,6 +153,9 @@
                 text-align: center;
                 height: 7.2rem;
 
+                // Scanner-style heading
+                color: #f5f7ff;
+
                 @include mobile-or-tablet-screen {
                     height: auto;
                 }
@@ -147,6 +165,9 @@
                 text-align: center;
                 margin-top: 1.6rem;
                 margin-bottom: 1rem;
+
+                // Scanner-style muted text
+                color: #8994ad;
 
                 &__has-list {
                     text-align: center;
@@ -171,7 +192,10 @@
             align-items: flex-start;
             height: var(--tab-content-height);
             flex-grow: 1;
-            background: var(--general-main-1);
+
+            // Main scanner-style background
+            background: #0b1224;
+
             overflow: hidden;
             position: relative;
 
@@ -232,10 +256,11 @@
 
             &__retrigger {
                 button {
-                    background: var(--general-section-1);
+                    // Scanner-style button surface
+                    background: #141d31;
+                    border: 1px solid rgba(130, 110, 255, 0.18);
                     border-radius: 2.4rem;
                     outline: none;
-                    border: none;
                     height: 4rem;
                     padding: 1rem;
 
@@ -252,7 +277,7 @@
 
                 &__text {
                     margin-left: 0.4rem;
-                    color: var(--text-general);
+                    color: #8994ad;
                 }
 
                 &__icon {
@@ -270,21 +295,27 @@
                 padding: 2rem;
 
                 button {
-                    background: var(--general-section-1);
+                    // Scanner-style button
+                    background: #141d31;
+                    border: 1px solid rgba(130, 110, 255, 0.18);
                     border-radius: 2.4rem;
                     outline: none;
-                    border: none;
                     height: 4rem;
                     padding: 1rem;
 
                     @include flex-center;
 
                     cursor: pointer;
+
+                    &:hover {
+                        background: #18223a;
+                        border-color: rgba(130, 110, 255, 0.3);
+                    }
                 }
 
                 &__text {
                     margin-left: 0.4rem;
-                    color: var(--text-general);
+                    color: #8994ad;
                 }
 
                 &__icon {
@@ -295,6 +326,8 @@
         }
 
         &__description {
+            color: #8994ad;
+
             @include desktop-screen {
                 text-align: center;
                 margin-bottom: 4rem;
@@ -303,7 +336,12 @@
 
         &__info-panel {
             position: relative;
-            background-color: var(--general-main-1);
+
+            // Scanner-style panel
+            background: #141d31;
+            border: 1px solid rgba(130, 110, 255, 0.18);
+            border-radius: 2rem;
+
             padding: 2.4rem;
             margin-inline-start: 1.6rem;
             display: none;
@@ -377,6 +415,9 @@
                     word-wrap: break-word;
                     text-align: center;
 
+                    // Scanner-style text
+                    color: #f5f7ff;
+
                     @include mobile-or-tablet-screen {
                         height: auto;
                     }
@@ -390,15 +431,33 @@
                     & .dc-text {
                         width: 8rem;
                         text-align: center;
+                        color: #f5f7ff;
                     }
                 }
             }
 
             &__images {
-                background-color: var(--general-section-1);
+                // Scanner-style cards
+                background: #141d31;
+                border: 1px solid rgba(130, 110, 255, 0.15);
+
                 margin-bottom: 0.8rem;
-                border-radius: 0.8rem;
+
+                // More like scanner cards
+                border-radius: 1.6rem;
+
                 padding: 1.6rem;
+
+                transition:
+                    background 0.2s ease,
+                    border-color 0.2s ease,
+                    box-shadow 0.2s ease;
+
+                &:hover {
+                    background: #18223a;
+                    border-color: rgba(130, 110, 255, 0.28);
+                    box-shadow: 0 8px 24px rgba(74, 60, 180, 0.15);
+                }
 
                 &--minimized {
                     @include mobile-or-tablet-screen {
@@ -426,10 +485,12 @@
         @include flex-center;
 
         padding: 0.8rem 1.4rem;
-        border: none;
+
+        // Scanner-style button
+        border: 1px solid rgba(130, 110, 255, 0.18);
         outline: none;
         border-radius: 2.4rem;
-        background-color: var(--general-section-1);
+        background: #141d31;
 
         @include mobile-or-tablet-screen {
             height: 3.2rem;
@@ -441,6 +502,8 @@
 
         &:hover {
             cursor: pointer;
+            background: #18223a;
+            border-color: rgba(130, 110, 255, 0.3);
         }
     }
 
@@ -456,5 +519,6 @@
 
     &__label {
         margin-inline-start: 0.4rem;
+        color: #f5f7ff;
     }
 }
