@@ -1,12 +1,21 @@
 @use 'components/shared/styles/constants' as *;
 @use 'components/shared/styles/mixins' as *;
 
+/* ============================================================
+   RUN PANEL
+   ============================================================ */
+
 .run-panel {
-    // fix for the RTL issue on tab active line
+    // Fix for the RTL issue on tab active line
     .dc-tabs__active-line {
         right: auto;
+        left: 0;
     }
 }
+
+/* ============================================================
+   TAB SHADOWS
+   ============================================================ */
 
 .tabs-shadow {
     position: absolute;
@@ -18,14 +27,26 @@
 
     &--left {
         left: 0;
-        background: linear-gradient(-88.07deg, transparent 1.63%, var(--general-section-1) 50.02%);
+        background: linear-gradient(
+            -88.07deg,
+            transparent 1.63%,
+            var(--general-section-1) 50.02%
+        );
     }
 
     &--right {
         right: 0;
-        background: linear-gradient(88.07deg, transparent 1.63%, var(--general-section-1) 50.02%);
+        background: linear-gradient(
+            88.07deg,
+            transparent 1.63%,
+            var(--general-section-1) 50.02%
+        );
     }
 }
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
 
 .main {
     display: flex;
@@ -33,24 +54,31 @@
     width: 100%;
     height: calc(100vh - 9rem);
     padding: 1.6rem;
+    box-sizing: border-box;
 
     @include mobile-or-tablet-screen {
         height: calc(100vh - 6rem);
         padding: 0;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
     }
 
     &__container {
         position: relative;
         border: none;
         max-width: 100%;
+        min-width: 0;
         width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
 
         &.no-scroll {
             overflow: hidden;
         }
 
         &--active {
-            // css for onboard tour overlay
+            // CSS for onboard tour overlay
             &:before {
                 content: '';
                 position: fixed;
@@ -64,25 +92,84 @@
             }
         }
 
+        /* ====================================================
+           MAIN TABS
+           ==================================================== */
+
         .dc-tabs {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+
+            /* =================================================
+               ACTIVE LINE
+               ================================================= */
+
             &__active-line {
-                background-color: var(--general-main-1);
+                background-color: #743cff;
+                height: 0.3rem;
+                border-radius: 0.3rem 0.3rem 0 0;
                 transition: none;
+
+                /*
+                 * Keep the active indicator inside the tab.
+                 */
+                max-width: 100%;
             }
+
+            /* =================================================
+               ACTIVE TAB
+               ================================================= */
 
             &__active {
-                background: var(--general-main-1);
+                background-color: #141d31;
+                color: #ffffff;
             }
 
+            /* =================================================
+               TAB LIST
+               ================================================= */
+
             &__list {
+                display: flex;
+                align-items: stretch;
+                justify-content: flex-start;
+
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+
                 background: var(--general-section-1);
-                justify-content: start;
+
+                box-sizing: border-box;
+
+                overflow: hidden;
+
+                /* ---------------------------------------------
+                   MOBILE TAB LIST
+                   --------------------------------------------- */
 
                 @include mobile-or-tablet-screen {
-                    overflow-x: auto;
-                    overflow-y: hidden;
-                    -ms-overflow-style: none;
+                    display: flex;
+                    flex-direction: row;
+
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+
+                    height: 5.6rem;
+
+                    gap: 0;
+
+                    padding: 0.4rem 0.4rem 0;
+
+                    overflow: hidden;
+
+                    box-sizing: border-box;
+
                     scrollbar-width: none;
+                    -ms-overflow-style: none;
 
                     &::-webkit-scrollbar {
                         display: none;
@@ -93,9 +180,19 @@
                     &--main {
                         &__tabs {
                             @include mobile-or-tablet-screen {
+                                display: flex;
+
                                 width: 100%;
-                                overflow-x: auto;
-                                padding: 0.8rem 1.6rem 0;
+                                max-width: 100%;
+                                min-width: 0;
+
+                                height: 5.6rem;
+
+                                padding: 0.4rem 0.4rem 0;
+
+                                overflow: hidden;
+
+                                box-sizing: border-box;
                             }
                         }
                     }
@@ -108,16 +205,261 @@
                 }
             }
 
+            /* =================================================
+               INDIVIDUAL TAB
+               ================================================= */
+
+            &__item {
+                position: relative;
+
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                height: 4.8rem;
+
+                width: auto;
+                min-width: 13rem;
+
+                padding: 0 2rem;
+
+                flex: 0 0 auto;
+
+                border-top-left-radius: 1rem;
+                border-top-right-radius: 1rem;
+
+                background: transparent;
+                color: var(--text-general);
+
+                box-sizing: border-box;
+
+                overflow: hidden;
+
+                @include flex-center;
+
+                /* ---------------------------------------------
+                   ICON
+                   --------------------------------------------- */
+
+                svg {
+                    width: 2rem;
+                    height: 2rem;
+
+                    flex: 0 0 auto;
+
+                    padding-inline-end: 0;
+                    margin-inline-end: 0.8rem;
+                }
+
+                /* ---------------------------------------------
+                   LABEL
+                   --------------------------------------------- */
+
+                .derivs-text,
+                span {
+                    min-width: 0;
+
+                    color: inherit;
+
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                /* ---------------------------------------------
+                   HOVER
+                   --------------------------------------------- */
+
+                &:hover {
+                    background-color: #121a2d;
+                    color: #ffffff;
+                }
+
+                /* ---------------------------------------------
+                   ACTIVE
+                   --------------------------------------------- */
+
+                &.dc-tabs__active,
+                &[aria-selected='true'] {
+                    background-color: #141d31;
+                    color: #ffffff;
+
+                    .derivs-text,
+                    span {
+                        color: #ffffff;
+                        font-weight: 600;
+                    }
+
+                    svg {
+                        color: #ffffff;
+                        opacity: 1;
+                    }
+                }
+
+                &__icon {
+                    @include mobile-or-tablet-screen {
+                        padding-top: 0;
+                    }
+                }
+
+                /* =================================================
+                   MOBILE TAB
+                   ================================================= */
+
+                @include mobile-or-tablet-screen {
+                    /*
+                     * CRITICAL MOBILE FIX
+                     *
+                     * Every tab gets exactly 25% of the available
+                     * navigation width.
+                     *
+                     * No fixed 13rem minimum width.
+                     * No natural-width expansion.
+                     * No horizontal scrolling.
+                     */
+
+                    width: 25%;
+                    max-width: 25%;
+                    min-width: 0;
+
+                    flex: 1 1 25%;
+
+                    height: 5.2rem;
+
+                    padding: 0 0.25rem;
+
+                    margin: 0;
+
+                    gap: 0.35rem;
+
+                    border-radius: 0.9rem 0.9rem 0 0;
+
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+
+                    box-sizing: border-box;
+
+                    overflow: hidden;
+
+                    /*
+                     * Prevent the original component's width rules
+                     * from expanding the tab.
+                     */
+                    flex-grow: 1;
+                    flex-shrink: 1;
+
+                    /* ---------------------------------------------
+                       MOBILE ICON
+                       --------------------------------------------- */
+
+                    svg {
+                        width: 1.7rem;
+                        height: 1.7rem;
+
+                        min-width: 1.7rem;
+                        max-width: 1.7rem;
+
+                        flex: 0 0 1.7rem;
+
+                        margin: 0;
+
+                        padding: 0;
+                    }
+
+                    /* ---------------------------------------------
+                       MOBILE LABEL
+                       --------------------------------------------- */
+
+                    .derivs-text,
+                    span {
+                        display: block;
+
+                        min-width: 0;
+                        max-width: calc(100% - 2rem);
+
+                        margin: 0;
+                        padding: 0;
+
+                        font-size: 1.35rem;
+                        line-height: 1.2;
+                        font-weight: 500;
+
+                        white-space: nowrap;
+
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+
+                        box-sizing: border-box;
+                    }
+
+                    /* ---------------------------------------------
+                       MOBILE ACTIVE TAB
+                       --------------------------------------------- */
+
+                    &.dc-tabs__active,
+                    &[aria-selected='true'] {
+                        background-color: #141d31;
+                        color: #ffffff;
+
+                        .derivs-text,
+                        span {
+                            color: #ffffff;
+                            font-weight: 600;
+                        }
+
+                        svg {
+                            color: #ffffff;
+                            opacity: 1;
+                        }
+                    }
+                }
+
+                /* =================================================
+                   VERY SMALL PHONES
+                   ================================================= */
+
+                @media (max-width: 360px) {
+                    gap: 0.2rem;
+
+                    padding-inline: 0.15rem;
+
+                    svg {
+                        width: 1.5rem;
+                        height: 1.5rem;
+
+                        min-width: 1.5rem;
+                        max-width: 1.5rem;
+
+                        flex-basis: 1.5rem;
+                    }
+
+                    .derivs-text,
+                    span {
+                        font-size: 1.2rem;
+                    }
+                }
+            }
+
+            /* =================================================
+               TAB CONTENT
+               ================================================= */
+
             &__content {
                 @include mobile-or-tablet-screen {
                     width: 100%;
-                    overflow-x: auto;
+                    max-width: 100%;
+                    min-width: 0;
+
+                    overflow-x: hidden;
+                    box-sizing: border-box;
 
                     &--no-result {
                         @include flex-center;
 
                         flex-direction: column;
                         justify-content: flex-start;
+
                         height: 100vh;
                         margin-top: 5rem;
 
@@ -148,33 +490,12 @@
                     }
                 }
             }
-
-            &__item {
-                border-top-left-radius: 1rem;
-                border-top-right-radius: 1rem;
-                height: 4.8rem;
-                padding: 0 2rem;
-                width: auto;
-
-                @include flex-center;
-
-                svg {
-                    padding-inline-end: 0;
-                    margin-inline-end: 0.8rem;
-
-                    @include mobile-or-tablet-screen {
-                        margin-inline-end: 0.4rem;
-                    }
-                }
-
-                &__icon {
-                    @include mobile-or-tablet-screen {
-                        padding-top: 0.5rem;
-                    }
-                }
-            }
         }
     }
+
+    /* ============================================================
+       RUN STRATEGY
+       ============================================================ */
 
     &__run-strategy-wrapper {
         inset-inline-end: 1.6rem;
@@ -202,6 +523,10 @@
         }
     }
 
+    /* ============================================================
+       SIDEBAR
+       ============================================================ */
+
     &__sidebar-wrapper {
         &--active {
             position: fixed;
@@ -213,6 +538,10 @@
         }
     }
 }
+
+/* ============================================================
+   ANIMATION WRAPPER
+   ============================================================ */
 
 .animation__wrapper {
     .animation {
@@ -227,6 +556,10 @@
         }
     }
 }
+
+/* ============================================================
+   BOT STOPPED DIALOG
+   ============================================================ */
 
 .bot-stopped-dialog {
     @include mobile-or-tablet-screen {
@@ -270,6 +603,10 @@
         }
     }
 }
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
 
 .dashboard {
     &__chart-wrapper {
@@ -387,6 +724,10 @@
     }
 }
 
+/* ============================================================
+   BOT BUILDER
+   ============================================================ */
+
 .bot-builder {
     position: absolute;
     top: 6.6rem;
@@ -423,9 +764,14 @@
         top: 5.6rem;
         inset-inline-start: 0;
         width: 100vw;
+        max-width: 100vw;
         height: var(--tab-content-height-mobile);
     }
 }
+
+/* ============================================================
+   JOYRIDE
+   ============================================================ */
 
 #react-joyride-step-6 {
     .onboard__label {
@@ -440,6 +786,10 @@
         }
     }
 }
+
+/* ============================================================
+   ONBOARDING
+   ============================================================ */
 
 .onboard {
     &__header {
@@ -501,6 +851,10 @@
     }
 }
 
+/* ============================================================
+   JOYRIDE CONTENT
+   ============================================================ */
+
 .joyride-content {
     font-size: 1.4rem;
 
@@ -557,6 +911,10 @@
         }
     }
 }
+
+/* ============================================================
+   DBOT SLIDER
+   ============================================================ */
 
 .dbot-slider {
     @include flex-center(flex-start);
@@ -719,6 +1077,10 @@
     }
 }
 
+/* ============================================================
+   BLINK ANIMATION
+   ============================================================ */
+
 @keyframes blink {
     0%,
     100% {
@@ -731,8 +1093,6 @@
 }
 
 .dbot-tour-blink {
-    animation: blink 1.25s infinite;
-    animation: blink 1.25s ease-in infinite;
     animation: blink 1.25s ease-in infinite;
     border-radius: $BORDER-RADIUS * 12.5;
     height: 2.5rem !important;
@@ -741,6 +1101,10 @@
 
     @include flex-center;
 }
+
+/* ============================================================
+   BETA SERVER BOT
+   ============================================================ */
 
 .beta-server-bot {
     color: var(--brand-red-coral);
