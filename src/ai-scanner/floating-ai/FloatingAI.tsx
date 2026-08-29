@@ -269,7 +269,9 @@ const FloatingAI = () => {
         /*
          * Subscribe once per symbol.
          */
-        symbols.forEach(symbol => {
+                symbols.forEach(strategySymbol => {
+            const symbol = strategySymbol === '1HZ100V' ? 'R_100' : strategySymbol;
+
             if (
                 subscribedSymbolsRef.current.has(
                     symbol
@@ -278,7 +280,15 @@ const FloatingAI = () => {
                 return;
             }
 
+            if (!tickBuffersRef.current[strategySymbol]) {
+                tickBuffersRef.current[strategySymbol] = [];
+            }
+            if (!tickBuffersRef.current[symbol]) {
+                tickBuffersRef.current[symbol] = tickBuffersRef.current[strategySymbol];
+            }
+
             ensureTickBuffer(symbol);
+
 
             try {
                 const unsubscribe =
