@@ -1,10 +1,20 @@
 @use 'components/shared/styles/constants' as *;
 @use 'components/shared/styles/mixins' as *;
 
+/* ============================================================
+   APPLICATION HEADER
+   ============================================================ */
+
 .app-header {
+    /*
+     * Same deep navy family used by the AI Scanner.
+     * Keeps the trading interface visually continuous.
+     */
+    background: #0b1224;
+
     &__account-settings {
         padding-inline-end: 1.2rem;
-        border-inline-end: 0.1rem solid var(--general-section-1);
+        border-inline-end: 0.1rem solid rgba(130, 110, 255, 0.14);
     }
 
     &__account-settings,
@@ -16,6 +26,205 @@
         }
     }
 }
+
+/* ============================================================
+   SECONDARY NAVIGATION
+   Dashboard / Bot Builder / Charts / Tutorials
+   ============================================================ */
+
+.derivs-secondary-tabs {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-start;
+
+    width: 100%;
+    min-height: 7.2rem;
+
+    position: sticky;
+    top: 0;
+    z-index: 10;
+
+    /*
+     * Primary surface.
+     *
+     * This is intentionally close to the AI Scanner background.
+     * We are NOT making the whole navigation purple.
+     */
+    background: #0b1224;
+
+    /*
+     * Very subtle indigo separation.
+     */
+    border-bottom: 1px solid rgba(130, 110, 255, 0.14);
+
+    padding: 0 1.6rem;
+    gap: 0.4rem;
+
+    /*
+     * Deriv text component.
+     */
+    .derivs-text__size--md {
+        font-size: 14px;
+        line-height: 18px;
+    }
+
+    /*
+     * Navigation items.
+     *
+     * The existing navigation/routing remains untouched.
+     * These rules only control presentation.
+     */
+    > * {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        min-height: 6.8rem;
+        padding: 0 2.8rem;
+
+        position: relative;
+
+        color: #8994ad;
+
+        background: transparent;
+
+        border-radius: 1.2rem 1.2rem 0 0;
+
+        transition:
+            background-color 0.2s ease,
+            color 0.2s ease,
+            box-shadow 0.2s ease;
+    }
+
+    /*
+     * Icons inherit the navigation color.
+     */
+    > * svg {
+        color: currentColor;
+
+        transition:
+            color 0.2s ease,
+            opacity 0.2s ease;
+    }
+
+    /*
+     * Hover state.
+     *
+     * Subtle navy lift rather than a bright color.
+     */
+    > *:hover {
+        background: #121a2d;
+        color: #f5f7ff;
+    }
+
+    > *:hover svg {
+        color: currentColor;
+    }
+
+    /*
+     * Active state.
+     *
+     * Deep navy surface + very subtle purple/blue accent.
+     * This mirrors the AI Scanner without making the header
+     * compete with it.
+     */
+    > .active,
+    > [aria-selected='true'],
+    > [data-active='true'],
+    > *.active {
+        background: #141d31;
+        color: #f5f7ff;
+
+        box-shadow:
+            inset 0 -2px 0 #743cff,
+            0 -1px 0 rgba(124, 77, 255, 0.12);
+    }
+
+    /*
+     * Some navigation implementations place the active state
+     * on a child element rather than the direct wrapper.
+     *
+     * :has() allows the visual state to remain correct without
+     * changing any React/TypeScript navigation logic.
+     */
+    > *:has(.active),
+    > *:has([aria-selected='true']),
+    > *:has([data-active='true']) {
+        background: #141d31;
+        color: #f5f7ff;
+
+        box-shadow:
+            inset 0 -2px 0 #743cff,
+            0 -1px 0 rgba(124, 77, 255, 0.12);
+    }
+
+    /*
+     * Active icons remain bright with the active label.
+     */
+    > .active svg,
+    > [aria-selected='true'] svg,
+    > [data-active='true'] svg,
+    > *:has(.active) svg,
+    > *:has([aria-selected='true']) svg,
+    > *:has([data-active='true']) svg {
+        color: #f5f7ff;
+    }
+
+    /*
+     * Keep text visually consistent.
+     */
+    > * .derivs-text,
+    > * span {
+        color: inherit;
+    }
+
+    /*
+     * Mobile / tablet
+     */
+    @include mobile-or-tablet-screen {
+        min-height: 6.4rem;
+
+        padding: 0 0.8rem;
+        gap: 0.2rem;
+
+        overflow-x: auto;
+        overflow-y: hidden;
+
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+
+        > * {
+            flex: 0 0 auto;
+
+            min-height: 5.6rem;
+
+            padding: 0 1.6rem;
+
+            border-radius: 1rem 1rem 0 0;
+        }
+    }
+
+    /*
+     * Mobile.
+     */
+    @include mobile-screen {
+        > * {
+            padding: 0 1.2rem;
+        }
+
+        .derivs-text__size--md {
+            font-size: 13px;
+            line-height: 17px;
+        }
+    }
+}
+
+/* ============================================================
+   ACCOUNT SWITCHER
+   ============================================================ */
 
 .account-switcher {
     &__item {
@@ -56,7 +265,9 @@
             display: flex;
             justify-content: right;
             align-items: center;
+
             background-color: var(--du-general-main-2);
+
             padding: 1.6rem 0.8rem;
 
             &--hide-manage-button {
@@ -66,9 +277,13 @@
             .manage-button {
                 background: none;
                 border: 1px solid var(--button-secondary-default);
+
                 margin-inline-end: 0.7rem;
+
                 height: auto;
+
                 padding: 0.4rem 1.2rem;
+
                 white-space: break-spaces;
 
                 &:hover {
@@ -85,132 +300,6 @@
         }
     }
 }
-
-/* ============================================================
-   SECONDARY NAVIGATION
-   Dashboard / Bot Builder / Charts / Tutorials
-   ============================================================ */
-
-.derivs-secondary-tabs {
-    display: flex;
-    align-items: stretch;
-    justify-content: flex-start;
-    width: 100%;
-    min-height: 7.2rem;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-
-    /*
-     * Keep the same dark visual family as the AI scanner.
-     */
-    background: #0b1224;
-
-    /*
-     * Very subtle separation from the content below.
-     */
-    border-bottom: 1px solid rgba(130, 110, 255, 0.14);
-
-    padding: 0 1.6rem;
-    gap: 0.4rem;
-
-    .derivs-text__size--md {
-        font-size: 14px;
-        line-height: 18px;
-    }
-
-    /*
-     * Navigation items.
-     *
-     * These rules affect appearance only.
-     * Existing click/routing behaviour remains untouched.
-     */
-    > * {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        min-height: 6.8rem;
-        padding: 0 2.8rem;
-
-        color: #8994ad;
-
-        border-radius: 1.2rem 1.2rem 0 0;
-
-        transition:
-            background-color 0.2s ease,
-            color 0.2s ease,
-            box-shadow 0.2s ease;
-    }
-
-    /*
-     * Hover
-     */
-    > *:hover {
-        background: #141d31;
-        color: #f5f7ff;
-    }
-
-    /*
-     * Active navigation item.
-     *
-     * Supports the common active/selected attributes without
-     * changing any application logic.
-     */
-    > .active,
-    > [aria-selected='true'],
-    > [data-active='true'] {
-        background: #141d31;
-        color: #f5f7ff;
-
-        box-shadow:
-            inset 0 -2px 0 #743cff,
-            0 -1px 0 rgba(124, 77, 255, 0.15);
-    }
-
-    /*
-     * Mobile / tablet
-     */
-    @include mobile-or-tablet-screen {
-        min-height: 6.4rem;
-        padding: 0 0.8rem;
-        gap: 0.2rem;
-
-        overflow-x: auto;
-        overflow-y: hidden;
-
-        scrollbar-width: none;
-
-        &::-webkit-scrollbar {
-            display: none;
-        }
-
-        > * {
-            flex: 0 0 auto;
-            min-height: 5.6rem;
-            padding: 0 1.6rem;
-            border-radius: 1rem 1rem 0 0;
-        }
-    }
-
-    /*
-     * Mobile
-     */
-    @include mobile-screen {
-        > * {
-            padding: 0 1.2rem;
-        }
-
-        .derivs-text__size--md {
-            font-size: 13px;
-            line-height: 17px;
-        }
-    }
-}
-
-/* ============================================================
-   ACCOUNT SWITCHER
-   ============================================================ */
 
 .deriv-account-switcher {
     &-item {
@@ -318,15 +407,22 @@
     &__container {
         max-height: 80vh;
         overflow: auto;
+
         background: var(--general-main-1);
         background-color: var(--general-main-2);
+
         border-radius: 4px;
+
         box-shadow: 0 8px 16px 0 var(--shadow-menu) !important;
+
         position: absolute;
+
         transition:
             transform 0.3s ease,
             opacity 0.25s linear;
+
         width: 320px;
+
         top: 55px;
         right: unset;
         inset-inline-end: 0;
@@ -335,7 +431,9 @@
     &__tradershub-link {
         background: var(--du-general-main-2);
         color: var(--text-prominent);
+
         padding: 1rem;
+
         display: flex;
         justify-content: center;
     }
@@ -382,8 +480,12 @@
         margin-inline-end: 1.6rem;
         border-radius: 16px;
 
-        // Login / Sign up are disabled until the OAuth app id is configured.
-        // Keep them visually unchanged when disabled.
+        /*
+         * Login / Sign up are disabled until the OAuth app id
+         * is configured.
+         *
+         * Keep their visual appearance unchanged when disabled.
+         */
         &:disabled,
         &[disabled] {
             opacity: 1;
@@ -398,14 +500,24 @@
     &__spinner {
         width: 2rem;
         height: 2rem;
+
         color: var(--text-prominent);
+
         animation: auth-spinner-rotate 0.8s linear infinite;
     }
 }
 
+/* ============================================================
+   ACCORDION
+   ============================================================ */
+
 .deriv-accordion--underline {
     border-bottom: none;
 }
+
+/* ============================================================
+   AUTH SPINNER
+   ============================================================ */
 
 @keyframes auth-spinner-rotate {
     from {
