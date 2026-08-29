@@ -600,15 +600,12 @@ const FloatingAI = () => {
         );
     };
 
-        /*
+            /*
      * ============================================================
      * SCAN ALL STRATEGIES (REAL-TIME STREAMING ENHANCEMENT)
      * ============================================================
      */
     const scanAllStrategies = async () => {
-        /*
-         * Prevent overlapping initialization handles.
-         */
         if (scanInProgressRef.current) {
             return;
         }
@@ -712,13 +709,10 @@ const FloatingAI = () => {
                     return nextTargets;
                 });
 
-                                // Flush calculations to the interface viewport layout cards
+                // Flush calculations to the interface viewport layout cards
                 if (hasUsableLiveData) {
                     setScannerResults(rankedResults);
                 } else {
-                    // SEEDING PHASE: Pass your standard profiles matrix into the array block.
-                    // This forces your UI markup container blocks to dismiss the loading loop
-                    // and immediately show your beautiful strategic grid panels!
                     const initialSeedingList = AI_STRATEGIES.map((strategy, idx) => ({
                         ...strategy,
                         scannerScore: 0,
@@ -735,8 +729,6 @@ const FloatingAI = () => {
                 return true;
             };
 
-            };
-
             /*
              * 4. Start the processing loop interval to track live ticks continually
              */
@@ -750,14 +742,16 @@ const FloatingAI = () => {
             }, 1000); // Recalculates dynamically every 1,000ms as ticks arrive
 
         } catch (error) {
+            console.error('[AI Scanner] Core Evaluation Error:', error);
+        } finally {
             if (isMountedRef.current && currentScanGeneration === scanGenerationRef.current) {
-                console.error('[AI Scanner] Core Evaluation Error:', error);
                 setIsScanning(false);
                 scanInProgressRef.current = false;
             }
         }
     };
-                                            
+
+                
 
     /*
      * ============================================================
