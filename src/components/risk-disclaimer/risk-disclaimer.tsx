@@ -6,37 +6,30 @@ const RiskDisclaimer = () => {
     const [shouldRender, setShouldRender] = useState(true);
 
     useEffect(() => {
-        const checkActiveTabRoute = () => {
-            // 1. Get the exact current path, query parameters, and hash links from the browser URL bar
-            const currentUrlPath = window.location.href.toLowerCase();
+        const checkActivePanels = () => {
+            const textContent = document.body.innerText;
 
-            // 2. Hide the disclaimer completely if the URL contains any of these panel keys
-            const isOnUnwantedPanel = currentUrlPath.includes('summary') || 
-                                      currentUrlPath.includes('transaction') || 
-                                      currentUrlPath.includes('journal');
+            // Target the unique stats labels that only exist on the summary layout tier
+            const hasSummaryStats = textContent.includes('Contracts lost') || 
+                                    textContent.includes('Contracts won') || 
+                                    textContent.includes('Total profit/loss');
 
-            if (isOnUnwantedPanel) {
+            // If those statistics blocks are visible, hide the disclaimer completely
+            if (hasSummaryStats) {
                 setShouldRender(false);
             } else {
                 setShouldRender(true);
             }
         };
 
-        // Run immediately when the component mounts
-        checkActiveTabRoute();
+        // Run immediately when component paints
+        checkActivePanels();
 
-        // 3. Listen to both history changes and hash fragment transitions natively
-        window.addEventListener('popstate', checkActiveTabRoute);
-        window.addEventListener('hashchange', checkActiveTabRoute);
+        // Dynamically monitor layout tree mutations to toggle instantly on clicks
+        const observer = new MutationObserver(checkActivePanels);
+        observer.observe(document.body, { childList: true, subtree: true });
 
-        // 4. Create an interval loop fallback to check for instant, un-routed component state switches
-        const fallbackInterval = setInterval(checkActiveTabRoute, 300);
-
-        return () => {
-            window.removeEventListener('popstate', checkActiveTabRoute);
-            window.removeEventListener('hashchange', checkActiveTabRoute);
-            clearInterval(fallbackInterval);
-        };
+        return () => observer.disconnect();
     }, []);
 
     useEffect(() => {  
@@ -74,7 +67,7 @@ const RiskDisclaimer = () => {
         }  
     };  
 
-    // Render nothing if we are browsing one of the target dashboards
+    // Self-destruct and clear screen if conditions are matched
     if (!shouldRender) return null;  
 
     return (  
