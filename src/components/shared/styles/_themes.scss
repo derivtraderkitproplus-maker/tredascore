@@ -65,6 +65,25 @@
     --tw-border-opacity: 1;
 
     .theme--light {
+        /* ============================================================
+           GLOBAL NAVY SKIN OVERRIDES
+           ============================================================ */
+        --general-main-1: #0b1428 !important;
+        --general-main-2: #0b1428 !important;
+        --general-main-3: #0b1428 !important;
+        --general-main-4: #0b1428 !important;
+        --general-section-1: #0b1428 !important;
+        --general-section-2: #0b1428 !important;
+        --general-section-3: #0b1428 !important;
+        --general-section-4: #0b1428 !important;
+        --general-section-5: #0b1428 !important;
+        --general-section-6: #0b1428 !important;
+        --background-default: #0b1428 !important;
+        --background-section-main: #0b1428 !important;
+        --brand-background-main: #0b1428 !important;
+        --core-color-solid: #0b1428 !important;
+        --overlay-container: #0b1428 !important;
+
         // General
         --general-main-1: #{constants.$color-white};
         --general-main-2: #{constants.$color-white};
@@ -210,8 +229,26 @@
         --header-background-mt5: #{constants.$color-blue-8};
         --header-background-others: #{constants.$color-green-7};
     }
-
     .theme--dark {
+        /* ============================================================
+           GLOBAL NAVY SKIN OVERRIDES
+           ============================================================ */
+        --general-main-1: #0b1428 !important;
+        --general-main-2: #0b1428 !important;
+        --general-main-3: #0b1428 !important;
+        --general-main-4: #0b1428 !important;
+        --general-section-1: #0b1428 !important;
+        --general-section-2: #0b1428 !important;
+        --general-section-3: #0b1428 !important;
+        --general-section-4: #0b1428 !important;
+        --general-section-5: #0b1428 !important;
+        --general-section-6: #0b1428 !important;
+        --background-default: #0b1428 !important;
+        --background-section-main: #0b1428 !important;
+        --brand-background-main: #0b1428 !important;
+        --core-color-solid: #0b1428 !important;
+        --overlay-container: #0b1428 !important;
+
         // General
         --general-main-1: #{constants.$color-black};
         --general-main-2: #{constants.$color-black-3};
