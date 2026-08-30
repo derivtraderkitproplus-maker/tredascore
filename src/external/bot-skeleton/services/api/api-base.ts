@@ -119,7 +119,6 @@ type TApiBaseApi = {
 } & ReturnType<
     typeof generateDerivApiInstance
 >;
-
 /*
  * ============================================================
  * API BASE
@@ -300,7 +299,6 @@ class APIBase {
                         JSON.parse(
                             storedAccounts
                         );
-
                     if (
                         accounts &&
                         accounts.length > 0 &&
@@ -450,7 +448,6 @@ class APIBase {
                 }
             }
         }
-
         const hasAccountID =
             V2GetActiveAccountId();
 
@@ -580,7 +577,6 @@ class APIBase {
             ) {
                 this.reconnection_attempts =
                     0;
-
                 setIsAuthorized(false);
 
                 setAccountList([]);
@@ -691,7 +687,6 @@ class APIBase {
                               balance.loginid,
                       }
                     : null;
-
             const storedAccounts =
                 DerivWSAccountsService.getStoredAccounts();
 
@@ -912,7 +907,6 @@ class APIBase {
             )
         );
     }
-
     /*
      * ============================================================
      * AI SCANNER — CREATE/RESTORE TICK STREAM
@@ -934,219 +928,103 @@ class APIBase {
          * Never send a subscription while the socket
          * is not OPEN.
          */
-        if (
-            this.api.connection.readyState !==
-            1
-        ) {
+        if (this.api.connection.readyState !== 1) {
             console.log(
                 `[AI Scanner] Waiting for WebSocket to open before subscribing to ${stream.symbol}.`
             );
-
             return false;
         }
 
         /*
          * Attach the incoming-message listener.
          */
-        if (
-            !stream.messageSubscription
-        ) {
+        if (!stream.messageSubscription) {
             try {
-                const messageSubscription =
-                    this.api
-                        .onMessage()
-                        .subscribe(
-                            (
-                                message: any
-                            ) => {
-                                if (
-                                    !stream.active ||
-                                    !message
-                                ) {
-                                    return;
-                                }
-
-                                /*
-                                 * TEMPORARY DIAGNOSTIC:
-                                 *
-                                 * This tells us whether the
-                                 * underlying WebSocket is
-                                 * actually delivering messages
-                                 * to this scanner bridge.
-                                 */
-                                console.log(
-                                    '[AI Scanner] RAW WS MESSAGE:',
-                                    message
-                                );
-
-                                /*
-                                 * Only process actual tick
-                                 * messages.
-                                 */
-                                if (
-                                    message.msg_type !==
-                                    'tick'
-                                ) {
-                                    return;
-                                }
-
-                                if (
-                                    !message.tick
-                                ) {
-                                    console.warn(
-                                        `[AI Scanner] Tick message received without tick payload for ${stream.symbol}:`,
-                                        message
-                                    );
-
-                                    return;
-                                }
-
-                                /*
-                                 * The symbol must match the
-                                 * exact subscribed symbol.
-                                 */
-                                if (
-                                    message.tick
-                                        .symbol !==
-                                    stream.symbol
-                                ) {
-                                    console.warn(
-                                        '[AI Scanner] Tick symbol mismatch:',
-                                        {
-                                            expected:
-                                                stream.symbol,
-                                            received:
-                                                message
-                                                    .tick
-                                                    .symbol,
-                                        }
-                                    );
-
-                                    return;
-                                }
-
-                                const rawQuote =
-                                    message.tick
-                                        .quote;
-
-                                const rawEpoch =
-                                    message.tick
-                                        .epoch;
-
-                                const quote =
-                                    Number(
-                                        rawQuote
-                                    );
-
-                                const epoch =
-                                    Number(
-                                        rawEpoch
-                                    );
-
-                                /*
-                                 * Strict validation.
-                                 */
-                                if (
-                                    !Number.isFinite(
-                                        quote
-                                    ) ||
-                                    !Number.isFinite(
-                                        epoch
-                                    )
-                                ) {
-                                    console.warn(
-                                        `[AI Scanner] Invalid tick data for ${stream.symbol}:`,
-                                        message.tick
-                                    );
-
-                                    return;
-                                }
-
-                                const normalizedTick: ScannerTick =
-                                    {
-                                        symbol:
-                                            stream.symbol,
-
-                                        quote,
-
-                                        epoch,
-                                    };
-
-                                /*
-                                 * IMPORTANT DIAGNOSTIC:
-                                 *
-                                 * If this appears in the
-                                 * browser console, the tick
-                                 * has successfully crossed
-                                 * the api-base WebSocket
-                                 * listener.
-                                 */
-                                console.log(
-                                    '[AI Scanner] VALID TICK:',
-                                    normalizedTick
-                                );
-
-                                const callbacks =
-                                    Array.from(
-                                        stream.callbacks
-                                    );
-
-                                callbacks.forEach(
-                                    callback => {
-                                        try {
-                                            callback(
-                                                normalizedTick
-                                            );
-                                        } catch (
-                                            error
-                                        ) {
-                                            console.error(
-                                                `[APIBase] AI scanner tick callback failed for ${stream.symbol}:`,
-                                                error
-                                            );
-                                        }
-                                    }
-                                );
+                const messageSubscription = this.api
+                    .onMessage()
+                    .subscribe(
+                        (message: any) => {
+                            if (!stream.active || !message) {
+                                return;
                             }
-                        );
 
-                stream.messageSubscription =
-                    messageSubscription;
+                            /*
+                             * TEMPORARY DIAGNOSTIC:
+                             * Helps verify the exact payload arriving from the WS.
+                             */
+                            console.log('[AI Scanner] RAW WS MESSAGE RECEIVED:', message);
+
+                            /*
+                             * ADAPTIVE EXTRACTOR:
+                             * Handle both nested raw WS shapes and flat, parsed framework shapes.
+                             */
+                            const tickData = message.tick || message;
+                            
+                            // Check if this payload belongs to our expected symbol index
+                            const msgSymbol = tickData.symbol || message.echo_req?.ticks;
+                            if (msgSymbol && msgSymbol !== stream.symbol) {
+                                return; // Safely skip data meant for other open asset pairs
+                            }
+
+                            // Extract values safely from either nested structures or root keys
+                            const rawQuote = tickData.quote || tickData.price || message.price;
+                            const rawEpoch = tickData.epoch || message.time;
+
+                            const quote = Number(rawQuote);
+                            const epoch = Number(rawEpoch || Math.floor(Date.now() / 1000));
+
+                            /*
+                             * Strict numerical validation.
+                             */
+                            if (!Number.isFinite(quote)) {
+                                return; // Silent discard if a valid quote price wasn't found
+                            }
+
+                            const normalizedTick: ScannerTick = {
+                                symbol: stream.symbol,
+                                quote,
+                                epoch,
+                            };
+
+                            console.log('[AI Scanner] VALID TICK PARSED:', normalizedTick);
+
+                            const callbacks = Array.from(stream.callbacks);
+                            callbacks.forEach(callback => {
+                                try {
+                                    callback(normalizedTick);
+                                } catch (error) {
+                                    console.error(
+                                        `[APIBase] AI scanner tick callback failed for ${stream.symbol}:`,
+                                        error
+                                    );
+                                }
+                            });
+                        }
+                    );
+
+                stream.messageSubscription = messageSubscription;
             } catch (error) {
                 console.error(
                     `[APIBase] Failed to create tick message listener for ${stream.symbol}:`,
                     error
                 );
-
-                stream.messageSubscription =
-                    null;
-
+                stream.messageSubscription = null;
                 return false;
             }
         }
-
         /*
          * Don't send the same Deriv subscription
          * twice on the same WebSocket session.
          */
-        if (
-            stream.subscriptionRequested
-        ) {
+        if (stream.subscriptionRequested) {
             return true;
         }
 
         try {
             /*
              * THIS is the actual Deriv subscription.
-             *
              * Keep the exact strategy symbol.
-             *
-             * Example:
-             *
-             * {
-             *     ticks: '1HZ100V',
-             *     subscribe: 1
-             * }
+             * Example: { ticks: '1HZ100V', subscribe: 1 }
              */
             const subscriptionRequest = {
                 ticks: stream.symbol,
@@ -1158,26 +1036,18 @@ class APIBase {
                 subscriptionRequest
             );
 
-            const subscriptionResult =
-                this.api.send(
-                    subscriptionRequest
-                );
-
-            stream.subscriptionRequested =
-                true;
+            const subscriptionResult = this.api.send(subscriptionRequest);
+            stream.subscriptionRequested = true;
 
             /*
-             * Some API implementations return the
-             * subscription response directly.
+             * Some API implementations return the subscription response directly.
              */
             if (
                 subscriptionResult &&
-                typeof subscriptionResult ===
-                    'object' &&
+                typeof subscriptionResult === 'object' &&
                 subscriptionResult.id
             ) {
-                stream.subscriptionId =
-                    subscriptionResult.id;
+                stream.subscriptionId = subscriptionResult.id;
             }
 
             /*
@@ -1185,82 +1055,51 @@ class APIBase {
              */
             if (
                 subscriptionResult &&
-                typeof subscriptionResult.then ===
-                    'function'
+                typeof subscriptionResult.then === 'function'
             ) {
                 subscriptionResult
-                    .then(
-                        (
-                            result: any
-                        ) => {
-                            console.log(
-                                '[AI Scanner] TICK SUBSCRIPTION RESPONSE:',
-                                {
-                                    symbol:
-                                        stream.symbol,
-                                    result,
-                                }
-                            );
-
-                            if (
-                                result?.id
-                            ) {
-                                stream.subscriptionId =
-                                    result.id;
+                    .then((result: any) => {
+                        console.log(
+                            '[AI Scanner] TICK SUBSCRIPTION RESPONSE:',
+                            {
+                                symbol: stream.symbol,
+                                result,
                             }
+                        );
 
-                            if (
-                                result?.subscription
-                                    ?.id
-                            ) {
-                                stream.subscriptionId =
-                                    result
-                                        .subscription
-                                        .id;
-                            }
-
-                            if (
-                                result?.error
-                            ) {
-                                console.error(
-                                    `[AI Scanner] Deriv rejected tick subscription for ${stream.symbol}:`,
-                                    result.error
-                                );
-
-                                stream.subscriptionRequested =
-                                    false;
-                            }
+                        if (result?.id) {
+                            stream.subscriptionId = result.id;
                         }
-                    )
-                    .catch(
-                        (
-                            error: unknown
-                        ) => {
-                            stream.subscriptionRequested =
-                                false;
 
-                            stream.subscriptionId =
-                                null;
+                        if (result?.subscription?.id) {
+                            stream.subscriptionId = result.subscription.id;
+                        }
 
+                        if (result?.error) {
                             console.error(
-                                `[APIBase] Could not complete tick subscription for ${stream.symbol}:`,
-                                error
+                                `[AI Scanner] Deriv rejected tick subscription for ${stream.symbol}:`,
+                                result.error
                             );
+                            stream.subscriptionRequested = false;
                         }
-                    );
+                    })
+                    .catch((error: unknown) => {
+                        stream.subscriptionRequested = false;
+                        stream.subscriptionId = null;
+                        console.error(
+                            `[APIBase] Could not complete tick subscription for ${stream.symbol}:`,
+                            error
+                        );
+                    });
             }
 
             console.log(
                 `[AI Scanner] Live tick subscription requested: ${stream.symbol}`
             );
-
             return true;
         } catch (error) {
-            stream.subscriptionRequested =
-                false;
-
-            stream.subscriptionId =
-                null;
+            stream.subscriptionRequested = false;
+            stream.subscriptionId = null;
 
             console.error(
                 `[APIBase] Failed to subscribe to live ticks for ${stream.symbol}:`,
@@ -1270,7 +1109,6 @@ class APIBase {
             return false;
         }
     }
-
     /*
      * ============================================================
      * AI SCANNER — SUBSCRIBE TO TICKS
@@ -1569,7 +1407,6 @@ class APIBase {
 
         this.scannerTickStreams.clear();
     }
-
     /*
      * ========================================================
      * ACTIVE SYMBOLS
