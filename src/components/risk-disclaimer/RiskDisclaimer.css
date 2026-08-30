@@ -1,5 +1,5 @@
 /* ============================================================
-   RISK DISCLAIMER
+   RISK DISCLAIMER GLOBAL RESET
    ============================================================ */
 
 .risk-disclaimer {
@@ -9,7 +9,7 @@
 
 
 /* ============================================================
-   FLOATING RISK DISCLAIMER BUTTON (RESTORED TO ORIGINAL DESIGN)
+   FLOATING RISK DISCLAIMER BUTTON (RESTORED FIXED ALIGNMENT)
    ============================================================ */
 
 .risk-disclaimer-button {
@@ -134,14 +134,16 @@
 
     padding: 0;
 
-    background: #181a1f;
+    /* UPDATED: Blends completely into your theme's deep main navy canvas color */
+    background: #0d1220; 
     color: #ffffff;
 
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    /* UPDATED: Sleek dark theme layout division line */
+    border: 1px solid rgba(255, 255, 255, 0.08);
 
     border-radius: 12px;
 
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
 
     box-sizing: border-box;
 
@@ -176,7 +178,8 @@
 
     gap: 12px;
 
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    /* UPDATED: Dark subtle separator line */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 
     box-sizing: border-box;
 
@@ -220,6 +223,9 @@
     margin: 0;
     padding: 0;
 
+    /* UPDATED: Standard golden indicator yellow color */
+    color: #f5c400; 
+
     font-size: 20px;
 
     line-height: 1;
@@ -245,7 +251,9 @@
     border-radius: 50%;
 
     background: transparent;
-    color: #ffffff;
+    
+    /* UPDATED: Muted neutral gray for clean close interactions */
+    color: rgba(255, 255, 255, 0.6);
 
     font-family: inherit;
 
@@ -259,10 +267,13 @@
     box-sizing: border-box;
 
     flex: 0 0 auto;
+    
+    transition: background 0.2s ease, color 0.2s ease;
 }
 
 .risk-disclaimer-close:hover {
     background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
 }
 /* ============================================================
    MAIN CONTENT
@@ -307,9 +318,10 @@
 
     border-radius: 8px;
 
-    background: rgba(245, 196, 0, 0.12);
+    /* UPDATED: Dark transparent yellow theme fill with a crisp boundary outline */
+    background: rgba(245, 196, 0, 0.08);
 
-    border: 1px solid rgba(245, 196, 0, 0.3);
+    border: 1px solid rgba(245, 196, 0, 0.25);
 
     color: #ffffff;
 
@@ -324,6 +336,9 @@
 
     margin: 0;
     padding: 0;
+
+    /* UPDATED: Yellow alert icon matches your theme color */
+    color: #f5c400;
 
     font-size: 18px;
 
@@ -410,9 +425,10 @@
 
     border-radius: 8px;
 
-    background: rgba(255, 255, 255, 0.045);
+    /* UPDATED: Secondary dark background block layer matching your list segments */
+    background: #141b2d;
 
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.05);
 
     box-sizing: border-box;
 
@@ -504,7 +520,8 @@
 
     gap: 16px;
 
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    /* UPDATED: Clean dark layout division line */
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 
     box-sizing: border-box;
 
@@ -525,7 +542,8 @@
 
     padding: 0;
 
-    color: #4c8bf5;
+    /* UPDATED: Exact royal link blue color matching your dashboard top items */
+    color: #1e6ff3;
 
     font-size: 14px;
 
@@ -546,7 +564,7 @@
 
 
 /* ============================================================
-   I UNDERSTAND
+   I UNDERSTAND BUTTON
    ============================================================ */
 
 .risk-disclaimer-understand {
@@ -569,7 +587,8 @@
 
     border-radius: 7px;
 
-    background: #4c8bf5;
+    /* UPDATED: Premium royal blue interactive button look matching top controls */
+    background: #1e6ff3;
 
     color: #ffffff;
 
@@ -586,10 +605,12 @@
     box-sizing: border-box;
 
     flex: 0 0 auto;
+
+    transition: background 0.2s ease, transform 0.1s ease;
 }
 
 .risk-disclaimer-understand:hover {
-    opacity: 0.92;
+    background: #1660d4;
 }
 
 .risk-disclaimer-understand:active {
@@ -614,12 +635,15 @@
         max-height: calc(100dvh - 100px);
 
         border-radius: 10px;
+        background: #0d1220; /* Dark navy mobile tracking background */
+        border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .risk-disclaimer-header {
         min-height: 54px;
 
         padding: 10px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .risk-disclaimer-title-wrapper {
@@ -632,6 +656,7 @@
 
     .risk-disclaimer-warning-icon {
         font-size: 17px;
+        color: #f5c400;
     }
 
     .risk-disclaimer-close {
@@ -641,6 +666,7 @@
         min-width: 32px;
 
         font-size: 26px;
+        color: rgba(255, 255, 255, 0.6);
     }
 
     .risk-disclaimer-content {
@@ -655,10 +681,13 @@
         padding: 10px 12px;
 
         gap: 8px;
+        background: rgba(245, 196, 0, 0.08);
+        border: 1px solid rgba(245, 196, 0, 0.25);
     }
 
     .risk-disclaimer-alert-icon {
         font-size: 16px;
+        color: #f5c400;
     }
 
     .risk-disclaimer-alert strong {
@@ -681,6 +710,8 @@
         padding: 9px 12px;
 
         border-radius: 8px;
+        background: #141b2d;
+        border: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .risk-disclaimer-point strong {
@@ -719,6 +750,7 @@
         align-items: center;
 
         justify-content: space-between;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .risk-disclaimer-read-more {
@@ -729,6 +761,7 @@
         white-space: nowrap;
 
         flex: 1 1 auto;
+        color: #1e6ff3;
     }
 
     .risk-disclaimer-understand {
@@ -741,6 +774,7 @@
         padding: 8px 10px;
 
         font-size: 13px;
+        background: #1e6ff3;
     }
 }
 
@@ -768,6 +802,7 @@
     .risk-disclaimer-modal {
         max-height: calc(100vh - 80px);
         max-height: calc(100dvh - 80px);
+        background: #0d1220;
     }
 
     .risk-disclaimer-header {
