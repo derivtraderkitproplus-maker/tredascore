@@ -22,9 +22,10 @@
         0 1px 0 rgba(255, 255, 255, 0.02),
         0 4px 18px rgba(0, 0, 0, 0.18);
 
-    position: relative;
-
+        position: relative;
     z-index: 20;
+    overflow: visible; // Add this line here
+
 
     &--desktop {
         min-height: 5.6rem;
