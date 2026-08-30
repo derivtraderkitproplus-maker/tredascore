@@ -9,14 +9,12 @@
 
 
 /* ============================================================
-   FLOATING RISK DISCLAIMER BUTTON (RESTORED EXACT ORIGINAL POSITION)
+   FLOATING RISK DISCLAIMER BUTTON (RESTORED TO ORIGINAL DESIGN)
    ============================================================ */
 
 .risk-disclaimer-button {
-    /* RESTORED: Put back original fixed positioning */
     position: fixed !important;
 
-    /* RESTORED: Exact layout coordinates matching your original design */
     left: 22px !important;
     bottom: 68px !important;
 
@@ -53,30 +51,8 @@
 
     transition:
         opacity 0.2s ease,
-        transform 0.1s ease,
-        display 0.1s ease;
+        transform 0.1s ease;
 }
-
-/* ============================================================
-   AUTOMATIC AUTO-HIDE WORKAROUND (100% CSS ONLY)
-   Hides the disclaimer when Summary/Transactions/Journal elements mount
-   ============================================================ */
-
-/* If your app wrapper mounts tables, canvas charts, or transaction details, hide it */
-body:has(table), 
-body:has(.summary-container), 
-body:has([role="tabpanel"]),
-body:has(.transactions-panel) {
-    display: none !important;
-}
-
-/* Fallback fallback if your app has unique layout containers */
-.summary-active .risk-disclaimer-button,
-.transactions-active .risk-disclaimer-button,
-.journal-active .risk-disclaimer-button {
-    display: none !important;
-}
-
 
 .risk-disclaimer-button:hover {
     opacity: 0.92;
@@ -109,8 +85,6 @@ body:has(.transactions-panel) {
 
     white-space: nowrap;
 }
-
-
 /* ============================================================
    MODAL OVERLAY
    ============================================================ */
@@ -178,6 +152,8 @@ body:has(.transactions-panel) {
 
     flex: 0 1 auto;
 }
+
+
 /* ============================================================
    HEADER
    ============================================================ */
@@ -288,8 +264,6 @@ body:has(.transactions-panel) {
 .risk-disclaimer-close:hover {
     background: rgba(255, 255, 255, 0.08);
 }
-
-
 /* ============================================================
    MAIN CONTENT
    ============================================================ */
@@ -485,6 +459,11 @@ body:has(.transactions-panel) {
     box-sizing: border-box;
 }
 
+
+/* ============================================================
+   PAST PERFORMANCE
+   ============================================================ */
+
 .risk-disclaimer-note {
     display: block;
 
@@ -502,6 +481,11 @@ body:has(.transactions-panel) {
 
     box-sizing: border-box;
 }
+
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
 
 .risk-disclaimer-footer {
     width: 100%;
@@ -526,6 +510,11 @@ body:has(.transactions-panel) {
 
     flex: 0 0 auto;
 }
+
+
+/* ============================================================
+   READ FULL RISK DISCLOSURE
+   ============================================================ */
 
 .risk-disclaimer-read-more {
     display: block;
@@ -554,6 +543,11 @@ body:has(.transactions-panel) {
 .risk-disclaimer-read-more:hover {
     text-decoration: underline;
 }
+
+
+/* ============================================================
+   I UNDERSTAND
+   ============================================================ */
 
 .risk-disclaimer-understand {
     display: flex;
@@ -868,7 +862,6 @@ body:has(.transactions-panel) {
     background: transparent !important;
     background-color: transparent !important;
     background-image: none !important;
-    box-shadow: none !important;
 }
 
 .risk-disclaimer,
