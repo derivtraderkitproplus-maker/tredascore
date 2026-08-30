@@ -1,21 +1,22 @@
 import React, {
-useCallback,
-useEffect,
-useRef,
-useState,
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    PointerEvent, // Added for type-safe dragging interactions
 } from 'react';
 
 import { useStore } from '@/hooks/useStore';
 
 import {
-AI_STRATEGIES,
-AIStrategy,
+    AI_STRATEGIES,
+    AIStrategy,
 } from './strategies';
 
 import {
-analyzeMarket,
-calculateMarketCompatibility,
-MarketAnalysis,
+    analyzeMarket,
+    calculateMarketCompatibility,
+    MarketAnalysis,
 } from './scannerLogic';
 
 import { api_base } from '@/external/bot-skeleton/services/api/api-base';
@@ -23,33 +24,36 @@ import { api_base } from '@/external/bot-skeleton/services/api/api-base';
 import './FloatingAI.css';
 
 /*
-
 * ============================================================
 * TYPES
 * ============================================================
-  */
+*/
 
 type ScannerResult = AIStrategy & {
-scannerScore: number;
-marketCompatibility: number;
-rank: number;
+    scannerScore: number;
+    marketCompatibility: number;
+    rank: number;
 
-marketState: MarketAnalysis['state'];
-marketDirection: MarketAnalysis['direction'];
-marketConfidence: number;
+    marketState: MarketAnalysis['state'];
+    marketDirection: MarketAnalysis['direction'];
+    marketConfidence: number;
 
-confidenceQualified: boolean;
+    confidenceQualified: boolean;
 
-liveTickCount: number;
-
+    liveTickCount: number;
 };
 
-/*
+// Added explicitly to type-safe the boundary coordinates tracking structure
+interface DragPosition {
+    x: number;
+    y: number;
+}
 
+/*
 * ============================================================
 * CONSTANTS
 * ============================================================
-  */
+*/
 
 const MAX_TICKS_PER_SYMBOL = 100;
 
@@ -60,84 +64,93 @@ const LIVE_TICK_RETRY_MS = 1000;
 const SCAN_SETTLE_MS = 900;
 
 /*
-
 * ============================================================
 * COMPONENT
 * ============================================================
-  */
+*/
 
 const FloatingAI = () => {
-const { quick_strategy } = useStore();
+    const { quick_strategy } = useStore();
 
-/*
- * ------------------------------------------------------------
- * UI STATE
- * ------------------------------------------------------------
- */
+    /*
+     * ------------------------------------------------------------
+     * UI STATE
+     * ------------------------------------------------------------
+     */
 
-const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
 
-const [isScanning, setIsScanning] =
-    useState(false);
+    const [isScanning, setIsScanning] =
+        useState(false);
 
-const [scannerResults, setScannerResults] =
-    useState<ScannerResult[]>([]);
+    const [scannerResults, setScannerResults] =
+        useState<ScannerResult[]>([]);
 
-const [loadingStrategyId, setLoadingStrategyId] =
-    useState<string | null>(null);
+    const [loadingStrategyId, setLoadingStrategyId] =
+        useState<string | null>(null);
 
-/*
- * NEW:
- *
- * Controls which strategy card is expanded.
- *
- * Only one strategy is expanded at a time.
- */
-const [expandedStrategyId, setExpandedStrategyId] =
-    useState<string | null>(null);
+    /*
+     * NEW:
+     *
+     * Controls which strategy card is expanded.
+     *
+     * Only one strategy is expanded at a time.
+     */
+    const [expandedStrategyId, setExpandedStrategyId] =
+        useState<string | null>(null);
 
-/*
- * ------------------------------------------------------------
- * LIVE TICK STORAGE
- * ------------------------------------------------------------
- */
+    /*
+     * ------------------------------------------------------------
+     * RUNTIME MARGIN BOUNDARY DRAG STATE
+     * ------------------------------------------------------------
+     */
+    const [dragPos, setDragPos] = useState<DragPosition>({ x: 0, y: 0 });
+    const buttonRef = useRef<HTMLDivElement | null>(null);
+    const isDragging = useRef<boolean>(false);
+    const dragStart = useRef<DragPosition>({ x: 0, y: 0 });
 
-const tickBuffersRef = useRef<
-    Record<string, number[]>
->({});
+    /*
+     * ------------------------------------------------------------
+     * LIVE TICK STORAGE
+     * ------------------------------------------------------------
+     */
 
-const lastTickTimeRef = useRef<
-    Record<string, number>
->({});
+    const tickBuffersRef = useRef<
+        Record<string, number[]>
+    >({});
 
-const invalidTickCountRef = useRef(0);
+    const lastTickTimeRef = useRef<
+        Record<string, number>
+    >({});
 
-/*
- * ------------------------------------------------------------
- * SUBSCRIPTION MANAGEMENT
- * ------------------------------------------------------------
- */
+    const invalidTickCountRef = useRef(0);
 
-const tickUnsubscribersRef = useRef<
-    Array<() => void>
->([]);
+    /*
+     * ------------------------------------------------------------
+     * SUBSCRIPTION MANAGEMENT
+     * ------------------------------------------------------------
+     */
 
-const subscribedSymbolsRef = useRef<
-    Set<string>
->(new Set());
+    const tickUnsubscribersRef = useRef<
+        Array<() => void>
+    >([]);
 
-const tickRetryTimerRef =
-    useRef<ReturnType<typeof setTimeout> | null>(
-        null
-    );
+    const subscribedSymbolsRef = useRef<
+        Set<string>
+    >(new Set());
 
-const isMountedRef = useRef(true);
+    const tickRetryTimerRef =
+        useRef<ReturnType<typeof setTimeout> | null>(
+            null
+        );
 
-/*
- * ------------------------------------------------------------
- * SCAN CONTROL
- * ------------------------------------------------------------
- */
+    const isMountedRef = useRef(true);
+
+    /*
+     * ------------------------------------------------------------
+     * SCAN CONTROL
+     * ------------------------------------------------------------
+     */
 
 const scanInProgressRef = useRef(false);
 
