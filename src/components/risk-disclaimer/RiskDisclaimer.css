@@ -134,11 +134,9 @@
 
     padding: 0;
 
-    /* UPDATED: Blends completely into your theme's deep main navy canvas color */
     background: #0d1220; 
     color: #ffffff;
 
-    /* UPDATED: Sleek dark theme layout division line */
     border: 1px solid rgba(255, 255, 255, 0.08);
 
     border-radius: 12px;
@@ -178,7 +176,6 @@
 
     gap: 12px;
 
-    /* UPDATED: Dark subtle separator line */
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 
     box-sizing: border-box;
@@ -223,7 +220,6 @@
     margin: 0;
     padding: 0;
 
-    /* UPDATED: Standard golden indicator yellow color */
     color: #f5c400; 
 
     font-size: 20px;
@@ -233,6 +229,7 @@
     flex: 0 0 auto;
 }
 
+/* PATCHED: Alignment glyph centered accurately */
 .risk-disclaimer-close {
     display: flex;
 
@@ -245,22 +242,20 @@
     min-width: 36px;
 
     margin: 0;
-    padding: 0;
+    padding: 0 0 4px 0 !important;
 
     border: 0;
     border-radius: 50%;
 
     background: transparent;
-    
-    /* UPDATED: Muted neutral gray for clean close interactions */
     color: rgba(255, 255, 255, 0.6);
 
     font-family: inherit;
 
-    font-size: 30px;
+    font-size: 26px;
     font-weight: 400;
 
-    line-height: 1;
+    line-height: 0 !important;
 
     cursor: pointer;
 
@@ -318,7 +313,6 @@
 
     border-radius: 8px;
 
-    /* UPDATED: Dark transparent yellow theme fill with a crisp boundary outline */
     background: rgba(245, 196, 0, 0.08);
 
     border: 1px solid rgba(245, 196, 0, 0.25);
@@ -337,7 +331,6 @@
     margin: 0;
     padding: 0;
 
-    /* UPDATED: Yellow alert icon matches your theme color */
     color: #f5c400;
 
     font-size: 18px;
@@ -347,6 +340,7 @@
     flex: 0 0 auto;
 }
 
+/* PATCHED: Bold warning alert text baseline centered accurately */
 .risk-disclaimer-alert strong {
     display: block;
 
@@ -358,7 +352,7 @@
     font-size: 14px;
     font-weight: 700;
 
-    line-height: 1.35;
+    line-height: 1.1 !important;
 }
 
 
@@ -425,7 +419,6 @@
 
     border-radius: 8px;
 
-    /* UPDATED: Secondary dark background block layer matching your list segments */
     background: #141b2d;
 
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -520,7 +513,6 @@
 
     gap: 16px;
 
-    /* UPDATED: Clean dark layout division line */
     border-top: 1px solid rgba(255, 255, 255, 0.08);
 
     box-sizing: border-box;
@@ -542,7 +534,6 @@
 
     padding: 0;
 
-    /* UPDATED: Exact royal link blue color matching your dashboard top items */
     color: #1e6ff3;
 
     font-size: 14px;
@@ -587,7 +578,6 @@
 
     border-radius: 7px;
 
-    /* UPDATED: Premium royal blue interactive button look matching top controls */
     background: #1e6ff3;
 
     color: #ffffff;
@@ -635,7 +625,7 @@
         max-height: calc(100dvh - 100px);
 
         border-radius: 10px;
-        background: #0d1220; /* Dark navy mobile tracking background */
+        background: #0d1220; 
         border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
@@ -665,8 +655,9 @@
 
         min-width: 32px;
 
-        font-size: 26px;
+        font-size: 24px;
         color: rgba(255, 255, 255, 0.6);
+        padding-bottom: 2px !important;
     }
 
     .risk-disclaimer-content {
@@ -692,6 +683,7 @@
 
     .risk-disclaimer-alert strong {
         font-size: 13px;
+        line-height: 1.1 !important;
     }
 
     .risk-disclaimer-content > p:not(.risk-disclaimer-note) {
@@ -823,6 +815,7 @@
 
     .risk-disclaimer-alert strong {
         font-size: 13px;
+        line-height: 1.1 !important;
     }
 
     .risk-disclaimer-points {
