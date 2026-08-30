@@ -3,29 +3,35 @@ import './RiskDisclaimer.css';
 
 const RiskDisclaimer = () => {
     const [isOpen, setIsOpen] = useState(false);
-    // New state to auto-hide the button when unwanted panels open below it
     const [shouldRender, setShouldRender] = useState(true);
 
-    // Dynamic layout observer to guarantee hiding on summary panels
     useEffect(() => {
         const checkActivePanels = () => {
-            const textContent = document.body.innerText;
-            // Detect unique words on the target screen tabs to drop visibility
-            const hasSummaryTitle = textContent.includes('Total stake') || 
-                                    textContent.includes('Transactions') ||
-                                    textContent.includes('Journal');
+            // 1. Target your exact tab container element at the top of the screen
+            const activeTabElement = document.querySelector('.active, [aria-selected="true"], .nav-link-active, .tab-active');
+            
+            // 2. Fallback check: Look only for the exact standalone tab headers, not raw page table logs
+            const headers = Array.from(document.querySelectorAll('button, a, div'));
+            const isViewingUnwantedTab = headers.some(el => {
+                const text = el.textContent?.trim();
+                // Ensure we only match the precise tab names exactly
+                return text === 'Summary' || text === 'Transactions' || text === 'Journal';
+            });
 
-            if (hasSummaryTitle) {
+            // 3. Look for your specific layout data grids
+            const hasDataGrid = document.querySelector('.summary-container, .transactions-table, .journal-panel');
+
+            // If an unwanted active view panel matches, hide the button safely
+            if (hasDataGrid || (isViewingUnwantedTab && !document.body.innerText.includes('Bot Builder'))) {
                 setShouldRender(false);
             } else {
                 setShouldRender(true);
             }
         };
 
-        // Run checking test immediately on layout paint
         checkActivePanels();
 
-        // Listen for internal framework DOM mutation tree updates
+        // Safe mutation tree tracking to toggle visibility instantly on click transitions
         const observer = new MutationObserver(checkActivePanels);
         observer.observe(document.body, { childList: true, subtree: true });
 
@@ -61,14 +67,13 @@ const RiskDisclaimer = () => {
 
     const handleOverlayClick = (  
         event: React.MouseEvent<HTMLDivElement>  
-) => {  
+    ) => {  
         if (event.target === event.currentTarget) {  
             setIsOpen(false);  
         }  
     };  
 
-    // If text values match the Summary panel tabs, render nothing
-    if (!shouldRender) return null;
+    if (!shouldRender) return null;  
 
     return (  
         <div className="risk-disclaimer">  
@@ -172,7 +177,7 @@ const RiskDisclaimer = () => {
                                     <span>  
                                         Make sure you understand the product  
                                         and risks before trading.  
-                                </span>  
+                                    </span>  
                                 </div>  
                             </div>  
 
@@ -185,7 +190,7 @@ const RiskDisclaimer = () => {
                         {/* FOOTER */}  
                         <div className="risk-disclaimer-footer">  
                             <a  
-                                href="https://deriv.com/terms-and-conditions/risk-disclosure"  
+                                href="https://deriv.com"  
                                 target="_blank"  
                                 rel="noopener noreferrer"  
                                 className="risk-disclaimer-read-more"  
