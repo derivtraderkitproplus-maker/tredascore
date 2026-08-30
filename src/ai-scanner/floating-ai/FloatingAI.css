@@ -4,7 +4,6 @@
    No scanner / WebSocket logic is changed.
    ============================================================ */
 
-
 /* ============================================================
    DESIGN TOKENS
    ============================================================ */
@@ -37,7 +36,7 @@
 
 
 /* ============================================================
-   FLOATING AI BUTTON
+   FLOATING AI BUTTON (SILENT DANCING IMPLEMENTED)
    ============================================================ */
 
 .floating-ai-button {
@@ -72,16 +71,20 @@
         0 10px 35px rgba(0, 0, 0, 0.5),
         0 0 28px rgba(124, 58, 237, 0.18);
 
+    /* 🕺 INTEGRATED SILENT DANCE LOOP ANIMATION */
+    animation: silentDance 4.5s ease-in-out infinite;
+
     transition:
-        transform 0.25s ease,
-        box-shadow 0.25s ease,
         border-color 0.25s ease,
-        opacity 0.2s ease;
+        opacity 0.2s ease,
+        box-shadow 0.25s ease;
+        
+    /* Touch action setup ensures mobile scrolling remains locked during drag events */
+    touch-action: none;
+    user-select: none;
 }
 
 .floating-ai-button:hover {
-    transform: translateY(-2px) scale(1.05);
-
     border-color: rgba(167, 139, 250, 0.9);
 
     box-shadow:
@@ -91,13 +94,25 @@
 }
 
 .floating-ai-button:active {
-    transform: scale(0.95);
+    /* 🛑 PAUSE THE DANCE IN REAL TIME SO IT DRAGS WITHOUT JITTERING */
+    animation-play-state: paused !important;
+    transform: scale(0.94) !important;
 }
 
 .floating-ai-button.active {
     opacity: 0;
     pointer-events: none;
     transform: scale(0.75);
+}
+
+/* Smooth Up-Down Hover and Glow Loop Styles */
+@keyframes silentDance {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-8px) rotate(1.5deg); /* Subtle vertical floating & tilt */
+    }
 }
 
 
@@ -324,7 +339,6 @@
 
     letter-spacing: -0.15px;
 }
-
 
 /* ============================================================
    STATUS DOT
