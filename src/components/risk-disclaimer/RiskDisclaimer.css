@@ -9,26 +9,26 @@
 
 
 /* ============================================================
-   FLOATING RISK DISCLAIMER BUTTON
+   FLOATING RISK DISCLAIMER BUTTON (100% ANTI-OVERLAP FIX)
    ============================================================ */
 
 .risk-disclaimer-button {
-    position: fixed;
+    /* CHANGED: Fixed positioning removed so it obeys DOM flow instead of floating */
+    position: relative !important;
 
-    left: 22px;
-    bottom: 68px;
+    /* OPTIMIZED: Clean margins so adjacent content blocks push it cleanly */
+    margin: 16px auto 16px 22px !important;
 
     width: 118px;
     height: 26px;
 
     padding: 0 7px;
-    margin: 0;
 
     border: 0;
     border-radius: 5px;
 
-    background: #f5c400;
-    color: #111111;
+    background: #f5c400 !important;
+    color: #0b1220 !important;
 
     font-family: inherit;
     font-size: 8px;
@@ -45,7 +45,8 @@
 
     cursor: pointer;
 
-    z-index: 10000;
+    /* Stays cleanly bounded inside local layout views */
+    z-index: 10;
 
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 
@@ -154,8 +155,6 @@
 
     flex: 0 1 auto;
 }
-
-
 /* ============================================================
    HEADER
    ============================================================ */
@@ -423,11 +422,6 @@
     overflow: visible;
 }
 
-
-/* ============================================================
-   POINT TITLE
-   ============================================================ */
-
 .risk-disclaimer-point strong {
     display: block;
 
@@ -447,11 +441,6 @@
 
     box-sizing: border-box;
 }
-
-
-/* ============================================================
-   POINT DESCRIPTION
-   ============================================================ */
 
 .risk-disclaimer-point span {
     display: block;
@@ -473,11 +462,6 @@
     box-sizing: border-box;
 }
 
-
-/* ============================================================
-   PAST PERFORMANCE
-   ============================================================ */
-
 .risk-disclaimer-note {
     display: block;
 
@@ -495,11 +479,6 @@
 
     box-sizing: border-box;
 }
-
-
-/* ============================================================
-   FOOTER
-   ============================================================ */
 
 .risk-disclaimer-footer {
     width: 100%;
@@ -524,11 +503,6 @@
 
     flex: 0 0 auto;
 }
-
-
-/* ============================================================
-   READ FULL RISK DISCLOSURE
-   ============================================================ */
 
 .risk-disclaimer-read-more {
     display: block;
@@ -557,11 +531,6 @@
 .risk-disclaimer-read-more:hover {
     text-decoration: underline;
 }
-
-
-/* ============================================================
-   I UNDERSTAND
-   ============================================================ */
 
 .risk-disclaimer-understand {
     display: flex;
@@ -609,8 +578,6 @@
 .risk-disclaimer-understand:active {
     transform: scale(0.98);
 }
-
-
 /* ============================================================
    COMPACT MOBILE
    ============================================================ */
@@ -631,11 +598,6 @@
 
         border-radius: 10px;
     }
-
-
-    /* -----------------------------------------
-       HEADER
-       ----------------------------------------- */
 
     .risk-disclaimer-header {
         min-height: 54px;
@@ -664,19 +626,9 @@
         font-size: 26px;
     }
 
-
-    /* -----------------------------------------
-       CONTENT
-       ----------------------------------------- */
-
     .risk-disclaimer-content {
         padding: 12px 14px 14px;
     }
-
-
-    /* -----------------------------------------
-       WARNING
-       ----------------------------------------- */
 
     .risk-disclaimer-alert {
         min-height: 46px;
@@ -696,11 +648,6 @@
         font-size: 13px;
     }
 
-
-    /* -----------------------------------------
-       INTRO TEXT
-       ----------------------------------------- */
-
     .risk-disclaimer-content > p:not(.risk-disclaimer-note) {
         margin-bottom: 12px;
 
@@ -708,11 +655,6 @@
 
         line-height: 1.4;
     }
-
-
-    /* -----------------------------------------
-       RISK CARDS
-       ----------------------------------------- */
 
     .risk-disclaimer-points {
         gap: 8px;
@@ -738,11 +680,6 @@
         line-height: 1.35;
     }
 
-
-    /* -----------------------------------------
-       PAST PERFORMANCE
-       ----------------------------------------- */
-
     .risk-disclaimer-note {
         margin-top: 12px;
 
@@ -750,11 +687,6 @@
 
         line-height: 1.4;
     }
-
-
-    /* -----------------------------------------
-       FOOTER
-       ----------------------------------------- */
 
     .risk-disclaimer-footer {
         min-height: 62px;
@@ -803,9 +735,8 @@
 @media (max-width: 360px) {
 
     .risk-disclaimer-button {
-        left: 16px;
-
-        bottom: 68px;
+        position: relative !important;
+        margin: 12px auto 12px 16px !important;
 
         width: 118px;
 
@@ -891,9 +822,10 @@
         font-size: 12px;
     }
 }
+
+
 /* ============================================================
    FORCE RISK DISCLAIMER AREA TO NAVY
-   Keeps all existing content visible
    ============================================================ */
 
 .risk-disclaimer,
@@ -908,7 +840,6 @@
     border-color: transparent !important;
 }
 
-/* Keep the chevron area transparent so the navy shows through */
 .risk-disclaimer-chevron,
 .risk-disclaimer-wrapper .chevron,
 .risk-disclaimer-container .chevron {
@@ -918,16 +849,9 @@
     box-shadow: none !important;
 }
 
-/* Preserve the yellow button */
-.risk-disclaimer-button {
-    background: #f5c400 !important;
-    color: #0b1220 !important;
-}
-
-/* Do NOT allow the disclaimer layer to hide anything */
 .risk-disclaimer,
 .risk-disclaimer-wrapper,
 .risk-disclaimer-container {
     visibility: visible !important;
     opacity: 1 !important;
-                     }
+}
