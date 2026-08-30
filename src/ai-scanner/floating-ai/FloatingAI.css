@@ -1,354 +1,347 @@
 /* ============================================================
-   FLOATING AI — PREMIUM TRADING TERMINAL UI
-   Visual layer only.
-   No scanner / WebSocket logic is changed.
+   PREMIUM STRATEGY CARD SYSTEM
+   Production UI layer only.
+   Scanner / WebSocket logic untouched.
    ============================================================ */
 
+.strategy-card {
+    display: flex;
+    flex-direction: column;
 
-/* ============================================================
-   DESIGN TOKENS
-   ============================================================ */
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 
-:root {
-    --ai-bg: #080c14;
-    --ai-panel: #0b111d;
-    --ai-surface: #101827;
-    --ai-surface-2: #141d2d;
-    --ai-surface-3: #182235;
-
-    --ai-border: rgba(255, 255, 255, 0.075);
-    --ai-border-strong: rgba(139, 92, 246, 0.32);
-
-    --ai-text: #f8fafc;
-    --ai-text-soft: #cbd5e1;
-    --ai-text-muted: #8794a8;
-    --ai-text-dim: #64748b;
-
-    --ai-purple: #8b5cf6;
-    --ai-purple-light: #a78bfa;
-    --ai-blue: #3b82f6;
-
-    --ai-green: #22c55e;
-    --ai-yellow: #eab308;
-    --ai-red: #ef4444;
-
-    --ai-radius: 18px;
-}
-
-
-/* ============================================================
-   FLOATING AI BUTTON
-   ============================================================ */
-
-.floating-ai-button {
-    position: fixed;
-    right: 24px;
-    bottom: 90px;
-
-    width: 62px;
-    height: 62px;
     padding: 0;
 
-    border: 1px solid rgba(139, 92, 246, 0.55);
-    border-radius: 50%;
-
-    cursor: pointer;
-    z-index: 99999;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    overflow: hidden;
 
     background:
         radial-gradient(
-            circle at 35% 25%,
-            rgba(139, 92, 246, 0.22),
-            transparent 45%
+            circle at 100% 0%,
+            rgba(139, 92, 246, 0.075),
+            transparent 38%
         ),
-        #0c1220;
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.035),
+            rgba(255, 255, 255, 0.008)
+        ),
+        rgba(15, 23, 42, 0.92);
+
+    border: 1px solid rgba(255, 255, 255, 0.07);
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
 
     box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.035),
-        0 10px 35px rgba(0, 0, 0, 0.5),
-        0 0 28px rgba(124, 58, 237, 0.18);
+        inset 0 1px 0 rgba(255, 255, 255, 0.035),
+        0 8px 26px rgba(0, 0, 0, 0.24);
 
     transition:
-        transform 0.25s ease,
-        box-shadow 0.25s ease,
-        border-color 0.25s ease,
-        opacity 0.2s ease;
+        transform 0.22s ease,
+        border-color 0.22s ease,
+        box-shadow 0.22s ease;
 }
 
-.floating-ai-button:hover {
-    transform: translateY(-2px) scale(1.05);
+.strategy-card:hover {
+    transform: translateY(-1px);
 
-    border-color: rgba(167, 139, 250, 0.9);
+    border-color: rgba(139, 92, 246, 0.25);
 
     box-shadow:
-        0 0 0 1px rgba(139, 92, 246, 0.2),
-        0 14px 40px rgba(0, 0, 0, 0.55),
-        0 0 38px rgba(124, 58, 237, 0.32);
+        inset 0 1px 0 rgba(255, 255, 255, 0.045),
+        0 12px 34px rgba(0, 0, 0, 0.32),
+        0 0 24px rgba(124, 58, 237, 0.06);
 }
 
-.floating-ai-button:active {
-    transform: scale(0.95);
-}
+.strategy-card.top-strategy {
+    border-color: rgba(139, 92, 246, 0.34);
 
-.floating-ai-button.active {
-    opacity: 0;
-    pointer-events: none;
-    transform: scale(0.75);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        0 12px 34px rgba(79, 70, 229, 0.14),
+        0 0 30px rgba(124, 58, 237, 0.08);
 }
 
 
 /* ============================================================
-   AI CORE
+   CARD HEADER
    ============================================================ */
 
-.ai-core {
-    position: relative;
-    z-index: 5;
-
-    width: 43px;
-    height: 43px;
-
+.strategy-card-header {
     display: flex;
+
+    width: 100%;
+    min-width: 0;
+
+    margin: 0;
+    padding: 14px;
+
+    box-sizing: border-box;
+
+    border: 0;
+
+    background: transparent;
+
+    color: inherit;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    font: inherit;
+}
+
+.strategy-card-summary {
+    display: flex;
+
     align-items: center;
-    justify-content: center;
 
-    border-radius: 50%;
+    justify-content: space-between;
 
-    color: #ffffff;
-    font-size: 24px;
-    font-weight: 700;
+    gap: 9px;
 
-    background:
-        radial-gradient(
-            circle at 35% 25%,
-            #c4b5fd 0%,
-            #8b5cf6 32%,
-            #4f46e5 70%,
-            #2563eb 100%
-        );
-
-    box-shadow:
-        inset 0 1px 2px rgba(255, 255, 255, 0.35),
-        0 0 22px rgba(124, 58, 237, 0.6);
-
-    animation: aiCoreGlow 3s ease-in-out infinite;
-}
-
-@keyframes aiCoreGlow {
-    0%,
-    100% {
-        box-shadow:
-            inset 0 1px 2px rgba(255, 255, 255, 0.35),
-            0 0 20px rgba(124, 58, 237, 0.5);
-    }
-
-    50% {
-        box-shadow:
-            inset 0 1px 2px rgba(255, 255, 255, 0.4),
-            0 0 30px rgba(124, 58, 237, 0.75);
-    }
+    width: 100%;
+    min-width: 0;
 }
 
 
 /* ============================================================
-   AI RINGS
+   SUMMARY MAIN
    ============================================================ */
 
-.ai-ring {
-    position: absolute;
+.strategy-summary-main {
+    flex: 1 1 auto;
 
-    width: 62px;
-    height: 62px;
-
-    border-radius: 50%;
-    border: 1px solid rgba(139, 92, 246, 0.38);
-
-    pointer-events: none;
-}
-
-.ring-one {
-    animation: aiPulse 2.8s infinite;
-}
-
-.ring-two {
-    animation: aiPulse 2.8s infinite 0.9s;
-}
-
-.ring-three {
-    animation: aiPulse 2.8s infinite 1.8s;
-}
-
-@keyframes aiPulse {
-    0% {
-        transform: scale(0.92);
-        opacity: 0.65;
-    }
-
-    70% {
-        transform: scale(1.55);
-        opacity: 0;
-    }
-
-    100% {
-        transform: scale(1.55);
-        opacity: 0;
-    }
-}
-
-
-/* ============================================================
-   MAIN PANEL
-   ============================================================ */
-
-.floating-ai-panel {
-    position: fixed;
-
-    top: 18px;
-    right: 18px;
-    bottom: 18px;
-
-    width: min(540px, calc(100vw - 36px));
-
-    z-index: 99998;
+    min-width: 0;
 
     display: flex;
     flex-direction: column;
 
-    min-height: 0;
-    overflow: hidden;
-    box-sizing: border-box;
-
-    border-radius: 24px;
-
-    color: var(--ai-text);
-
-    background:
-        radial-gradient(
-            circle at 90% 0%,
-            rgba(124, 58, 237, 0.10),
-            transparent 32%
-        ),
-        radial-gradient(
-            circle at 0% 100%,
-            rgba(37, 99, 235, 0.07),
-            transparent 30%
-        ),
-        var(--ai-panel);
-
-    border: 1px solid var(--ai-border);
-
-    box-shadow:
-        0 30px 90px rgba(0, 0, 0, 0.72),
-        0 0 0 1px rgba(255, 255, 255, 0.025),
-        0 0 70px rgba(124, 58, 237, 0.10);
-
-    animation: aiPanelIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    gap: 5px;
 }
 
-@keyframes aiPanelIn {
-    from {
-        opacity: 0;
-        transform: translateY(12px) scale(0.975);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-
-/* ============================================================
-   HEADER
-   ============================================================ */
-
-.floating-ai-header {
-    position: relative;
-
-    flex-shrink: 0;
-    min-height: 64px;
-
+.strategy-summary-title-row {
     display: flex;
+
     align-items: center;
-    justify-content: space-between;
 
-    padding: 0 18px;
-    box-sizing: border-box;
-
-    background: rgba(8, 12, 20, 0.72);
-
-    border-bottom: 1px solid var(--ai-border);
-
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-}
-
-.floating-ai-header::after {
-    content: '';
-
-    position: absolute;
-
-    left: 18px;
-    right: 18px;
-    bottom: -1px;
-
-    height: 1px;
-
-    background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(139, 92, 246, 0.5),
-        transparent
-    );
-
-    opacity: 0.55;
-}
-
-.floating-ai-header > div {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    gap: 7px;
 
     min-width: 0;
 }
 
-.floating-ai-header strong {
-    color: #f8fafc;
+.strategy-summary-title-row .strategy-name {
+    flex: 1 1 auto;
 
-    font-size: 15px;
-    font-weight: 750;
+    min-width: 0;
 
-    letter-spacing: -0.15px;
+    overflow: hidden;
+
+    margin: 0;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.strategy-summary-meta {
+    display: flex;
+
+    align-items: center;
+
+    flex-wrap: wrap;
+
+    gap: 10px;
+
+    color: #64748b;
+
+    font-size: 8px;
+    font-weight: 700;
+
+    letter-spacing: 0.45px;
+}
+
+.strategy-summary-meta strong {
+    color: #b9c6d8;
+
+    font-weight: 800;
 }
 
 
 /* ============================================================
-   STATUS DOT
+   EXPAND ICON
    ============================================================ */
 
-.ai-status-dot {
-    position: relative;
+.strategy-expand-icon {
+    display: flex;
 
-    width: 8px;
-    height: 8px;
+    align-items: center;
+    justify-content: center;
 
-    flex-shrink: 0;
+    flex: 0 0 auto;
+
+    width: 28px;
+    height: 28px;
+
+    border-radius: 9px;
+
+    background: rgba(255, 255, 255, 0.035);
+
+    border: 1px solid rgba(255, 255, 255, 0.055);
+
+    color: #718096;
+
+    font-size: 22px;
+    line-height: 1;
+
+    transform: rotate(0deg);
+
+    transition:
+        transform 0.3s ease,
+        color 0.2s ease,
+        background 0.2s ease;
+}
+
+.strategy-expand-icon.open {
+    transform: rotate(90deg);
+
+    color: #c4b5fd;
+
+    background: rgba(139, 92, 246, 0.10);
+}
+
+
+/* ============================================================
+   ACCORDION
+   ============================================================ */
+
+.strategy-card-body {
+    display: block;
+
+    width: 100%;
+    min-width: 0;
+
+    max-height: 0;
+
+    overflow: hidden;
+
+    opacity: 0;
+
+    transition:
+        max-height 0.3s ease-out,
+        opacity 0.2s ease;
+}
+
+.strategy-card-body.visible {
+    max-height: 1600px;
+
+    opacity: 1;
+}
+
+.strategy-card-body-inner {
+    display: flex;
+    flex-direction: column;
+
+    gap: 10px;
+
+    min-width: 0;
+
+    padding: 0 14px 14px;
+}
+
+
+/* ============================================================
+   DESCRIPTION
+   ============================================================ */
+
+.strategy-card-body .strategy-description {
+    margin: 0;
+
+    padding: 9px 10px;
+
+    border-radius: 10px;
+
+    background: rgba(255, 255, 255, 0.025);
+
+    border: 1px solid rgba(255, 255, 255, 0.045);
+
+    color: #8290a5;
+
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+
+/* ============================================================
+   READY STATUS
+   ============================================================ */
+
+.strategy-ready-status {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 10px;
+
+    min-width: 0;
+
+    padding: 8px 10px;
+
+    border-radius: 10px;
+
+    background: rgba(34, 197, 94, 0.045);
+
+    border: 1px solid rgba(34, 197, 94, 0.12);
+}
+
+.ready-indicator {
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    min-width: 0;
+
+    color: #86efac;
+
+    font-size: 8px;
+    font-weight: 800;
+
+    letter-spacing: 0.7px;
+}
+
+.ready-dot {
+    width: 7px;
+    height: 7px;
+
+    flex: 0 0 auto;
+
     border-radius: 50%;
 
-    background: var(--ai-green);
+    background: #22c55e;
 
     box-shadow:
         0 0 0 3px rgba(34, 197, 94, 0.08),
-        0 0 13px rgba(34, 197, 94, 0.8);
+        0 0 12px rgba(34, 197, 94, 0.7);
 
-    animation: statusPulse 1.8s infinite;
+    animation: readyPulse 1.8s ease-in-out infinite;
 }
 
-@keyframes statusPulse {
+.ready-tick-count {
+    flex-shrink: 0;
+
+    color: #64748b;
+
+    font-size: 8px;
+    font-weight: 800;
+
+    letter-spacing: 0.45px;
+}
+
+@keyframes readyPulse {
     0%,
     100% {
         opacity: 1;
@@ -361,964 +354,121 @@
 
 
 /* ============================================================
-   CLOSE BUTTON
+   THREE-COLUMN METRIC MATRIX
    ============================================================ */
 
-.ai-close {
-    width: 36px;
-    height: 36px;
+.strategy-metric-grid {
+    display: grid;
 
-    padding: 0;
-    flex-shrink: 0;
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr));
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    gap: 6px;
 
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
-
-    background: rgba(255, 255, 255, 0.035);
-
-    color: #94a3b8;
-
-    font-size: 25px;
-    font-weight: 300;
-    line-height: 1;
-
-    cursor: pointer;
-
-    transition:
-        background 0.2s ease,
-        color 0.2s ease,
-        border-color 0.2s ease,
-        transform 0.2s ease;
+    width: 100%;
 }
 
-.ai-close:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
-    transform: rotate(3deg);
-}
-
-
-/* ============================================================
-   CONTENT
-   ============================================================ */
-
-.floating-ai-content {
-    flex: 1 1 auto;
-    min-height: 0;
-
+.strategy-metric-card {
     display: flex;
     flex-direction: column;
 
-    padding: 22px 18px 18px;
+    align-items: flex-start;
+
+    min-width: 0;
+
+    padding: 10px;
+
     box-sizing: border-box;
 
-    overflow: hidden;
-}
-
-.floating-ai-content h3 {
-    margin: 0 0 7px;
-
-    color: #f8fafc;
-
-    font-size: 21px;
-    font-weight: 750;
-
-    letter-spacing: -0.45px;
-}
-
-.floating-ai-content p {
-    margin: 0 0 18px;
-
-    color: var(--ai-text-muted);
-
-    font-size: 13px;
-    line-height: 1.55;
-}
-
-
-/* ============================================================
-   HERO
-   ============================================================ */
-
-.ai-hero {
-    position: relative;
-
-    flex-shrink: 0;
-
-    text-align: center;
-
-    padding: 8px 8px 20px;
-}
-
-.ai-hero-icon {
-    position: relative;
-
-    width: 64px;
-    height: 64px;
-
-    margin: 0 auto 16px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 20px;
-
-    color: #ffffff;
-    font-size: 28px;
+    border-radius: 11px;
 
     background:
-        radial-gradient(
-            circle at 30% 20%,
-            rgba(255, 255, 255, 0.22),
-            transparent 38%
-        ),
         linear-gradient(
             145deg,
-            #8b5cf6,
-            #4f46e5 55%,
-            #2563eb
+            rgba(255, 255, 255, 0.035),
+            rgba(255, 255, 255, 0.012)
         );
 
-    border: 1px solid rgba(255, 255, 255, 0.15);
-
-    box-shadow:
-        0 15px 35px rgba(79, 70, 229, 0.25),
-        0 0 45px rgba(124, 58, 237, 0.18);
-}
-
-.ai-hero-icon::after {
-    content: '';
-
-    position: absolute;
-    inset: -7px;
-
-    border-radius: 25px;
-    border: 1px solid rgba(139, 92, 246, 0.18);
-
-    pointer-events: none;
-}
-
-.ai-hero h3 {
-    margin-bottom: 7px;
-    font-size: 23px;
-}
-
-.ai-hero p {
-    max-width: 390px;
-    margin: 0 auto;
-    font-size: 13px;
-}
-
-
-/* ============================================================
-   STRATEGY COUNT
-   ============================================================ */
-
-.strategy-count {
-    position: relative;
-
-    flex-shrink: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    gap: 10px;
-
-    min-height: 54px;
-
-    margin-bottom: 13px;
-    padding: 12px 16px;
-
-    box-sizing: border-box;
-
-    border-radius: 14px;
-
-    background:
-        linear-gradient(
-            100deg,
-            rgba(124, 58, 237, 0.11),
-            rgba(59, 130, 246, 0.06)
-        );
-
-    border: 1px solid rgba(139, 92, 246, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.055);
 
     box-shadow:
         inset 0 1px rgba(255, 255, 255, 0.025);
 }
 
-.strategy-count strong {
-    font-size: 23px;
-    font-weight: 800;
-
-    background: linear-gradient(
-        135deg,
-        #c4b5fd,
-        #60a5fa
-    );
-
-    -webkit-background-clip: text;
-    background-clip: text;
-
-    color: transparent;
-}
-
-.strategy-count span {
-    color: #aebbd0;
-
-    font-size: 12px;
-    font-weight: 600;
-}
-
-
-/* ============================================================
-   PRIMARY SCAN BUTTON
-   ============================================================ */
-
-.scan-button {
-    position: relative;
-
-    width: 100%;
-    flex-shrink: 0;
-
-    min-height: 48px;
-
-    border: 1px solid rgba(167, 139, 250, 0.35);
-    border-radius: 13px;
-
-    padding: 13px 16px;
-
-    overflow: hidden;
-
-    cursor: pointer;
-
-    color: #ffffff;
-
-    font-size: 14px;
-    font-weight: 750;
-
-    background:
-        linear-gradient(
-            135deg,
-            #7c3aed,
-            #4f46e5 55%,
-            #2563eb
-        );
-
-    box-shadow:
-        0 10px 28px rgba(79, 70, 229, 0.25);
-
-    transition:
-        transform 0.2s ease,
-        box-shadow 0.2s ease,
-        border-color 0.2s ease,
-        opacity 0.2s ease;
-}
-
-.scan-button::before {
-    content: '';
-
-    position: absolute;
-
-    top: 0;
-    left: -120%;
-
-    width: 70%;
-    height: 100%;
-
-    background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255, 255, 255, 0.13),
-        transparent
-    );
-
-    transform: skewX(-20deg);
-
-    transition: left 0.55s ease;
-}
-
-.scan-button:hover::before {
-    left: 150%;
-}
-
-.scan-button:hover {
-    transform: translateY(-1px);
-
-    border-color: rgba(196, 181, 253, 0.65);
-
-    box-shadow:
-        0 13px 34px rgba(79, 70, 229, 0.38);
-}
-
-.scan-button:active {
-    transform: translateY(1px);
-}
-
-.scan-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-}
-
-
-/* ============================================================
-   SCANNING STATE
-   ============================================================ */
-
-.ai-scanning-state {
-    flex: 1 1 auto;
-    min-height: 0;
-
-    display: flex;
-    flex-direction: column;
-
-    align-items: center;
-    justify-content: center;
-
-    text-align: center;
-}
-
-.ai-scanning-state h3 {
-    margin-top: 24px;
-    margin-bottom: 7px;
-}
-
-.ai-scanning-state p {
-    max-width: 320px;
-    margin-bottom: 25px;
-}
-
-
-/* ============================================================
-   SCANNER LOADER
-   ============================================================ */
-
-.scanner-loader {
-    position: relative;
-
-    display: flex;
-
-    align-items: center;
-    justify-content: center;
-
-    gap: 7px;
-
-    padding: 17px 20px;
-
-    border-radius: 18px;
-
-    background: rgba(124, 58, 237, 0.06);
-
-    border: 1px solid rgba(139, 92, 246, 0.12);
-}
-
-.scanner-loader span {
-    width: 8px;
-    height: 8px;
-
-    border-radius: 50%;
-
-    background: #a78bfa;
-
-    box-shadow:
-        0 0 12px rgba(139, 92, 246, 0.65);
-
-    animation: scannerDot 1.15s infinite ease-in-out;
-}
-
-.scanner-loader span:nth-child(2) {
-    animation-delay: 0.15s;
-}
-
-.scanner-loader span:nth-child(3) {
-    animation-delay: 0.3s;
-}
-
-@keyframes scannerDot {
-    0%,
-    80%,
-    100% {
-        transform: scale(0.55);
-        opacity: 0.35;
-    }
-
-    40% {
-        transform: scale(1.25);
-        opacity: 1;
-    }
-}
-
-
-/* ============================================================
-   SCANNING PROGRESS
-   ============================================================ */
-
-.scanning-progress {
-    width: min(300px, 78%);
-
-    height: 4px;
-
-    overflow: hidden;
-    border-radius: 999px;
-
-    background: rgba(255, 255, 255, 0.07);
-
-    box-shadow:
-        inset 0 1px rgba(255, 255, 255, 0.03);
-}
-
-.scanning-progress-bar {
-    width: 35%;
-    height: 100%;
-
-    border-radius: inherit;
-
-    background: linear-gradient(
-        90deg,
-        #7c3aed,
-        #60a5fa,
-        #7c3aed
-    );
-
-    box-shadow:
-        0 0 12px rgba(124, 58, 237, 0.55);
-
-    animation: scanningProgress 1.25s infinite ease-in-out;
-}
-
-@keyframes scanningProgress {
-    0% {
-        transform: translateX(-150%);
-    }
-
-    100% {
-        transform: translateX(430%);
-    }
-}
-
-
-/* ============================================================
-   RESULTS HEADER
-   ============================================================ */
-
-.scanner-heading {
-    flex-shrink: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    gap: 12px;
-    margin-bottom: 13px;
-}
-
-.scanner-heading h3 {
-    margin-bottom: 3px;
-    font-size: 20px;
-}
-
-.scanner-heading p {
-    margin: 0;
-    font-size: 11px;
-}
-
-.result-count {
-    flex-shrink: 0;
-
-    min-width: 45px;
-
-    padding: 7px 10px;
-
-    text-align: center;
-
-    border-radius: 999px;
-
-    background: rgba(124, 58, 237, 0.09);
-
-    border: 1px solid rgba(139, 92, 246, 0.2);
-
-    color: #c4b5fd;
-
-    font-size: 11px;
-    font-weight: 800;
-}
-
-
-/* ============================================================
-   MARKET STATUS
-   ============================================================ */
-
-.scanner-market-status {
-    display: grid;
-
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-
-    gap: 7px;
-
-    flex-shrink: 0;
-
-    margin-bottom: 10px;
-}
-
-.scanner-market-status > div {
-    min-width: 0;
-
-    padding: 10px 9px;
-
-    border-radius: 11px;
-
-    background: rgba(255, 255, 255, 0.035);
-
-    border: 1px solid rgba(255, 255, 255, 0.055);
-}
-
-.scanner-market-status span {
-    display: block;
-
-    margin-bottom: 5px;
+.strategy-metric-card span {
+    margin-bottom: 6px;
 
     color: #64748b;
 
-    font-size: 8px;
-    font-weight: 700;
+    font-size: 7px;
+    font-weight: 800;
 
     text-transform: uppercase;
     letter-spacing: 0.55px;
 }
 
-.scanner-market-status strong {
-    display: block;
+.strategy-metric-card strong {
+    max-width: 100%;
 
     overflow: hidden;
 
-    color: #dbe4f0;
+    color: #e2e8f0;
 
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 11px;
+    font-weight: 850;
 
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
+.strategy-metric-card small {
+    margin-top: 4px;
 
-/* ============================================================
-   DATA NOTICE
-   ============================================================ */
+    color: #475569;
 
-.scanner-data-notice {
-    flex-shrink: 0;
+    font-size: 7px;
+    font-weight: 750;
+}
 
-    display: flex;
-    align-items: center;
+.direction-up {
+    color: #4ade80 !important;
+}
 
-    min-height: 38px;
+.direction-down {
+    color: #fb7185 !important;
+}
 
-    margin-bottom: 10px;
-
-    padding: 9px 11px;
-
-    box-sizing: border-box;
-
-    border-radius: 10px;
-
-    background: rgba(234, 179, 8, 0.055);
-
-    border: 1px solid rgba(234, 179, 8, 0.14);
-
-    color: #d8c47a;
-
-    font-size: 10px;
-
-    line-height: 1.4;
+.direction-flat {
+    color: #facc15 !important;
 }
 
 
 /* ============================================================
-   STRATEGY LIST
-   ONLY THIS AREA SCROLLS
+   LIVE TICK GRAPH
    ============================================================ */
 
-.strategy-list {
-    flex: 1 1 auto;
+.tick-history-panel {
+    min-width: 0;
 
-    min-height: 0;
+    padding: 11px;
 
-    overflow-y: auto;
-    overflow-x: hidden;
-
-    padding: 2px 4px 24px 1px;
-
-    overscroll-behavior: contain;
-
-    -webkit-overflow-scrolling: touch;
-
-    scrollbar-width: thin;
-
-    scrollbar-color:
-        rgba(139, 92, 246, 0.45)
-        rgba(255, 255, 255, 0.025);
-}
-
-.strategy-list::-webkit-scrollbar {
-    width: 5px;
-}
-
-.strategy-list::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.strategy-list::-webkit-scrollbar-thumb {
-    background: rgba(139, 92, 246, 0.45);
-    border-radius: 999px;
-}
-
-.strategy-list::-webkit-scrollbar-thumb:hover {
-    background: rgba(139, 92, 246, 0.7);
-}
-
-
-/* ============================================================
-   STRATEGY CARD
-   ============================================================ */
-
-.strategy-card {
-    position: relative;
-
-    margin-bottom: 10px;
-
-    padding: 15px;
-
-    overflow: hidden;
-
-    border-radius: var(--ai-radius);
-
-    background:
-        linear-gradient(
-            145deg,
-            rgba(255, 255, 255, 0.025),
-            transparent 50%
-        ),
-        var(--ai-surface);
-
-    border: 1px solid var(--ai-border);
-
-    box-shadow:
-        0 7px 24px rgba(0, 0, 0, 0.2);
-
-    transition:
-        transform 0.2s ease,
-        border-color 0.2s ease,
-        box-shadow 0.2s ease;
-}
-
-.strategy-card::before {
-    content: '';
-
-    position: absolute;
-
-    top: 0;
-    left: 0;
-
-    width: 2px;
-    height: 100%;
-
-    background: linear-gradient(
-        180deg,
-        rgba(139, 92, 246, 0),
-        rgba(139, 92, 246, 0.25),
-        rgba(139, 92, 246, 0)
-    );
-
-    opacity: 0;
-
-    transition: opacity 0.2s ease;
-}
-
-.strategy-card:hover {
-    transform: translateY(-1px);
-
-    border-color: rgba(139, 92, 246, 0.23);
-
-    box-shadow:
-        0 10px 28px rgba(0, 0, 0, 0.28);
-}
-
-.strategy-card:hover::before {
-    opacity: 1;
-}
-
-
-/* ============================================================
-   TOP STRATEGY
-   ============================================================ */
-
-.strategy-card.top-strategy {
-    border-color: rgba(139, 92, 246, 0.4);
+    border-radius: 12px;
 
     background:
         radial-gradient(
-            circle at 100% 0%,
-            rgba(124, 58, 237, 0.12),
-            transparent 40%
+            circle at 50% 100%,
+            rgba(59, 130, 246, 0.075),
+            transparent 60%
         ),
-        linear-gradient(
-            145deg,
-            rgba(124, 58, 237, 0.08),
-            rgba(37, 99, 235, 0.025)
-        ),
-        var(--ai-surface);
+        rgba(5, 10, 18, 0.62);
+
+    border: 1px solid rgba(139, 92, 246, 0.11);
 
     box-shadow:
-        0 10px 32px rgba(79, 70, 229, 0.13);
+        inset 0 1px rgba(255, 255, 255, 0.025);
 }
 
-.strategy-card.top-strategy::before {
-    opacity: 1;
-
-    background: linear-gradient(
-        180deg,
-        #8b5cf6,
-        #3b82f6
-    );
-}
-
-
-/* ============================================================
-   CARD TOP
-   ============================================================ */
-
-.strategy-card-top {
-    display: flex;
-
-    align-items: center;
-
-    gap: 7px;
-
-    margin-bottom: 11px;
-
-    min-width: 0;
-}
-
-
-/* ============================================================
-   RANK
-   ============================================================ */
-
-.strategy-rank {
-    display: flex;
-
-    align-items: center;
-    justify-content: center;
-
-    min-width: 37px;
-    height: 27px;
-
-    padding: 0 8px;
-
-    box-sizing: border-box;
-
-    border-radius: 8px;
-
-    background: rgba(255, 255, 255, 0.045);
-
-    border: 1px solid rgba(255, 255, 255, 0.05);
-
-    color: #aebbd0;
-
-    font-size: 11px;
-    font-weight: 800;
-}
-
-.strategy-rank.rank-one {
-    background:
-        linear-gradient(
-            135deg,
-            #7c3aed,
-            #2563eb
-        );
-
-    border-color: rgba(196, 181, 253, 0.25);
-
-    color: #ffffff;
-
-    box-shadow:
-        0 5px 15px rgba(124, 58, 237, 0.28);
-}
-
-
-/* ============================================================
-   BEST BADGE
-   ============================================================ */
-
-.best-badge {
-    padding: 5px 8px;
-
-    border-radius: 999px;
-
-    background: rgba(34, 197, 94, 0.07);
-
-    border: 1px solid rgba(34, 197, 94, 0.18);
-
-    color: #86efac;
-
-    font-size: 8px;
-    font-weight: 800;
-
-    letter-spacing: 0.55px;
-}
-
-
-/* ============================================================
-   RISK BADGES
-   ============================================================ */
-
-.risk-badge {
-    margin-left: auto;
-
-    padding: 5px 8px;
-
-    border-radius: 999px;
-
-    font-size: 8px;
-    font-weight: 800;
-
-    letter-spacing: 0.5px;
-}
-
-.risk-low {
-    background: rgba(34, 197, 94, 0.07);
-
-    border: 1px solid rgba(34, 197, 94, 0.17);
-
-    color: #86efac;
-}
-
-.risk-medium {
-    background: rgba(234, 179, 8, 0.07);
-
-    border: 1px solid rgba(234, 179, 8, 0.17);
-
-    color: #fde68a;
-}
-
-.risk-high {
-    background: rgba(239, 68, 68, 0.07);
-
-    border: 1px solid rgba(239, 68, 68, 0.17);
-
-    color: #fca5a5;
-}
-
-
-/* ============================================================
-   STRATEGY NAME
-   ============================================================ */
-
-.strategy-name {
-    margin-bottom: 5px;
-
-    color: #f8fafc;
-
-    font-size: 16px;
-    font-weight: 800;
-
-    letter-spacing: -0.2px;
-    line-height: 1.3;
-}
-
-
-/* ============================================================
-   DESCRIPTION
-   ============================================================ */
-
-.strategy-description {
-    margin-bottom: 12px;
-
-    color: #7f8da2;
-
-    font-size: 11px;
-    line-height: 1.5;
-}
-
-
-/* ============================================================
-   LIVE MARKET BLOCKS
-   ============================================================ */
-
-.strategy-market-live {
-    display: grid;
-
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-
-    gap: 6px;
-
-    margin-bottom: 7px;
-}
-
-.strategy-market-live > div {
-    min-width: 0;
-
-    padding: 8px;
-
-    border-radius: 9px;
-
-    background: rgba(255, 255, 255, 0.025);
-
-    border: 1px solid rgba(255, 255, 255, 0.045);
-}
-
-.strategy-market-live span {
-    display: block;
-
-    margin-bottom: 4px;
-
-    color: #5f6e83;
-
-    font-size: 8px;
-    font-weight: 700;
-
-    text-transform: uppercase;
-    letter-spacing: 0.35px;
-}
-
-.strategy-market-live strong {
-    display: block;
-
-    overflow: hidden;
-
-    color: #cbd5e1;
-
-    font-size: 10px;
-    font-weight: 800;
-
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-
-/* ============================================================
-   SCORE BLOCK
-   ============================================================ */
-
-.scanner-score {
-    margin-bottom: 8px;
-
-    padding: 9px 10px;
-
-    border-radius: 10px;
-
-    background: rgba(255, 255, 255, 0.025);
-
-    border: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.score-info {
+.visual-header {
     display: flex;
 
     align-items: center;
@@ -1326,75 +476,234 @@
 
     gap: 10px;
 
-    margin-bottom: 6px;
+    margin-bottom: 11px;
 }
 
-.score-info span {
-    color: #748197;
+.visual-header > div:first-child {
+    display: flex;
+    flex-direction: column;
 
-    font-size: 9px;
-    font-weight: 600;
+    min-width: 0;
 }
 
-.score-info strong {
-    color: #c4b5fd;
+.visual-header span {
+    color: #64748b;
 
-    font-size: 12px;
+    font-size: 7px;
+    font-weight: 800;
+
+    letter-spacing: 0.7px;
+}
+
+.visual-header strong {
+    margin-top: 3px;
+
+    color: #cbd5e1;
+
+    font-size: 10px;
     font-weight: 800;
 }
 
-.score-track {
-    width: 100%;
+.visual-live {
+    display: flex !important;
 
-    height: 4px;
+    flex-direction: row !important;
 
-    overflow: hidden;
+    align-items: center;
 
-    border-radius: 999px;
+    gap: 5px;
 
-    background: rgba(255, 255, 255, 0.065);
+    flex-shrink: 0;
+
+    color: #86efac !important;
+
+    font-size: 7px !important;
+    font-weight: 850 !important;
+
+    letter-spacing: 0.55px;
 }
 
-.score-fill {
-    height: 100%;
+.visual-live span {
+    width: 5px;
+    height: 5px;
+
+    margin: 0 !important;
+
+    border-radius: 50%;
+
+    background: #22c55e;
+
+    box-shadow:
+        0 0 8px rgba(34, 197, 94, 0.7);
+}
+
+.tick-bars {
+    display: flex;
+
+    align-items: flex-end;
+
+    gap: 3px;
+
+    width: 100%;
+    height: 72px;
+
+    padding: 0 2px;
+
+    box-sizing: border-box;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tick-bars > span {
+    flex: 1 1 0;
 
     min-width: 0;
 
-    border-radius: inherit;
+    border-radius: 3px 3px 1px 1px;
 
+    opacity: 0.78;
+
+    transform-origin: bottom;
+
+    transition:
+        height 0.45s ease,
+        opacity 0.2s ease;
+}
+
+.tick-bars > span:hover {
+    opacity: 1;
+}
+
+.tick-bar-positive {
     background:
         linear-gradient(
-            90deg,
-            #7c3aed,
-            #6366f1,
-            #3b82f6
+            180deg,
+            #4ade80,
+            rgba(34, 197, 94, 0.22)
         );
 
     box-shadow:
-        0 0 8px rgba(99, 102, 241, 0.35);
+        0 0 8px rgba(34, 197, 94, 0.14);
+}
 
-    transition: width 0.5s ease;
+.tick-bar-negative {
+    background:
+        linear-gradient(
+            180deg,
+            #fb7185,
+            rgba(239, 68, 68, 0.22)
+        );
+
+    box-shadow:
+        0 0 8px rgba(239, 68, 68, 0.14);
+}
+
+.tick-bar-neutral {
+    background:
+        linear-gradient(
+            180deg,
+            #a78bfa,
+            rgba(139, 92, 246, 0.20)
+        );
+
+    box-shadow:
+        0 0 8px rgba(139, 92, 246, 0.13);
+}
+
+.tick-axis {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    padding-top: 6px;
+
+    color: #475569;
+
+    font-size: 7px;
+    font-weight: 700;
 }
 
 
 /* ============================================================
-   STRATEGY DETAILS
+   SCORE STACK
    ============================================================ */
 
-.strategy-details {
+.strategy-score-stack {
+    display: flex;
+    flex-direction: column;
+
+    gap: 7px;
+
+    width: 100%;
+}
+
+.strategy-score-row {
+    min-width: 0;
+
+    padding: 9px 10px;
+
+    border-radius: 10px;
+
+    background: rgba(255, 255, 255, 0.022);
+
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.strategy-score-row .score-info {
+    margin-bottom: 6px;
+}
+
+.strategy-score-row .score-info span {
+    color: #64748b;
+
+    font-size: 8px;
+    font-weight: 750;
+
+    letter-spacing: 0.35px;
+}
+
+.strategy-score-row .score-info strong {
+    color: #c4b5fd;
+
+    font-size: 11px;
+    font-weight: 850;
+}
+
+.strategy-score-row .score-track {
+    height: 5px;
+}
+
+.compatibility-track .score-fill {
+    background:
+        linear-gradient(
+            90deg,
+            #2563eb,
+            #3b82f6,
+            #60a5fa
+        );
+}
+
+
+/* ============================================================
+   DATA MATRIX
+   ============================================================ */
+
+.strategy-data-matrix {
     display: grid;
 
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr));
 
     gap: 6px;
 
-    margin-bottom: 10px;
+    width: 100%;
 }
 
-.strategy-detail {
+.strategy-data-matrix .strategy-detail {
     min-width: 0;
 
-    padding: 8px;
+    padding: 9px;
 
     border-radius: 9px;
 
@@ -1403,29 +712,31 @@
     border: 1px solid rgba(255, 255, 255, 0.035);
 }
 
-.strategy-detail span {
+.strategy-data-matrix .strategy-detail span {
     display: block;
 
-    margin-bottom: 4px;
+    margin-bottom: 5px;
 
-    color: #5e6c80;
+    color: #526176;
 
-    font-size: 8px;
-    font-weight: 700;
+    font-size: 7px;
+    font-weight: 800;
 
     text-transform: uppercase;
     letter-spacing: 0.45px;
 }
 
-.strategy-detail strong {
+.strategy-data-matrix .strategy-detail strong {
     display: block;
+
+    max-width: 100%;
 
     overflow: hidden;
 
     color: #d5deea;
 
-    font-size: 10px;
-    font-weight: 750;
+    font-size: 9px;
+    font-weight: 800;
 
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1433,460 +744,291 @@
 
 
 /* ============================================================
-   EDITABLE DETAILS
+   CALIBRATING STATE
    ============================================================ */
 
-.editable-strategy-detail {
+.strategy-calibration {
     display: flex;
-
     flex-direction: column;
 
-    justify-content: space-between;
-
-    min-width: 0;
-}
-
-
-/* ============================================================
-   INPUT WRAPPER
-   ============================================================ */
-
-.strategy-input-wrapper {
-    display: flex;
-
     align-items: center;
 
-    width: 100%;
-    min-width: 0;
-
-    height: 26px;
-
-    margin-top: 1px;
-
-    padding: 0 7px;
-
-    box-sizing: border-box;
-
-    border-radius: 7px;
-
-    background: rgba(5, 10, 18, 0.72);
-
-    border: 1px solid rgba(139, 92, 246, 0.16);
-
-    transition:
-        border-color 0.2s ease,
-        background 0.2s ease,
-        box-shadow 0.2s ease;
-}
-
-.strategy-input-prefix {
-    display: inline-flex !important;
-
-    align-items: center;
     justify-content: center;
 
-    flex: 0 0 auto;
-
-    margin: 0 3px 0 0 !important;
-
-    padding: 0 !important;
-
-    color: #718096 !important;
-
-    font-size: 9px !important;
-
-    line-height: 1 !important;
-
-    text-transform: none !important;
-
-    letter-spacing: 0 !important;
-}
-
-.strategy-input-wrapper input {
-    display: block;
-
-    width: 100%;
     min-width: 0;
 
-    height: 100%;
+    padding: 24px 15px;
 
-    margin: 0;
-    padding: 0;
+    text-align: center;
 
-    border: none;
-    outline: none;
+    border-radius: 13px;
 
-    background: transparent;
+    background:
+        radial-gradient(
+            circle at 50% 0%,
+            rgba(139, 92, 246, 0.10),
+            transparent 55%
+        ),
+        rgba(255, 255, 255, 0.018);
 
-    color: #f8fafc;
-
-    font-family: inherit;
-
-    font-size: 10px;
-    font-weight: 750;
-
-    line-height: 1;
-
-    text-align: left;
-
-    box-sizing: border-box;
+    border: 1px solid rgba(139, 92, 246, 0.12);
 }
 
-.strategy-input-wrapper input::placeholder {
-    color: #475569;
-    opacity: 1;
-}
-
-.strategy-input-wrapper input::-webkit-outer-spin-button,
-.strategy-input-wrapper input::-webkit-inner-spin-button {
-    margin: 0;
-}
-
-.strategy-input-wrapper:focus-within {
-    background: rgba(5, 10, 18, 0.95);
-
-    border-color: rgba(139, 92, 246, 0.55);
-
-    box-shadow:
-        0 0 0 2px rgba(124, 58, 237, 0.08);
-}
-
-
-/* ============================================================
-   LOAD BOT
-   ============================================================ */
-
-.load-bot-button {
+.calibration-orbit {
     position: relative;
 
-    width: 100%;
-    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
 
-    min-height: 42px;
+    margin-bottom: 13px;
+
+    border-radius: 50%;
 
     border: 1px solid rgba(139, 92, 246, 0.25);
-    border-radius: 11px;
 
-    padding: 11px 13px;
+    box-shadow:
+        0 0 22px rgba(124, 58, 237, 0.10);
 
-    overflow: hidden;
+    animation: calibrationSpin 3s linear infinite;
+}
 
-    cursor: pointer;
+.calibration-orbit::before,
+.calibration-orbit::after {
+    content: '';
 
-    color: #ffffff;
+    position: absolute;
+
+    border-radius: 50%;
+}
+
+.calibration-orbit::before {
+    inset: 8px;
+
+    border: 1px solid rgba(96, 165, 250, 0.22);
+}
+
+.calibration-orbit::after {
+    inset: 19px;
+
+    background: #8b5cf6;
+
+    box-shadow:
+        0 0 13px rgba(139, 92, 246, 0.75);
+}
+
+.calibration-orbit span {
+    position: absolute;
+
+    width: 5px;
+    height: 5px;
+
+    border-radius: 50%;
+
+    background: #a78bfa;
+
+    box-shadow:
+        0 0 9px rgba(167, 139, 250, 0.7);
+}
+
+.calibration-orbit span:nth-child(1) {
+    top: 4px;
+    left: 21px;
+}
+
+.calibration-orbit span:nth-child(2) {
+    right: 4px;
+    bottom: 12px;
+}
+
+.calibration-orbit span:nth-child(3) {
+    bottom: 5px;
+    left: 10px;
+}
+
+@keyframes calibrationSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.calibration-copy {
+    display: flex;
+    flex-direction: column;
+
+    gap: 5px;
+}
+
+.calibration-copy strong {
+    color: #e2e8f0;
 
     font-size: 12px;
     font-weight: 800;
+}
+
+.calibration-copy span {
+    color: #64748b;
+
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.calibration-track {
+    width: min(250px, 100%);
+
+    height: 4px;
+
+    margin-top: 14px;
+
+    overflow: hidden;
+
+    border-radius: 999px;
+
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.calibration-fill {
+    height: 100%;
+
+    border-radius: inherit;
+
+    background:
+        linear-gradient(
+            90deg,
+            #7c3aed,
+            #60a5fa
+        );
+
+    box-shadow:
+        0 0 10px rgba(124, 58, 237, 0.45);
+
+    transition: width 0.5s ease;
+}
+
+.strategy-calibration small {
+    max-width: 300px;
+
+    margin-top: 10px;
+
+    color: #4f5e72;
+
+    font-size: 8px;
+    line-height: 1.5;
+}
+
+
+/* ============================================================
+   APPLY STRATEGY
+   ============================================================ */
+
+.apply-strategy-button {
+    width: 100%;
+
+    min-height: 44px;
+
+    margin-top: 1px;
+
+    border-radius: 11px;
 
     background:
         linear-gradient(
             135deg,
-            rgba(124, 58, 237, 0.95),
-            rgba(37, 99, 235, 0.95)
+            #7c3aed,
+            #4f46e5 52%,
+            #2563eb
         );
 
     box-shadow:
-        0 7px 20px rgba(79, 70, 229, 0.2);
+        0 8px 24px rgba(79, 70, 229, 0.24),
+        inset 0 1px rgba(255, 255, 255, 0.13);
 
     transition:
-        transform 0.2s ease,
+        transform 0.18s ease,
         box-shadow 0.2s ease,
-        opacity 0.2s ease,
-        border-color 0.2s ease;
+        border-color 0.2s ease,
+        opacity 0.2s ease;
 }
 
-.load-bot-button:hover {
-    transform: translateY(-1px);
-
-    border-color: rgba(196, 181, 253, 0.55);
+.apply-strategy-button:hover:not(:disabled) {
+    transform: scale(1.015);
 
     box-shadow:
-        0 9px 25px rgba(79, 70, 229, 0.32);
+        0 11px 30px rgba(79, 70, 229, 0.36),
+        inset 0 1px rgba(255, 255, 255, 0.17);
 }
 
-.load-bot-button:active {
-    transform: translateY(1px);
+.apply-strategy-button:active:not(:disabled) {
+    transform: scale(0.98);
 }
 
-.load-bot-button:disabled {
+.apply-strategy-button:disabled {
     cursor: not-allowed;
 
-    opacity: 0.45;
+    opacity: 0.42;
 
     box-shadow: none;
 }
 
 
 /* ============================================================
-   RESCAN
-   ============================================================ */
-
-.rescan-button {
-    flex-shrink: 0;
-
-    width: 100%;
-
-    min-height: 40px;
-
-    margin-top: 3px;
-
-    border: 1px solid rgba(139, 92, 246, 0.2);
-
-    border-radius: 11px;
-
-    padding: 10px 13px;
-
-    cursor: pointer;
-
-    color: #b9a9ee;
-
-    background: rgba(124, 58, 237, 0.055);
-
-    font-size: 12px;
-    font-weight: 750;
-
-    transition:
-        background 0.2s ease,
-        border-color 0.2s ease,
-        color 0.2s ease;
-}
-
-.rescan-button:hover {
-    background: rgba(124, 58, 237, 0.11);
-
-    border-color: rgba(139, 92, 246, 0.38);
-
-    color: #d3c8fa;
-}
-
-.rescan-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-}
-
-
-/* ============================================================
-   FOCUS ACCESSIBILITY
-   ============================================================ */
-
-.floating-ai-button:focus-visible,
-.ai-close:focus-visible,
-.scan-button:focus-visible,
-.load-bot-button:focus-visible,
-.rescan-button:focus-visible {
-    outline: 2px solid rgba(167, 139, 250, 0.85);
-
-    outline-offset: 2px;
-}
-
-
-/* ============================================================
-   MOBILE
+   MOBILE CARD REFINEMENT
    ============================================================ */
 
 @media (max-width: 600px) {
 
-    .floating-ai-button {
-        right: 15px;
-        bottom: 76px;
-
-        width: 58px;
-        height: 58px;
+    .strategy-card-header {
+        padding: 12px;
     }
 
-    .ai-core {
-        width: 40px;
-        height: 40px;
-
-        font-size: 22px;
+    .strategy-card-body-inner {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-bottom: 12px;
     }
 
-    .ai-ring {
-        width: 58px;
-        height: 58px;
-    }
-
-    .floating-ai-panel {
-        top: 7px;
-        right: 7px;
-        bottom: 7px;
-        left: 7px;
-
-        width: auto;
-
-        min-height: 0;
-
-        border-radius: 20px;
-    }
-
-    .floating-ai-header {
-        min-height: 58px;
-
-        padding: 0 14px;
-    }
-
-    .floating-ai-header strong {
-        font-size: 14px;
-    }
-
-    .ai-close {
-        width: 34px;
-        height: 34px;
-
-        font-size: 23px;
-    }
-
-    .floating-ai-content {
-        flex: 1 1 auto;
-
-        min-height: 0;
-
-        padding: 18px 11px 13px;
-    }
-
-    .ai-hero {
-        padding-top: 3px;
-        padding-bottom: 17px;
-    }
-
-    .ai-hero-icon {
-        width: 58px;
-        height: 58px;
-
-        margin-bottom: 13px;
-
-        border-radius: 18px;
-
-        font-size: 25px;
-    }
-
-    .ai-hero h3 {
-        font-size: 20px;
-    }
-
-    .ai-hero p {
-        font-size: 12px;
-    }
-
-    .strategy-count {
-        min-height: 50px;
-
-        margin-bottom: 10px;
-    }
-
-    .scan-button {
-        min-height: 46px;
-    }
-
-    .scanner-heading h3 {
-        font-size: 18px;
-    }
-
-    .scanner-heading p {
-        font-size: 10px;
-    }
-
-    .scanner-market-status {
+    .strategy-summary-title-row {
         gap: 5px;
     }
 
-    .scanner-market-status > div {
-        padding: 8px 7px;
+    .strategy-summary-meta {
+        gap: 7px;
     }
 
-    .scanner-market-status span {
-        font-size: 7px;
+    .strategy-rank {
+        min-width: 34px;
+        height: 26px;
+
+        padding: 0 7px;
     }
 
-    .scanner-market-status strong {
+    .strategy-expand-icon {
+        width: 26px;
+        height: 26px;
+    }
+
+    .strategy-metric-card {
+        padding: 8px;
+    }
+
+    .strategy-metric-card span {
+        font-size: 6px;
+    }
+
+    .strategy-metric-card strong {
         font-size: 9px;
     }
 
-    .strategy-list {
-        flex: 1 1 auto;
-
-        min-height: 0;
-
-        overflow-y: auto;
-        overflow-x: hidden;
-
-        padding-right: 2px;
-        padding-bottom: 24px;
-
-        -webkit-overflow-scrolling: touch;
+    .strategy-data-matrix {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
     }
 
-    .strategy-card {
-        padding: 13px;
-
-        margin-bottom: 9px;
-
-        border-radius: 15px;
+    .tick-history-panel {
+        padding: 9px;
     }
 
-    .strategy-name {
-        font-size: 15px;
-    }
-
-    .strategy-description {
-        font-size: 10px;
-    }
-
-    .strategy-market-live {
-        gap: 5px;
-    }
-
-    .strategy-market-live > div {
-        padding: 7px;
-    }
-
-    .strategy-market-live span {
-        font-size: 7px;
-    }
-
-    .strategy-market-live strong {
-        font-size: 9px;
-    }
-
-    .scanner-score {
-        padding: 8px 9px;
-    }
-
-    .strategy-details {
-        gap: 5px;
-    }
-
-    .strategy-detail {
-        padding: 7px;
-    }
-
-    .strategy-detail span {
-        font-size: 7px;
-    }
-
-    .strategy-detail strong {
-        font-size: 9px;
-    }
-
-    .strategy-input-wrapper {
-        height: 25px;
-
-        padding-left: 6px;
-        padding-right: 6px;
-    }
-
-    .strategy-input-wrapper input {
-        font-size: 10px;
-    }
-
-    .load-bot-button {
-        min-height: 41px;
-
-        padding: 10px 11px;
-    }
-
-    .rescan-button {
-        min-height: 39px;
+    .tick-bars {
+        height: 64px;
+        gap: 2px;
     }
 }
 
@@ -1897,102 +1039,54 @@
 
 @media (max-width: 380px) {
 
-    .floating-ai-panel {
-        top: 4px;
-        right: 4px;
-        bottom: 4px;
-        left: 4px;
-
-        border-radius: 17px;
+    .strategy-card-header {
+        padding: 10px;
     }
 
-    .floating-ai-content {
-        padding-left: 9px;
-        padding-right: 9px;
+    .strategy-card-body-inner {
+        padding-left: 10px;
+        padding-right: 10px;
     }
 
-    .floating-ai-header {
-        padding-left: 12px;
-        padding-right: 12px;
+    .strategy-summary-meta {
+        font-size: 7px;
     }
 
-    .scanner-market-status > div {
-        padding: 7px 6px;
+    .best-badge {
+        display: none;
     }
 
-    .strategy-card {
-        padding: 11px;
-
-        border-radius: 14px;
+    .strategy-metric-grid {
+        gap: 4px;
     }
 
-    .strategy-details {
+    .strategy-metric-card {
+        padding: 7px;
+    }
+
+    .strategy-data-matrix {
         gap: 5px;
     }
 
-    .strategy-detail {
-        padding: 7px 6px;
+    .strategy-data-matrix .strategy-detail {
+        padding: 7px;
     }
 
-    .strategy-input-wrapper {
-        height: 24px;
-
-        padding-left: 5px;
-        padding-right: 5px;
-    }
-
-    .strategy-input-wrapper input {
-        font-size: 9px;
-    }
-
-    .strategy-input-prefix {
-        font-size: 8px !important;
+    .strategy-calibration {
+        padding-left: 10px;
+        padding-right: 10px;
     }
 }
 
 
 /* ============================================================
-   CHEVRON BAR — BLUE OVERRIDE
-   ============================================================
-   This is intentionally placed at the END so it wins against
-   the existing dark/black toolbox styling.
-
-   The risk-disclaimer is NOT touched.
+   ACCESSIBILITY
    ============================================================ */
 
-.db-toolbox {
-    background: #0d6efd !important;
-}
+.strategy-card-header:focus-visible {
+    outline: 2px solid rgba(167, 139, 250, 0.8);
 
-.db-toolbox__header,
-.db-toolbox__top,
-.db-toolbox__title-container {
-    background: #0d6efd !important;
-}
-
-.db-toolbox button,
-.db-toolbox [role='button'] {
-    background-color: #0d6efd !important;
-}
-
-
-/*
- * Keep the chevron itself visible.
- */
-.db-toolbox svg,
-.db-toolbox svg path {
-    color: #ffffff;
-    fill: currentColor;
-}
-
-
-/*
- * If the chevron sits inside a separate strip/container,
- * force that strip to use the same blue.
- */
-.db-toolbox > div:first-child,
-.db-toolbox > div:first-child > div:first-child {
-    background-color: #0d6efd !important;
+    outline-offset: -2px;
 }
 
 
@@ -2002,17 +1096,14 @@
 
 @media (prefers-reduced-motion: reduce) {
 
-    .floating-ai-button,
-    .ai-core,
-    .ai-ring,
-    .floating-ai-panel,
-    .ai-status-dot,
-    .scanner-loader span,
-    .scanning-progress-bar,
     .strategy-card,
-    .scan-button,
-    .load-bot-button,
-    .rescan-button {
+    .strategy-card-body,
+    .strategy-expand-icon,
+    .apply-strategy-button,
+    .ready-dot,
+    .calibration-orbit,
+    .calibration-fill,
+    .tick-bars > span {
         animation: none !important;
         transition: none !important;
     }
