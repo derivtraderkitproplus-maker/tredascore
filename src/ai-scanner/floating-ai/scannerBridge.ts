@@ -29,12 +29,12 @@ export class ScannerBridge {
      * Initializes scanner operations and mounts to the centralized websocket pipe
      */
     public startLiveScanning(assetSymbol: string = '1HZ100V') {
-        // Clear previous runtime allocations
+        // Clear previous runtime allocations safely
         this.stopLiveScanning();
         this.accumulatedPrices = [];
         this.trackedAsset = assetSymbol;
 
-        // Initialize state markers to loading phase
+        // Initialize state markers to loading phase explicitly
         this.activeUiCallback({
             marketState: 'INSUFFICIENT_DATA',
             liveTicks: 0,
@@ -43,20 +43,36 @@ export class ScannerBridge {
             rawScannerResult: null
         });
 
-        // Hook directly into the template's native background subscription manager
-        this.disconnectSocketListener = api_base.subscribeToTicks(
-            this.trackedAsset, 
-            (incomingTick: { symbol: string; quote: number; epoch: number }) => {
-                this.processIncomingSocketTick(incomingTick.quote);
-            }
-        );
+        try {
+            // Hook directly into the central API runtime tick channel
+            const subscriptionId = api_base.subscribeToTicks(
+                this.trackedAsset, 
+                (incomingTick: { symbol: string; quote: number; epoch: number }) => {
+                    // Safety check to ensure stream matches target workspace asset
+                    if (incomingTick && incomingTick.symbol === this.trackedAsset) {
+                        this.processIncomingSocketTick(incomingTick.quote);
+                    }
+                }
+            );
+
+            // Set up standardized dynamic function wrapper to destroy subscription cleanly
+            this.disconnectSocketListener = () => {
+                if (typeof api_base.unsubscribeFromTicks === 'function') {
+                    api_base.unsubscribeFromTicks(this.trackedAsset, subscriptionId);
+                } else if (typeof subscriptionId === 'function') {
+                    (subscriptionId as () => void)();
+                }
+            };
+        } catch (error) {
+            console.error('AI Scanner unable to mount background stream context:', error);
+        }
     }
 
     /**
      * Extracts and validates numeric variables out of the raw stream objects
      */
     private processIncomingSocketTick(priceQuote: number) {
-        if (!Number.isFinite(priceQuote) || priceQuote <= 0) return;
+        if (priceQuote === undefined || priceQuote === null || !Number.isFinite(priceQuote) || priceQuote <= 0) return;
 
         this.accumulatedPrices.push(priceQuote);
 
@@ -82,9 +98,9 @@ export class ScannerBridge {
         } else {
             // Execution Phase: Array buffer full, scanner results are fully ready
             this.activeUiCallback({
-                marketState: result.analysis.state,
+                marketState: result?.analysis?.state || 'UP/DOWN/RANGE', 
                 liveTicks: currentCount,
-                confidenceGate: result.winnerConfirmed ? 'READY' : 'WAIT',
+                confidenceGate: result?.winnerConfirmed ? 'READY' : 'WAIT',
                 progressPercentage: 100,
                 rawScannerResult: result
             });
@@ -96,7 +112,11 @@ export class ScannerBridge {
      */
     public stopLiveScanning() {
         if (this.disconnectSocketListener) {
-            this.disconnectSocketListener(); // Executes the template's unsubscribe cleanup function
+            try {
+                this.disconnectSocketListener();
+            } catch (cleanupError) {
+                console.warn('Silent teardown error handling socket clear:', cleanupError);
+            }
             this.disconnectSocketListener = null;
         }
     }
