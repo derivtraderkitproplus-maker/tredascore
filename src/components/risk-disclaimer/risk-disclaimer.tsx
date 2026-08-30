@@ -6,36 +6,37 @@ const RiskDisclaimer = () => {
     const [shouldRender, setShouldRender] = useState(true);
 
     useEffect(() => {
-        const checkActivePanels = () => {
-            // 1. Target your exact tab container element at the top of the screen
-            const activeTabElement = document.querySelector('.active, [aria-selected="true"], .nav-link-active, .tab-active');
-            
-            // 2. Fallback check: Look only for the exact standalone tab headers, not raw page table logs
-            const headers = Array.from(document.querySelectorAll('button, a, div'));
-            const isViewingUnwantedTab = headers.some(el => {
-                const text = el.textContent?.trim();
-                // Ensure we only match the precise tab names exactly
-                return text === 'Summary' || text === 'Transactions' || text === 'Journal';
-            });
+        const checkActiveTabRoute = () => {
+            // 1. Get the exact current path, query parameters, and hash links from the browser URL bar
+            const currentUrlPath = window.location.href.toLowerCase();
 
-            // 3. Look for your specific layout data grids
-            const hasDataGrid = document.querySelector('.summary-container, .transactions-table, .journal-panel');
+            // 2. Hide the disclaimer completely if the URL contains any of these panel keys
+            const isOnUnwantedPanel = currentUrlPath.includes('summary') || 
+                                      currentUrlPath.includes('transaction') || 
+                                      currentUrlPath.includes('journal');
 
-            // If an unwanted active view panel matches, hide the button safely
-            if (hasDataGrid || (isViewingUnwantedTab && !document.body.innerText.includes('Bot Builder'))) {
+            if (isOnUnwantedPanel) {
                 setShouldRender(false);
             } else {
                 setShouldRender(true);
             }
         };
 
-        checkActivePanels();
+        // Run immediately when the component mounts
+        checkActiveTabRoute();
 
-        // Safe mutation tree tracking to toggle visibility instantly on click transitions
-        const observer = new MutationObserver(checkActivePanels);
-        observer.observe(document.body, { childList: true, subtree: true });
+        // 3. Listen to both history changes and hash fragment transitions natively
+        window.addEventListener('popstate', checkActiveTabRoute);
+        window.addEventListener('hashchange', checkActiveTabRoute);
 
-        return () => observer.disconnect();
+        // 4. Create an interval loop fallback to check for instant, un-routed component state switches
+        const fallbackInterval = setInterval(checkActiveTabRoute, 300);
+
+        return () => {
+            window.removeEventListener('popstate', checkActiveTabRoute);
+            window.removeEventListener('hashchange', checkActiveTabRoute);
+            clearInterval(fallbackInterval);
+        };
     }, []);
 
     useEffect(() => {  
@@ -73,6 +74,7 @@ const RiskDisclaimer = () => {
         }  
     };  
 
+    // Render nothing if we are browsing one of the target dashboards
     if (!shouldRender) return null;  
 
     return (  
