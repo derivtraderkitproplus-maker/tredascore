@@ -25,7 +25,7 @@ import './FloatingAI.css';
 
 /*
  * ============================================================
- * TYPES
+ * TYPES & CONSTANTS
  * ============================================================
  */
 
@@ -33,13 +33,10 @@ type ScannerResult = AIStrategy & {
     scannerScore: number;
     marketCompatibility: number;
     rank: number;
-
     marketState: MarketAnalysis['state'];
     marketDirection: MarketAnalysis['direction'];
     marketConfidence: number;
-
     confidenceQualified: boolean;
-
     liveTickCount: number;
 };
 
@@ -48,1703 +45,521 @@ interface DragPosition {
     y: number;
 }
 
-/*
- * ============================================================
- * CONSTANTS
- * ============================================================
- */
-
 const MAX_TICKS_PER_SYMBOL = 100;
 const MIN_TICKS_FOR_LIVE_SCANNER = 20;
 const LIVE_TICK_RETRY_MS = 1000;
-const SCAN_SETTLE_MS = 900;
-
-/*
- * ============================================================
- * COMPONENT
- * ============================================================
- */
-
-const FloatingAI = () => {
+export const FloatingAI = () => {
     const { quick_strategy } = useStore();
 
     /*
      * ------------------------------------------------------------
-     * UI STATE
+     * STATE HOOKS & COMPONENT REFERENCES
      * ------------------------------------------------------------
      */
-
     const [isOpen, setIsOpen] = useState(false);
+    const [isScanning, setIsScanning] = useState(false);
+    const [scannerResults, setScannerResults] = useState<ScannerResult[]>([]);
+    const [loadingStrategyId, setLoadingStrategyId] = useState<string | null>(null);
+    const [expandedStrategyId, setExpandedStrategyId] = useState<string | null>(null);
 
-    const [isScanning, setIsScanning] =
-        useState(false);
+    const [dragPos, setDragPos] = useState<DragPosition | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
-    const [scannerResults, setScannerResults] =
-        useState<ScannerResult[]>([]);
+    const buttonRef = useRef<HTMLButtonElement | null>(null);
+    const dragPointerIdRef = useRef<number | null>(null);
+    const dragStartPointerRef = useRef<DragPosition>({ x: 0, y: 0 });
+    const dragStartPositionRef = useRef<DragPosition>({ x: 0, y: 0 });
+    const hasMovedRef = useRef(false);
+    const suppressClickRef = useRef(false);
 
-    const [loadingStrategyId, setLoadingStrategyId] =
-        useState<string | null>(null);
+    const tickBuffersRef = useRef<Record<string, number[]>>({});
+    const lastTickTimeRef = useRef<Record<string, number>>({});
+    const invalidTickCountRef = useRef(0);
+    const tickUnsubscribersRef = useRef<Array<() => void>>([]);
+    const subscribedSymbolsRef = useRef<Set<string>>(new Set());
+    const tickRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isMountedRef = useRef(true);
+    const scanInProgressRef = useRef(false);
+    const scanGenerationRef = useRef(0);
 
-    const [expandedStrategyId, setExpandedStrategyId] =
-        useState<string | null>(null);
+    const [marketAnalysis, setMarketAnalysis] = useState<MarketAnalysis>(() =>
+        analyzeMarket([])
+    );
 
-    /*
-     * ------------------------------------------------------------
-     * FLOATING BUTTON DRAG STATE
-     * ------------------------------------------------------------
-     *
-     * Position is stored as viewport-relative left/top
-     * coordinates.
-     *
-     * null = use the CSS default position until the first
-     * layout measurement has completed.
-     * ------------------------------------------------------------
-     */
-
-    const [dragPos, setDragPos] =
-        useState<DragPosition | null>(null);
-
-    const [isDragging, setIsDragging] =
-        useState(false);
-
-    const buttonRef =
-        useRef<HTMLButtonElement | null>(null);
-
-    const dragPointerIdRef =
-        useRef<number | null>(null);
-
-    const dragStartPointerRef =
-        useRef<DragPosition>({
-            x: 0,
-            y: 0,
-        });
-
-    const dragStartPositionRef =
-        useRef<DragPosition>({
-            x: 0,
-            y: 0,
-        });
-
-    const hasMovedRef =
-        useRef(false);
-
-    const suppressClickRef =
-        useRef(false);
+    const [stakeValues, setStakeValues] = useState<Record<string, string>>({});
+    const [targetValues, setTargetValues] = useState<Record<string, string>>({});
 
     /*
      * ------------------------------------------------------------
      * CLAMP BUTTON TO VIEWPORT
      * ------------------------------------------------------------
      */
+    const clampDragPosition = useCallback((x: number, y: number): DragPosition => {
+        const button = buttonRef.current;
+        const buttonWidth = button?.offsetWidth || 62;
+        const buttonHeight = button?.offsetHeight || 62;
+        const maxX = Math.max(1, window.innerWidth - buttonWidth - 1);
+        const maxY = Math.max(1, window.innerHeight - buttonHeight - 1);
+        return {
+            x: Math.min(Math.max(1, x), maxX),
+            y: Math.min(Math.max(1, y), maxY),
+        };
+    }, []);
 
-    const clampDragPosition = useCallback(
-        (
-            x: number,
-            y: number
-        ): DragPosition => {
-            const button =
-                buttonRef.current;
-
-            const buttonWidth =
-                button?.offsetWidth || 62;
-
-            const buttonHeight =
-                button?.offsetHeight || 62;
-
-            /*
-             * Keep a tiny 1px safety margin so the button
-             * can never touch an edge due to rounding.
-             */
-            const maxX = Math.max(
-                1,
-                window.innerWidth -
-                    buttonWidth -
-                    1
-            );
-
-            const maxY = Math.max(
-                1,
-                window.innerHeight -
-                    buttonHeight -
-                    1
-            );
-
-            return {
-                x: Math.min(
-                    Math.max(1, x),
-                    maxX
-                ),
-                y: Math.min(
-                    Math.max(1, y),
-                    maxY
-                ),
-            };
-        },
-        []
-    );
-
-    /*
-     * ------------------------------------------------------------
-     * INITIALIZE / RECLAMP BUTTON POSITION
-     * ------------------------------------------------------------
-     */
-
-    const synchronizeButtonPosition =
-        useCallback(() => {
-            const button =
-                buttonRef.current;
-
-            if (!button) {
-                return;
-            }
-
-            /*
-             * If this is the first measurement, preserve
-             * the button's current CSS-defined location.
-             */
-            const currentRect =
-                button.getBoundingClientRect();
-
-            const currentPosition =
-                dragPos ?? {
-                    x: currentRect.left,
-                    y: currentRect.top,
-                };
-
-            const clamped =
-                clampDragPosition(
-                    currentPosition.x,
-                    currentPosition.y
-                );
-
-            setDragPos(
-                previous => {
-                    if (
-                        previous &&
-                        previous.x === clamped.x &&
-                        previous.y === clamped.y
-                    ) {
-                        return previous;
-                    }
-
-                    return clamped;
-                }
-            );
-        }, [
-            clampDragPosition,
-            dragPos,
-        ]);
-
-    /*
-     * ------------------------------------------------------------
-     * INITIAL BUTTON POSITION
-     * ------------------------------------------------------------
-     *
-     * Converts the existing CSS right/bottom position into
-     * explicit viewport coordinates once the component mounts.
-     * ------------------------------------------------------------
-     */
+    const synchronizeButtonPosition = useCallback(() => {
+        const button = buttonRef.current;
+        if (!button) return;
+        const currentRect = button.getBoundingClientRect();
+        const currentPosition = dragPos ?? { x: currentRect.left, y: currentRect.top };
+        const clamped = clampDragPosition(currentPosition.x, currentPosition.y);
+        setDragPos(prev => (prev && prev.x === clamped.x && prev.y === clamped.y ? prev : clamped));
+    }, [clampDragPosition, dragPos]);
 
     useEffect(() => {
-        const button =
-            buttonRef.current;
-
-        if (!button) {
-            return;
-        }
-
-        const rect =
-            button.getBoundingClientRect();
-
-        const initialPosition =
-            clampDragPosition(
-                rect.left,
-                rect.top
-            );
-
-        setDragPos(
-            initialPosition
-        );
-    }, [
-        clampDragPosition,
-    ]);
-
-    /*
-     * ------------------------------------------------------------
-     * RESPONSIVE VIEWPORT HANDLING
-     * ------------------------------------------------------------
-     *
-     * Whenever the viewport changes size, recalculate the
-     * maximum legal coordinates and pull the button back
-     * inside the viewport if necessary.
-     * ------------------------------------------------------------
-     */
+        const button = buttonRef.current;
+        if (!button) return;
+        const rect = button.getBoundingClientRect();
+        setDragPos(clampDragPosition(rect.left, rect.top));
+    }, [clampDragPosition]);
 
     useEffect(() => {
-        const handleViewportResize =
-            () => {
-                synchronizeButtonPosition();
-            };
-
-        window.addEventListener(
-            'resize',
-            handleViewportResize
-        );
-
-        window.addEventListener(
-            'orientationchange',
-            handleViewportResize
-        );
-
+        const handleViewportResize = () => synchronizeButtonPosition();
+        window.addEventListener('resize', handleViewportResize);
+        window.addEventListener('orientationchange', handleViewportResize);
         return () => {
-            window.removeEventListener(
-                'resize',
-                handleViewportResize
-            );
-
-            window.removeEventListener(
-                'orientationchange',
-                handleViewportResize
-            );
+            window.removeEventListener('resize', handleViewportResize);
+            window.removeEventListener('orientationchange', handleViewportResize);
         };
-    }, [
-        synchronizeButtonPosition,
-    ]);
-
+    }, [synchronizeButtonPosition]);
     /*
      * ------------------------------------------------------------
-     * POINTER DOWN
+     * POINTER DRAG LIFE CYCLES
      * ------------------------------------------------------------
      */
+    const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
 
-    const handlePointerDown = (
-        event: PointerEvent<HTMLButtonElement>
-    ) => {
-        /*
-         * Only respond to the primary mouse button.
-         * Touch and pen are always accepted.
-         */
-        if (
-            event.pointerType === 'mouse' &&
-            event.button !== 0
-        ) {
-            return;
-        }
+        const button = buttonRef.current;
+        if (!button) return;
 
-        const button =
-            buttonRef.current;
+        const rect = button.getBoundingClientRect();
+        const currentPosition = dragPos ?? { x: rect.left, y: rect.top };
+        const safePosition = clampDragPosition(currentPosition.x, currentPosition.y);
 
-        if (!button) {
-            return;
-        }
-
-        const rect =
-            button.getBoundingClientRect();
-
-        const currentPosition =
-            dragPos ?? {
-                x: rect.left,
-                y: rect.top,
-            };
-
-        const safePosition =
-            clampDragPosition(
-                currentPosition.x,
-                currentPosition.y
-            );
-
-        dragPointerIdRef.current =
-            event.pointerId;
-
-        dragStartPointerRef.current = {
-            x: event.clientX,
-            y: event.clientY,
-        };
-
-        dragStartPositionRef.current =
-            safePosition;
-
+        dragPointerIdRef.current = event.pointerId;
+        dragStartPointerRef.current = { x: event.clientX, y: event.clientY };
+        dragStartPositionRef.current = safePosition;
         hasMovedRef.current = false;
-
         suppressClickRef.current = false;
 
-        /*
-         * Capture the pointer so dragging continues even
-         * if the pointer/finger leaves the button.
-         */
         try {
-            button.setPointerCapture(
-                event.pointerId
-            );
+            button.setPointerCapture(event.pointerId);
         } catch {
-            /*
-             * Some older environments may not support
-             * pointer capture. Normal pointer events still
-             * continue to work.
-             */
+            // Support for legacy browser environments
         }
 
-        setDragPos(
-            safePosition
-        );
+        setDragPos(safePosition);
     };
 
-    /*
-     * ------------------------------------------------------------
-     * POINTER MOVE
-     * ------------------------------------------------------------
-     */
+    const handlePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+        if (dragPointerIdRef.current !== event.pointerId) return;
 
-    const handlePointerMove = (
-        event: PointerEvent<HTMLButtonElement>
-    ) => {
-        if (
-            dragPointerIdRef.current !==
-            event.pointerId
-        ) {
-            return;
-        }
+        const startPointer = dragStartPointerRef.current;
+        const startPosition = dragStartPositionRef.current;
+        const deltaX = event.clientX - startPointer.x;
+        const deltaY = event.clientY - startPointer.y;
 
-        const startPointer =
-            dragStartPointerRef.current;
-
-        const startPosition =
-            dragStartPositionRef.current;
-
-        const deltaX =
-            event.clientX -
-            startPointer.x;
-
-        const deltaY =
-            event.clientY -
-            startPointer.y;
-
-        /*
-         * Small pointer movement is still considered a click.
-         * This prevents accidental dragging from normal taps.
-         */
-        const dragDistance =
-            Math.sqrt(
-                deltaX * deltaX +
-                deltaY * deltaY
-            );
-
-        if (
-            !hasMovedRef.current &&
-            dragDistance < 5
-        ) {
-            return;
-        }
+        const dragDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        if (!hasMovedRef.current && dragDistance < 5) return;
 
         hasMovedRef.current = true;
-
         suppressClickRef.current = true;
 
-        if (!isDragging) {
-            setIsDragging(true);
-        }
+        if (!isDragging) setIsDragging(true);
 
-        const nextPosition =
-            clampDragPosition(
-                startPosition.x +
-                    deltaX,
-                startPosition.y +
-                    deltaY
-            );
-
-        setDragPos(
-            nextPosition
+        const nextPosition = clampDragPosition(
+            startPosition.x + deltaX,
+            startPosition.y + deltaY
         );
 
-        /*
-         * Prevent the browser from interpreting the movement
-         * as scrolling, text selection, or another gesture.
-         */
+        setDragPos(nextPosition);
         event.preventDefault();
     };
 
-    /*
-     * ------------------------------------------------------------
-     * POINTER UP
-     * ------------------------------------------------------------
-     */
+    const handlePointerUp = (event: PointerEvent<HTMLButtonElement>) => {
+        if (dragPointerIdRef.current !== event.pointerId) return;
 
-    const handlePointerUp = (
-        event: PointerEvent<HTMLButtonElement>
-    ) => {
-        if (
-            dragPointerIdRef.current !==
-            event.pointerId
-        ) {
-            return;
-        }
-
-        const button =
-            buttonRef.current;
-
+        const button = buttonRef.current;
         if (button) {
             try {
-                if (
-                    button.hasPointerCapture(
-                        event.pointerId
-                    )
-                ) {
-                    button.releasePointerCapture(
-                        event.pointerId
-                    );
+                if (button.hasPointerCapture(event.pointerId)) {
+                    button.releasePointerCapture(event.pointerId);
                 }
             } catch {
-                /*
-                 * Ignore pointer-capture cleanup errors.
-                 */
+                // Ignore capture exemptions
             }
         }
 
-        dragPointerIdRef.current =
-            null;
+        dragPointerIdRef.current = null;
 
         if (hasMovedRef.current) {
-            /*
-             * Keep the click suppressed until the browser's
-             * synthetic click event has had time to fire.
-             */
             suppressClickRef.current = true;
-
             window.setTimeout(() => {
-                suppressClickRef.current =
-                    false;
+                suppressClickRef.current = false;
             }, 0);
         }
 
         setIsDragging(false);
-
-        hasMovedRef.current =
-            false;
+        hasMovedRef.current = false;
     };
 
-    /*
-     * ------------------------------------------------------------
-     * POINTER CANCEL
-     * ------------------------------------------------------------
-     */
-
-    const handlePointerCancel = (
-        event: PointerEvent<HTMLButtonElement>
-    ) => {
-        if (
-            dragPointerIdRef.current !==
-            event.pointerId
-        ) {
-            return;
-        }
-
-        dragPointerIdRef.current =
-            null;
-
+    const handlePointerCancel = (event: PointerEvent<HTMLButtonElement>) => {
+        if (dragPointerIdRef.current !== event.pointerId) return;
+        dragPointerIdRef.current = null;
         setIsDragging(false);
-
-        hasMovedRef.current =
-            false;
-
-        suppressClickRef.current =
-            true;
-
+        hasMovedRef.current = false;
+        suppressClickRef.current = true;
         window.setTimeout(() => {
-            suppressClickRef.current =
-                false;
+            suppressClickRef.current = false;
         }, 0);
     };
 
-    /*
-     * ------------------------------------------------------------
-     * BUTTON CLICK
-     * ------------------------------------------------------------
-     *
-     * A normal tap/click opens or closes the scanner.
-     *
-     * A drag ends with a browser click event in many browsers.
-     * That click is explicitly ignored.
-     * ------------------------------------------------------------
-     */
-
     const handleButtonClick = () => {
-        if (suppressClickRef.current) {
-            return;
-        }
-
+        if (suppressClickRef.current) return;
         if (isOpen) {
             closeScanner();
         } else {
             setIsOpen(true);
-            subscribeToLiveTicks();
+            startLiveEvaluation();
         }
     };
-
     /*
      * ------------------------------------------------------------
-     * LIVE TICK STORAGE
+     * ASSET SUMMARY SEARCH FUNCTIONS
      * ------------------------------------------------------------
      */
-
-    const tickBuffersRef = useRef<
-        Record<string, number[]>
-    >({});
-
-    const lastTickTimeRef = useRef<
-        Record<string, number>
-    >({});
-
-    const invalidTickCountRef =
-        useRef(0);
-
-    /*
-     * ------------------------------------------------------------
-     * SUBSCRIPTION MANAGEMENT
-     * ------------------------------------------------------------
-     */
-
-    const tickUnsubscribersRef =
-        useRef<Array<() => void>>([]);
-
-    const subscribedSymbolsRef =
-        useRef<Set<string>>(
-            new Set()
-        );
-
-    const tickRetryTimerRef =
-        useRef<ReturnType<
-            typeof setTimeout
-        > | null>(null);
-
-    const isMountedRef =
-        useRef(true);
-
-    /*
-     * ------------------------------------------------------------
-     * SCAN CONTROL
-     * ------------------------------------------------------------
-     */
-
-    const scanInProgressRef =
-        useRef(false);
-
-    const scanGenerationRef =
-        useRef(0);
-
-    /*
-     * ------------------------------------------------------------
-     * MARKET ANALYSIS
-     * ------------------------------------------------------------
-     */
-
-    const [marketAnalysis, setMarketAnalysis] =
-        useState<MarketAnalysis>(() =>
-            analyzeMarket([])
-        );
-
-    /*
-     * ------------------------------------------------------------
-     * EDITABLE VALUES
-     * ------------------------------------------------------------
-     */
-
-    const [stakeValues, setStakeValues] =
-        useState<Record<string, string>>(
-            {}
-        );
-
-    const [targetValues, setTargetValues] =
-        useState<Record<string, string>>(
-            {}
-        );
-
-    /*
-     * ============================================================
-     * SYMBOL COLLECTION
-     * ============================================================
-     */
-
-    const getStrategySymbols =
-        useCallback(() => {
-            return Array.from(
-                new Set(
-                    AI_STRATEGIES
-                        .map(
-                            strategy =>
-                                strategy.symbol
-                        )
-                        .filter(
-                            symbol =>
-                                typeof symbol ===
-                                    'string' &&
-                                symbol
-                                    .trim()
-                                    .length > 0
-                        )
-                )
-            );
-        }, []);
-
-    /*
-     * ============================================================
-     * TICK BUFFER HELPER
-     * ============================================================
-     */
-
-    const ensureTickBuffer =
-        useCallback(
-            (symbol: string) => {
-                if (
-                    !tickBuffersRef
-                        .current[
-                        symbol
-                    ]
-                ) {
-                    tickBuffersRef.current[
-                        symbol
-                    ] = [];
-                }
-
-                return tickBuffersRef
-                    .current[symbol];
-            },
-            []
-        );
-
-    /*
-     * ============================================================
-     * LIVE DERIV TICK BRIDGE
-     * ============================================================
-     */
-
-    const subscribeToLiveTicks =
-        useCallback(() => {
-            if (
-                !isMountedRef.current
-            ) {
-                return;
-            }
-
-            const symbols =
-                getStrategySymbols();
-
-            if (
-                symbols.length === 0
-            ) {
-                console.warn(
-                    '[AI Scanner] No valid strategy symbols found.'
-                );
-
-                return;
-            }
-
-            if (!api_base.api) {
-                if (
-                    tickRetryTimerRef.current ===
-                    null
-                ) {
-                    tickRetryTimerRef.current =
-                        setTimeout(
-                            () => {
-                                tickRetryTimerRef.current =
-                                    null;
-
-                                if (
-                                    isMountedRef.current
-                                ) {
-                                    subscribeToLiveTicks();
-                                }
-                            },
-                            LIVE_TICK_RETRY_MS
-                        );
-                }
-
-                return;
-            }
-
-            if (
-                tickRetryTimerRef.current !==
-                null
-            ) {
-                clearTimeout(
-                    tickRetryTimerRef.current
-                );
-
-                tickRetryTimerRef.current =
-                    null;
-            }
-
-            symbols.forEach(
-                symbol => {
-                    if (
-                        subscribedSymbolsRef.current.has(
-                            symbol
-                        )
-                    ) {
-                        return;
-                    }
-
-                    ensureTickBuffer(
-                        symbol
-                    );
-
-                    try {
-                        const unsubscribe =
-                            api_base.subscribeToTicks(
-                                symbol,
-                                tick => {
-                                    if (
-                                        !isMountedRef.current
-                                    ) {
-                                        return;
-                                    }
-
-                                    if (
-                                        !tick ||
-                                        tick.symbol !==
-                                            symbol ||
-                                        !Number.isFinite(
-                                            tick.quote
-                                        )
-                                    ) {
-                                        invalidTickCountRef.current +=
-                                            1;
-
-                                        console.warn(
-                                            '[AI Scanner] Invalid tick received:',
-                                            {
-                                                expectedSymbol:
-                                                    symbol,
-                                                tick,
-                                            }
-                                        );
-
-                                        return;
-                                    }
-
-                                    const currentTicks =
-                                        tickBuffersRef
-                                            .current[
-                                            symbol
-                                        ] || [];
-
-                                    const updatedTicks =
-                                        [
-                                            ...currentTicks,
-                                            tick.quote,
-                                        ];
-
-                                    tickBuffersRef.current[
-                                        symbol
-                                    ] =
-                                        updatedTicks.slice(
-                                            -MAX_TICKS_PER_SYMBOL
-                                        );
-
-                                    lastTickTimeRef.current[
-                                        symbol
-                                    ] =
-                                        Date.now();
-
-                                    console.log(
-                                        '[AI Scanner] TICK RECEIVED:',
-                                        {
-                                            symbol,
-                                            quote: tick.quote,
-                                            epoch: tick.epoch,
-                                            count:
-                                                tickBuffersRef
-                                                    .current[
-                                                    symbol
-                                                ].length,
-                                        }
-                                    );
-                                }
-                            );
-
-                        subscribedSymbolsRef.current.add(
-                            symbol
-                        );
-
-                        if (
-                            typeof unsubscribe ===
-                            'function'
-                        ) {
-                            tickUnsubscribersRef.current.push(
-                                unsubscribe
-                            );
-                        }
-
-                        console.log(
-                            `[AI Scanner] Live ticks connected: ${symbol}`
-                        );
-                    } catch (error) {
-                        console.error(
-                            `[AI Scanner] Failed to subscribe to ${symbol}:`,
-                            error
-                        );
-                    }
-                }
-            );
-        }, [
-            ensureTickBuffer,
-            getStrategySymbols,
-        ]);
-
-    /*
-     * ============================================================
-     * CLEANUP LIVE TICK BRIDGE
-     * ============================================================
-     */
-
-    const cleanupLiveTickBridge =
-        useCallback(() => {
-            if (
-                tickRetryTimerRef.current !==
-                null
-            ) {
-                clearTimeout(
-                    tickRetryTimerRef.current
-                );
-
-                tickRetryTimerRef.current =
-                    null;
-            }
-
-            tickUnsubscribersRef.current.forEach(
-                unsubscribe => {
-                    try {
-                        unsubscribe();
-                    } catch (error) {
-                        console.warn(
-                            '[AI Scanner] Tick unsubscribe failed:',
-                            error
-                        );
-                    }
-                }
-            );
-
-            tickUnsubscribersRef.current =
-                [];
-
-            subscribedSymbolsRef.current.clear();
-        }, []);
-
-    /*
-     * ============================================================
-     * START LIVE TICK BRIDGE
-     * ============================================================
-     */
-
-    useEffect(() => {
-        isMountedRef.current =
-            true;
-
-        subscribeToLiveTicks();
-
-        return () => {
-            isMountedRef.current =
-                false;
-
-            scanGenerationRef.current +=
-                1;
-
-            scanInProgressRef.current =
-                false;
-
-            cleanupLiveTickBridge();
-        };
-    }, [
-        cleanupLiveTickBridge,
-        subscribeToLiveTicks,
-    ]);
-
-    /*
-     * ============================================================
-     * PROFILE SCORE
-     * ============================================================
-     */
-
-    const calculateProfileScore = (
-        strategy: AIStrategy
-    ): number => {
-        let score = 70;
-
-        if (
-            strategy.risk === 'LOW'
-        ) {
-            score += 8;
-        } else if (
-            strategy.risk === 'MEDIUM'
-        ) {
-            score += 5;
-        } else {
-            score += 2;
-        }
-
-        if (
-            strategy.profit > 0 &&
-            strategy.loss > 0
-        ) {
-            const ratio =
-                strategy.profit /
-                strategy.loss;
-
-            if (ratio >= 1) {
-                score += 5;
-            } else {
-                score += 2;
-            }
-        }
-
-        if (
-            strategy.duration <= 1
-        ) {
-            score += 4;
-        }
-
-        const preferredEngines = [
-            'D_ALEMBERT',
-            'OSCARS_GRIND',
-            'STRATEGY_1_3_2_6',
-            'REVERSE_D_ALEMBERT',
-            'REVERSE_MARTINGALE',
-        ];
-
-        if (
-            preferredEngines.includes(
-                strategy.engine
+    const getStrategySymbols = useCallback(() => {
+        return Array.from(
+            new Set(
+                AI_STRATEGIES.map(strategy => strategy.symbol)
+                    .filter(symbol => typeof symbol === 'string' && symbol.trim().length > 0)
             )
-        ) {
-            score += 3;
-        }
-
-        return Math.min(
-            99,
-            Math.max(50, score)
         );
-    };
+    }, []);
+
+    const ensureTickBuffer = useCallback((symbol: string) => {
+        if (!tickBuffersRef.current[symbol]) {
+            tickBuffersRef.current[symbol] = [];
+        }
+        return tickBuffersRef.current[symbol];
+    }, []);
 
     /*
-     * ============================================================
-     * FINAL SCANNER SCORE
-     * ============================================================
+     * ------------------------------------------------------------
+     * MATHEMATICAL SCORING MATRIX
+     * ------------------------------------------------------------
      */
+    const calculateProfileScore = (strategy: AIStrategy): number => {
+        let score = 70;
+        if (strategy.risk === 'LOW') score += 8;
+        else if (strategy.risk === 'MEDIUM') score += 5;
+        else score += 2;
+
+        if (strategy.profit > 0 && strategy.loss > 0) {
+            const ratio = strategy.profit / strategy.loss;
+            score += ratio >= 1 ? 5 : 2;
+        }
+
+        if (strategy.duration <= 1) score += 4;
+
+        const preferredEngines = ['D_ALEMBERT', 'OSCARS_GRIND', 'STRATEGY_1_3_2_6', 'REVERSE_D_ALEMBERT', 'REVERSE_MARTINGALE'];
+        if (preferredEngines.includes(strategy.engine)) score += 3;
+
+        return Math.min(99, Math.max(50, score));
+    };
 
     const calculateFinalScannerScore = (
         strategy: AIStrategy,
         analysis: MarketAnalysis
-    ): {
-        scannerScore: number;
-        marketCompatibility: number;
-        confidenceQualified: boolean;
-    } => {
-        const profileScore =
-            calculateProfileScore(
-                strategy
-            );
+    ): { scannerScore: number; marketCompatibility: number; confidenceQualified: boolean; } => {
+        const profileScore = calculateProfileScore(strategy);
+        const marketCompatibility = calculateMarketCompatibility(strategy, analysis);
 
-        const marketCompatibility =
-            calculateMarketCompatibility(
-                strategy,
-                analysis
-            );
-
-        if (
-            analysis.state ===
-            'INSUFFICIENT_DATA'
-        ) {
-            return {
-                scannerScore: 0,
-                marketCompatibility: 0,
-                confidenceQualified: false,
-            };
+        if (analysis.state === 'INSUFFICIENT_DATA') {
+            return { scannerScore: 0, marketCompatibility: 0, confidenceQualified: false };
         }
 
-        const confidenceQualified =
-            analysis.confidence >=
-            strategy.marketProfile
-                .minimumConfidence;
-
-        let finalScore =
-            profileScore * 0.4 +
-            marketCompatibility * 0.6;
-
-        if (!confidenceQualified) {
-            finalScore *= 0.65;
-        }
+        const confidenceQualified = analysis.confidence >= strategy.marketProfile.minimumConfidence;
+        let finalScore = profileScore * 0.4 + marketCompatibility * 0.6;
+        if (!confidenceQualified) finalScore *= 0.65;
 
         return {
-            scannerScore: Math.round(
-                Math.min(
-                    99,
-                    Math.max(
-                        0,
-                        finalScore
-                    )
-                )
-            ),
-
-            marketCompatibility:
-                Math.round(
-                    Math.min(
-                        100,
-                        Math.max(
-                            0,
-                            marketCompatibility
-                        )
-                    )
-                ),
-
+            scannerScore: Math.round(Math.min(99, Math.max(0, finalScore))),
+            marketCompatibility: Math.round(Math.min(100, Math.max(0, marketCompatibility))),
             confidenceQualified,
         };
     };
+    /*
+     * ============================================================
+     * LIVE STRATEGY EVALUATION RUNTIME ENGINE
+     * ============================================================
+     * Executes dynamically the instant a new WebSocket quote packet is pushed.
+     */
+    const evaluateAllStrategiesLive = useCallback(() => {
+        if (!isMountedRef.current) return;
+
+        const results = AI_STRATEGIES.map(strategy => {
+            const liveTicks = tickBuffersRef.current[strategy.symbol] || [];
+            const analysis = analyzeMarket(liveTicks);
+            const scores = calculateFinalScannerScore(strategy, analysis);
+
+            return {
+                ...strategy,
+                scannerScore: scores.scannerScore,
+                marketCompatibility: scores.marketCompatibility,
+                rank: 0,
+                marketState: analysis.state,
+                marketDirection: analysis.direction,
+                marketConfidence: analysis.confidence,
+                confidenceQualified: scores.confidenceQualified,
+                liveTickCount: liveTicks.length,
+            };
+        });
+
+        const hasUsableLiveData = results.some(
+            result => result.liveTickCount >= MIN_TICKS_FOR_LIVE_SCANNER && result.marketState !== 'INSUFFICIENT_DATA'
+        );
+
+        // Deterministic sorting matrix tiers
+        results.sort((a, b) => {
+            if (hasUsableLiveData && a.confidenceQualified !== b.confidenceQualified) {
+                return a.confidenceQualified ? -1 : 1;
+            }
+            if (b.scannerScore !== a.scannerScore) return b.scannerScore - a.scannerScore;
+            if (b.marketCompatibility !== a.marketCompatibility) return b.marketCompatibility - a.marketCompatibility;
+            if (b.marketConfidence !== a.marketConfidence) return b.marketConfidence - a.marketConfidence;
+            return a.name.localeCompare(b.name);
+        });
+
+        const rankedResults = results.map((strategy, index) => ({
+            ...strategy,
+            rank: index + 1,
+        }));
+
+        // Dynamic State pushing to avoid interval drops
+        if (rankedResults.length > 0) {
+            const topStrategy = rankedResults[0];
+            const topTicks = tickBuffersRef.current[topStrategy.symbol] || [];
+            setMarketAnalysis(analyzeMarket(topTicks));
+        } else {
+            setMarketAnalysis(analyzeMarket([]));
+        }
+
+        // Initialize editable variable slots on first structural feed load
+        setStakeValues(prev => {
+            const nextStakes = { ...prev };
+            rankedResults.forEach(strategy => {
+                if (nextStakes[strategy.id] === undefined) nextStakes[strategy.id] = String(strategy.stake);
+            });
+            return nextStakes;
+        });
+
+        setTargetValues(prev => {
+            const nextTargets = { ...prev };
+            rankedResults.forEach(strategy => {
+                if (nextTargets[strategy.id] === undefined) nextTargets[strategy.id] = String(strategy.profit);
+            });
+            return nextTargets;
+        });
+
+        if (hasUsableLiveData) {
+            setScannerResults(rankedResults);
+            setExpandedStrategyId(currentExpandedId => currentExpandedId ?? rankedResults[0]?.id ?? null);
+        } else {
+            const initialSeedingList = AI_STRATEGIES.map((strategy, idx) => ({
+                ...strategy,
+                scannerScore: 0,
+                marketCompatibility: 0,
+                rank: idx + 1,
+                marketState: 'INSUFFICIENT_DATA' as const,
+                marketDirection: 'FLAT' as const,
+                marketConfidence: 0,
+                confidenceQualified: false,
+                liveTickCount: tickBuffersRef.current[strategy.symbol]?.length || 0,
+            }));
+            setScannerResults(initialSeedingList);
+            setExpandedStrategyId(currentExpandedId => currentExpandedId ?? initialSeedingList[0]?.id ?? null);
+        }
+    }, [calculateFinalScannerScore]);
 
     /*
      * ============================================================
-     * BUILD INITIAL EDITABLE VALUES
+     * WEBSOCKET SUBSCRIPTION CONTROLLER WIRE
      * ============================================================
      */
+    const subscribeToLiveTicks = useCallback(() => {
+        if (!isMountedRef.current) return;
 
-    const initializeEditableValues = (
-        results: ScannerResult[]
-    ) => {
-        const initialStakeValues: Record<
-            string,
-            string
-        > = {};
-
-        const initialTargetValues: Record<
-            string,
-            string
-        > = {};
-
-        results.forEach(
-            strategy => {
-                initialStakeValues[
-                    strategy.id
-                ] = String(
-                    strategy.stake
-                );
-
-                initialTargetValues[
-                    strategy.id
-                ] = String(
-                    strategy.profit
-                );
+        const symbols = getStrategySymbols();
+        if (symbols.length === 0 || !api_base.api) {
+            if (tickRetryTimerRef.current === null) {
+                tickRetryTimerRef.current = setTimeout(() => {
+                    tickRetryTimerRef.current = null;
+                    if (isMountedRef.current) subscribeToLiveTicks();
+                }, LIVE_TICK_RETRY_MS);
             }
-        );
+            return;
+        }
 
-        setStakeValues(
-            initialStakeValues
-        );
+        if (tickRetryTimerRef.current !== null) {
+            clearTimeout(tickRetryTimerRef.current);
+            tickRetryTimerRef.current = null;
+        }
 
-        setTargetValues(
-            initialTargetValues
-        );
-    };
-
-    /*
-     * ============================================================
-     * SCAN ALL STRATEGIES
-     * ============================================================
-     */
-
-    const scanAllStrategies =
-        async () => {
-            if (
-                scanInProgressRef.current
-            ) {
-                return;
-            }
-
-            scanInProgressRef.current =
-                true;
-
-            const currentScanGeneration =
-                ++scanGenerationRef.current;
-
-            setIsScanning(true);
-            setScannerResults([]);
-            setExpandedStrategyId(null);
+        symbols.forEach(symbol => {
+            if (subscribedSymbolsRef.current.has(symbol)) return;
+            ensureTickBuffer(symbol);
 
             try {
-                subscribeToLiveTicks();
+                const unsubscribe = api_base.subscribeToTicks(symbol, tick => {
+                    if (!isMountedRef.current) return;
 
-                await new Promise(
-                    resolve =>
-                        setTimeout(
-                            resolve,
-                            SCAN_SETTLE_MS
-                        )
-                );
+                    if (!tick || tick.symbol !== symbol || !Number.isFinite(tick.quote)) {
+                        invalidTickCountRef.current += 1;
+                        return;
+                    }
 
-                if (
-                    !isMountedRef.current ||
-                    currentScanGeneration !==
-                        scanGenerationRef.current
-                ) {
-                    return;
+                    const currentTicks = tickBuffersRef.current[symbol] || [];
+                    tickBuffersRef.current[symbol] = [...currentTicks, tick.quote].slice(-MAX_TICKS_PER_SYMBOL);
+                    lastTickTimeRef.current[symbol] = Date.now();
+
+                    // ⚡ REACTIVE PIPELINE EXECUTION: Compute math instantly on live tick arrivals
+                    if (scanInProgressRef.current) {
+                        evaluateAllStrategiesLive();
+                    }
+                });
+
+                subscribedSymbolsRef.current.add(symbol);
+                if (typeof unsubscribe === 'function') {
+                    tickUnsubscribersRef.current.push(unsubscribe);
                 }
-
-                const runScannerIteration =
-                    () => {
-                        if (
-                            !isMountedRef.current ||
-                            currentScanGeneration !==
-                                scanGenerationRef.current
-                        ) {
-                            return false;
-                        }
-
-                        const results =
-                            AI_STRATEGIES.map(
-                                strategy => {
-                                    const liveTicks =
-                                        tickBuffersRef
-                                            .current[
-                                            strategy.symbol
-                                        ] || [];
-
-                                    const analysis =
-                                        analyzeMarket(
-                                            liveTicks
-                                        );
-
-                                    const scores =
-                                        calculateFinalScannerScore(
-                                            strategy,
-                                            analysis
-                                        );
-
-                                    return {
-                                        ...strategy,
-
-                                        scannerScore:
-                                            scores.scannerScore,
-
-                                        marketCompatibility:
-                                            scores.marketCompatibility,
-
-                                        rank: 0,
-
-                                        marketState:
-                                            analysis.state,
-
-                                        marketDirection:
-                                            analysis.direction,
-
-                                        marketConfidence:
-                                            analysis.confidence,
-
-                                        confidenceQualified:
-                                            scores.confidenceQualified,
-
-                                        liveTickCount:
-                                            liveTicks.length,
-                                    };
-                                }
-                            );
-
-                        const hasUsableLiveData =
-                            results.some(
-                                result =>
-                                    result.liveTickCount >=
-                                        MIN_TICKS_FOR_LIVE_SCANNER &&
-                                    result.marketState !==
-                                        'INSUFFICIENT_DATA'
-                            );
-
-                        results.sort(
-                            (a, b) => {
-                                if (
-                                    hasUsableLiveData &&
-                                    a.confidenceQualified !==
-                                        b.confidenceQualified
-                                ) {
-                                    return a.confidenceQualified
-                                        ? -1
-                                        : 1;
-                                }
-
-                                if (
-                                    b.scannerScore !==
-                                    a.scannerScore
-                                ) {
-                                    return (
-                                        b.scannerScore -
-                                        a.scannerScore
-                                    );
-                                }
-
-                                if (
-                                    b.marketCompatibility !==
-                                    a.marketCompatibility
-                                ) {
-                                    return (
-                                        b.marketCompatibility -
-                                        a.marketCompatibility
-                                    );
-                                }
-
-                                if (
-                                    b.marketConfidence !==
-                                    a.marketConfidence
-                                ) {
-                                    return (
-                                        b.marketConfidence -
-                                        a.marketConfidence
-                                    );
-                                }
-
-                                return a.name.localeCompare(
-                                    b.name
-                                );
-                            }
-                        );
-
-                        const rankedResults =
-                            results.map(
-                                (
-                                    strategy,
-                                    index
-                                ) => ({
-                                    ...strategy,
-                                    rank:
-                                        index + 1,
-                                })
-                            );
-
-                        if (
-                            rankedResults.length >
-                            0
-                        ) {
-                            const topStrategy =
-                                rankedResults[0];
-
-                            const topTicks =
-                                tickBuffersRef
-                                    .current[
-                                    topStrategy.symbol
-                                ] || [];
-
-                            const topAnalysis =
-                                analyzeMarket(
-                                    topTicks
-                                );
-
-                            setMarketAnalysis(
-                                topAnalysis
-                            );
-                        } else {
-                            setMarketAnalysis(
-                                analyzeMarket([])
-                            );
-                        }
-
-                        setStakeValues(
-                            prev => {
-                                const nextStakes =
-                                    {
-                                        ...prev,
-                                    };
-
-                                rankedResults.forEach(
-                                    strategy => {
-                                        if (
-                                            nextStakes[
-                                                strategy.id
-                                            ] ===
-                                            undefined
-                                        ) {
-                                            nextStakes[
-                                                strategy.id
-                                            ] =
-                                                String(
-                                                    strategy.stake
-                                                );
-                                        }
-                                    }
-                                );
-
-                                return nextStakes;
-                            }
-                        );
-
-                        setTargetValues(
-                            prev => {
-                                const nextTargets =
-                                    {
-                                        ...prev,
-                                    };
-
-                                rankedResults.forEach(
-                                    strategy => {
-                                        if (
-                                            nextTargets[
-                                                strategy.id
-                                            ] ===
-                                            undefined
-                                        ) {
-                                            nextTargets[
-                                                strategy.id
-                                            ] =
-                                                String(
-                                                    strategy.profit
-                                                );
-                                        }
-                                    }
-                                );
-
-                                return nextTargets;
-                            }
-                        );
-
-                        if (
-                            hasUsableLiveData
-                        ) {
-                            setScannerResults(
-                                rankedResults
-                            );
-
-                            setExpandedStrategyId(
-                                currentExpandedId =>
-                                    currentExpandedId ??
-                                    rankedResults[0]?.id ??
-                                    null
-                            );
-                        } else {
-                            const initialSeedingList =
-                                AI_STRATEGIES.map(
-                                    (
-                                        strategy,
-                                        idx
-                                    ) => ({
-                                        ...strategy,
-
-                                        scannerScore:
-                                            0,
-
-                                        marketCompatibility:
-                                            0,
-
-                                        rank:
-                                            idx + 1,
-
-                                        marketState:
-                                            'INSUFFICIENT_DATA' as const,
-
-                                        marketDirection:
-                                            'FLAT' as const,
-
-                                        marketConfidence:
-                                            0,
-
-                                        confidenceQualified:
-                                            false,
-
-                                        liveTickCount:
-                                            tickBuffersRef
-                                                .current[
-                                                strategy
-                                                    .symbol
-                                            ]
-                                                ?.length ||
-                                            0,
-                                    })
-                                );
-
-                            setScannerResults(
-                                initialSeedingList
-                            );
-
-                            setExpandedStrategyId(
-                                currentExpandedId =>
-                                    currentExpandedId ??
-                                    initialSeedingList[0]?.id ??
-                                    null
-                            );
-                        }
-
-                        return true;
-                    };
-
-                runScannerIteration();
-
-                const streamingIntervalId =
-                    setInterval(
-                        () => {
-                            const keepAlive =
-                                runScannerIteration();
-
-                            if (
-                                !keepAlive
-                            ) {
-                                clearInterval(
-                                    streamingIntervalId
-                                );
-                            }
-                        },
-                        1000
-                    );
             } catch (error) {
-                console.error(
-                    '[AI Scanner] Core Evaluation Error:',
-                    error
-                );
-            } finally {
-                if (
-                    isMountedRef.current &&
-                    currentScanGeneration ===
-                        scanGenerationRef.current
-                ) {
-                    setIsScanning(
-                        false
-                    );
-
-                    scanInProgressRef.current =
-                        false;
-                }
+                console.error(`[AI Scanner] WebSocket configuration error on ${symbol}:`, error);
             }
+        });
+    }, [ensureTickBuffer, getStrategySymbols, evaluateAllStrategiesLive]);
+
+    const cleanupLiveTickBridge = useCallback(() => {
+        if (tickRetryTimerRef.current !== null) {
+            clearTimeout(tickRetryTimerRef.current);
+            tickRetryTimerRef.current = null;
+        }
+        tickUnsubscribersRef.current.forEach(unsubscribe => {
+            try { unsubscribe(); } catch { /* fail silent */ }
+        });
+        tickUnsubscribersRef.current = [];
+        subscribedSymbolsRef.current.clear();
+    }, []);
+
+    // Baseline mount listener initialization
+    useEffect(() => {
+        isMountedRef.current = true;
+        subscribeToLiveTicks();
+        return () => {
+            isMountedRef.current = false;
+            scanGenerationRef.current += 1;
+            scanInProgressRef.current = false;
+            cleanupLiveTickBridge();
         };
+    }, [cleanupLiveTickBridge, subscribeToLiveTicks]);
 
+    const startLiveEvaluation = async () => {
+        if (scanInProgressRef.current) return;
+
+        scanInProgressRef.current = true;
+        setIsScanning(true);
+        setScannerResults([]);
+        setExpandedStrategyId(null);
+
+        subscribeToLiveTicks();
+        evaluateAllStrategiesLive();
+        setIsScanning(false);
+    };
     /*
      * ============================================================
-     * UPDATE STAKE
+     * INTERACTIVE USER SELECTIONS AND STAKE INPUT SANITIZERS
      * ============================================================
      */
+    const updateStake = (strategyId: string, value: string) => {
+        if (!/^\d*\.?\d*$/.test(value)) return;
+        setStakeValues(previous => ({ ...previous, [strategyId]: value }));
+    };
 
-    const updateStake = (
-        strategyId: string,
-        value: string
-    ) => {
-        if (
-            !/^\d*\.?\d*$/.test(
-                value
-            )
-        ) {
-            return;
-        }
+    const updateTarget = (strategyId: string, value: string) => {
+        if (!/^\d*\.?\d*$/.test(value)) return;
+        setTargetValues(previous => ({ ...previous, [strategyId]: value }));
+    };
 
-        setStakeValues(
-            previous => ({
-                ...previous,
-                [strategyId]:
-                    value,
-            })
-        );
+    const toggleStrategyCard = (strategyId: string) => {
+        setExpandedStrategyId(currentId => currentId === strategyId ? null : strategyId);
     };
 
     /*
      * ============================================================
-     * UPDATE TARGET
+     * DEPLOY SELECTIONS SCHEMA BACK TO BOT CORE
      * ============================================================
      */
+    const loadStrategy = async (strategy: ScannerResult) => {
+        if (loadingStrategyId !== null || scanInProgressRef.current) return;
 
-    const updateTarget = (
-        strategyId: string,
-        value: string
-    ) => {
-        if (
-            !/^\d*\.?\d*$/.test(
-                value
-            )
-        ) {
+        const editedStake = parseFloat(stakeValues[strategy.id] ?? '');
+        const editedTarget = parseFloat(targetValues[strategy.id] ?? '');
+
+        if (!Number.isFinite(editedStake) || editedStake <= 0) return;
+        if (!Number.isFinite(editedTarget) || editedTarget <= 0) return;
+
+        if (strategy.marketState === 'INSUFFICIENT_DATA' || strategy.liveTickCount < MIN_TICKS_FOR_LIVE_SCANNER) {
             return;
         }
 
-        setTargetValues(
-            previous => ({
-                ...previous,
-                [strategyId]:
-                    value,
-            })
-        );
-    };
-
-    /*
-     * ============================================================
-     * TOGGLE STRATEGY CARD
-     * ============================================================
-     */
-
-    const toggleStrategyCard = (
-        strategyId: string
-    ) => {
-        setExpandedStrategyId(
-            currentId =>
-                currentId ===
-                strategyId
-                    ? null
-                    : strategyId
-        );
-    };
-
-    /*
-     * ============================================================
-     * LOAD SELECTED STRATEGY
-     * ============================================================
-     */
-
-    const loadStrategy = async (
-        strategy: ScannerResult
-    ) => {
-        if (
-            loadingStrategyId !==
-            null
-        ) {
-            return;
-        }
-
-        if (
-            scanInProgressRef.current
-        ) {
-            return;
-        }
-
-        const editedStake =
-            parseFloat(
-                stakeValues[
-                    strategy.id
-                ] ?? ''
-            );
-
-        const editedTarget =
-            parseFloat(
-                targetValues[
-                    strategy.id
-                ] ?? ''
-            );
-
-        if (
-            !Number.isFinite(
-                editedStake
-            ) ||
-            editedStake <= 0
-        ) {
-            console.error(
-                '[AI Scanner] Invalid stake amount.'
-            );
-
-            return;
-        }
-
-        if (
-            !Number.isFinite(
-                editedTarget
-            ) ||
-            editedTarget <= 0
-        ) {
-            console.error(
-                '[AI Scanner] Invalid target amount.'
-            );
-
-            return;
-        }
-
-        if (
-            strategy.marketState ===
-                'INSUFFICIENT_DATA' ||
-            strategy.liveTickCount <
-                MIN_TICKS_FOR_LIVE_SCANNER
-        ) {
-            console.warn(
-                '[AI Scanner] Strategy cannot be loaded from an insufficient-data scan.'
-            );
-
-            return;
-        }
-
-        setLoadingStrategyId(
-            strategy.id
-        );
+        setLoadingStrategyId(strategy.id);
 
         try {
-            quick_strategy.setSelectedStrategy(
-                strategy.engine
-            );
+            quick_strategy.setSelectedStrategy(strategy.engine);
 
-            await quick_strategy.onSubmit(
-                {
-                    symbol:
-                        strategy.symbol,
+            await quick_strategy.onSubmit({
+                symbol: strategy.symbol,
+                tradetype: strategy.tradetype,
+                type: strategy.type,
+                stake: editedStake,
+                durationtype: strategy.durationtype,
+                duration: strategy.duration,
+                profit: editedTarget,
+                loss: strategy.loss,
+                size: strategy.size,
+                unit: strategy.unit,
+                action: 'LOAD',
+            });
 
-                    tradetype:
-                        strategy.tradetype,
-
-                    type:
-                        strategy.type,
-
-                    stake:
-                        editedStake,
-
-                    durationtype:
-                        strategy.durationtype,
-
-                    duration:
-                        strategy.duration,
-
-                    profit:
-                        editedTarget,
-
-                    loss:
-                        strategy.loss,
-
-                    size:
-                        strategy.size,
-
-                    unit:
-                        strategy.unit,
-
-                    action:
-                        'LOAD',
-                }
-            );
-
-            if (
-                isMountedRef.current
-            ) {
+            if (isMountedRef.current) {
                 setIsOpen(false);
+                scanInProgressRef.current = false;
                 setScannerResults([]);
                 setStakeValues({});
                 setTargetValues({});
-                setExpandedStrategyId(
-                    null
-                );
-
-                setMarketAnalysis(
-                    analyzeMarket([])
-                );
+                setExpandedStrategyId(null);
+                setMarketAnalysis(analyzeMarket([]));
             }
         } catch (error) {
-            console.error(
-                '[AI Scanner] Failed to load AI strategy:',
-                error
-            );
+            console.error('[AI Scanner] Strategy deployment transaction failure:', error);
         } finally {
-            if (
-                isMountedRef.current
-            ) {
-                setLoadingStrategyId(
-                    null
-                );
-            }
+            if (isMountedRef.current) setLoadingStrategyId(null);
         }
     };
 
-    /*
-     * ============================================================
-     * CLOSE SCANNER
-     * ============================================================
-     */
-
     const closeScanner = () => {
-        scanGenerationRef.current +=
-            1;
-
-        scanInProgressRef.current =
-            false;
-
+        scanGenerationRef.current += 1;
+        scanInProgressRef.current = false;
         setIsScanning(false);
         setIsOpen(false);
         setScannerResults([]);
@@ -1752,724 +567,283 @@ const FloatingAI = () => {
         setStakeValues({});
         setTargetValues({});
         setExpandedStrategyId(null);
-
-        setMarketAnalysis(
-            analyzeMarket([])
-        );
+        setMarketAnalysis(analyzeMarket([]));
     };
-
-    /*
-     * ============================================================
-     * RENDER
-     * ============================================================
-     */
-
     return (
         <>
+            {/* 🕺 FLOATING INTERACTIVE ORB TRIGGER CONTROL (With Silent Dance hooks) */}
             <button
                 ref={buttonRef}
                 type="button"
-                className={`floating-ai-button ${
-                    isOpen
-                        ? 'active'
-                        : ''
-                } ${
-                    isDragging
-                        ? 'dragging'
-                        : ''
-                }`}
-                style={
-                    dragPos
-                        ? {
-                              left: `${dragPos.x}px`,
-                              top: `${dragPos.y}px`,
-                          }
-                        : undefined
-                }
-                onPointerDown={
-                    handlePointerDown
-                }
-                onPointerMove={
-                    handlePointerMove
-                }
-                onPointerUp={
-                    handlePointerUp
-                }
-                onPointerCancel={
-                    handlePointerCancel
-                }
-                onClick={
-                    handleButtonClick
-                }
+                className={`floating-ai-button ${isOpen ? 'active' : ''} ${isDragging ? 'dragging' : ''}`}
+                style={dragPos ? { position: 'fixed', left: `${dragPos.x}px`, top: `${dragPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerCancel}
+                onClick={handleButtonClick}
                 aria-label="Open AI Scanner"
             >
                 <span className="ai-ring ring-one" />
-
                 <span className="ai-ring ring-two" />
-
                 <span className="ai-ring ring-three" />
-
-                <span className="ai-core">
-                    ✦
-                </span>
+                <span className="ai-core">✦</span>
             </button>
 
+            {/* PREMIUM ALGO TRADING SLIDEOUT CORE PANEL */}
             {isOpen && (
                 <div className="floating-ai-panel">
+                    {/* SYSTEM TOP ACTION HEADER CONTAINER */}
                     <div className="floating-ai-header">
                         <div>
-                            <span className="ai-status-dot" />
-
-                            <strong>
-                                AI Strategy Scanner
-                            </strong>
+                            <span 
+                                className="ai-status-dot" 
+                                style={{
+                                    background: scanInProgressRef.current ? '#22c55e' : '#ef4444',
+                                    boxShadow: scanInProgressRef.current ? '0 0 13px #22c55e' : '0 0 13px #ef4444'
+                                }}
+                            />
+                            <strong>AI Strategy Scanner</strong>
                         </div>
-
-                        <button
-                            type="button"
-                            className="ai-close"
-                            onClick={
-                                closeScanner
-                            }
-                            aria-label="Close AI Scanner"
-                        >
-                            ×
-                        </button>
+                        <button type="button" className="ai-close" onClick={closeScanner} aria-label="Close AI Scanner">×</button>
                     </div>
 
                     <div className="floating-ai-content">
-                        {scannerResults.length ===
-                            0 &&
-                            !isScanning && (
-                                <>
-                                    <div className="ai-hero">
-                                        <div className="ai-hero-icon">
-                                            ✦
-                                        </div>
-
-                                        <h3>
-                                            AI Trading Scanner
-                                        </h3>
-
-                                        <p>
-                                            Scan all{' '}
-                                            <strong>
-                                                {
-                                                    AI_STRATEGIES.length
-                                                }
-                                            </strong>{' '}
-                                            available
-                                            strategy
-                                            profiles
-                                            against
-                                            live Deriv
-                                            market
-                                            ticks.
-                                        </p>
-                                    </div>
-
-                                    <div className="strategy-count">
-                                        <strong>
-                                            {
-                                                AI_STRATEGIES.length
-                                            }
-                                        </strong>
-
-                                        <span>
-                                            AI
-                                            strategies
-                                            available
-                                        </span>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        className="scan-button"
-                                        onClick={
-                                            scanAllStrategies
-                                        }
-                                        disabled={
-                                            isScanning
-                                        }
-                                    >
-                                        ✦ Scan{' '}
-                                        {
-                                            AI_STRATEGIES.length
-                                        }{' '}
-                                        Strategies
-                                    </button>
-                                </>
-                            )}
+                        {scannerResults.length === 0 && !isScanning && (
+                            <>
+                                <div className="ai-hero">
+                                    <div className="ai-hero-icon">✦</div>
+                                    <h3>AI Trading Scanner</h3>
+                                    <p>Scan all <strong>{AI_STRATEGIES.length}</strong> available strategy profiles against live Deriv market ticks.</p>
+                                </div>
+                                <div className="strategy-count">
+                                    <strong>{AI_STRATEGIES.length}</strong>
+                                    <span>AI strategies available</span>
+                                </div>
+                                <button type="button" className="scan-button" onClick={startLiveEvaluation}>
+                                    ✦ Scan {AI_STRATEGIES.length} Strategies
+                                </button>
+                            </>
+                        )}
 
                         {isScanning && (
                             <div className="ai-scanning-state">
-                                <div className="scanner-loader">
-                                    <span />
-                                    <span />
-                                    <span />
-                                </div>
-
-                                <h3>
-                                    Scanning
-                                    Strategies...
-                                </h3>
-
-                                <p>
-                                    Analyzing{' '}
-                                    {
-                                        AI_STRATEGIES.length
-                                    }{' '}
-                                    strategies
-                                    against
-                                    live market
-                                    ticks.
-                                </p>
-
+                                <div className="scanner-loader"><span /><span /><span /></div>
+                                <h3>Scanning Strategies...</h3>
+                                <p>Analyzing {AI_STRATEGIES.length} strategies against live market ticks.</p>
                                 <div className="scanning-progress">
-                                    <div className="scanning-progress-bar" />
+                                    <div className="scanning-progress-bar" style={{ width: '20%' }} />
                                 </div>
                             </div>
                         )}
-
-                        {scannerResults.length >
-                            0 &&
-                            !isScanning && (
-                                <>
-                                    <div className="scanner-heading">
-                                        <div>
-                                            <h3>
-                                                Scanner
-                                                Results
-                                            </h3>
-
-                                            <p>
-                                                {
-                                                    scannerResults.length
-                                                }{' '}
-                                                strategies
-                                                ranked
-                                                using
-                                                live
-                                                market
-                                                data.
-                                            </p>
-                                        </div>
-
-                                        <div className="result-count">
-                                            {
-                                                scannerResults.length
-                                            }
-                                            /
-                                            {
-                                                AI_STRATEGIES.length
-                                            }
-                                        </div>
+                        {scannerResults.length > 0 && !isScanning && (
+                            <>
+                                <div className="scanner-heading">
+                                    <div>
+                                        <h3>Scanner Results</h3>
+                                        <p>{scannerResults.length} strategies ranked using live market data.</p>
                                     </div>
+                                    <div className="result-count">{scannerResults.length}/{AI_STRATEGIES.length}</div>
+                                </div>
 
-                                    <div className="scanner-market-status">
-                                        <div>
-                                            <span>
-                                                Market
-                                                State
-                                            </span>
-
-                                            <strong>
-                                                {
-                                                    marketAnalysis.state
-                                                }
-                                            </strong>
-                                        </div>
-
-                                        <div>
-                                            <span>
-                                                Direction
-                                            </span>
-
-                                            <strong>
-                                                {
-                                                    marketAnalysis.direction
-                                                }
-                                            </strong>
-                                        </div>
-
-                                        <div>
-                                            <span>
-                                                Confidence
-                                            </span>
-
-                                            <strong>
-                                                {
-                                                    marketAnalysis.confidence
-                                                }
-                                                %
-                                            </strong>
-                                        </div>
+                                <div className="scanner-market-status">
+                                    <div>
+                                        <span>Market State</span>
+                                        <strong>{marketAnalysis.state}</strong>
                                     </div>
+                                    <div>
+                                        <span>Direction</span>
+                                        <strong className={`direction-${marketAnalysis.direction.toLowerCase()}`}>{marketAnalysis.direction}</strong>
+                                    </div>
+                                    <div>
+                                        <span>Confidence</span>
+                                        <strong>{marketAnalysis.confidence}%</strong>
+                                    </div>
+                                </div>
 
-                                    {marketAnalysis.state ===
-                                        'INSUFFICIENT_DATA' && (
-                                        <div className="scanner-data-notice">
-                                            Waiting
-                                            for
-                                            enough
-                                            live
-                                            ticks.
-                                            Keep the
-                                            scanner
-                                            open and
-                                            scan
-                                            again
-                                            once
-                                            data has
-                                            accumulated.
-                                        </div>
-                                    )}
+                                {marketAnalysis.state === 'INSUFFICIENT_DATA' && (
+                                    <div className="scanner-data-notice">
+                                        Waiting for enough live ticks. Keep the scanner open and tracking to let historical matrices accumulate.
+                                    </div>
+                                )}
 
-                                    <div className="strategy-list">
-                                        {scannerResults.map(
-                                            strategy => {
-                                                const isExpanded =
-                                                    expandedStrategyId ===
-                                                    strategy.id;
+                                <div className="strategy-list">
+                                    {scannerResults.map(strategy => {
+                                        const isExpanded = expandedStrategyId === strategy.id;
+                                        const strategyLiveTicksCount = tickBuffersRef.current[strategy.symbol]?.length || 0;
+                                        const isConfidenceQualified = strategy.marketConfidence >= strategy.marketProfile.minimumConfidence;
 
-                                                return (
-                                                    <div
-                                                        key={
-                                                            strategy.id
-                                                        }
-                                                        className={`strategy-card ${
-                                                            strategy.rank ===
-                                                            1
-                                                                ? 'top-strategy'
-                                                                : ''
-                                                        } ${
-                                                            isExpanded
-                                                                ? 'expanded'
-                                                                : 'collapsed'
-                                                        }`}
-                                                    >
+                                        return (
+                                            <div
+                                                key={strategy.id}
+                                                className={`strategy-card ${strategy.rank === 1 ? 'top-strategy' : ''} ${isExpanded ? 'expanded' : 'collapsed'}`}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    className="strategy-card-header"
+                                                    onClick={() => toggleStrategyCard(strategy.id)}
+                                                    aria-expanded={isExpanded}
+                                                    aria-controls={`strategy-details-${strategy.id}`}
+                                                >
+                                                    <div className="strategy-card-summary">
+                                                        <div className={`strategy-rank ${strategy.rank === 1 ? 'rank-one' : ''}`}>
+                                                            #{strategy.rank}
+                                                        </div>
+
+                                                        <div className="strategy-summary-main">
+                                                            <div className="strategy-summary-title-row">
+                                                                <div className="strategy-name">{strategy.name}</div>
+                                                                <div className={`risk-badge risk-${strategy.risk.toLowerCase()}`}>{strategy.risk}</div>
+                                                            </div>
+                                                            <div className="strategy-summary-meta">
+                                                                <span>Score <strong>{strategy.scannerScore}%</strong></span>
+                                                                <span>Confidence <strong>{strategy.marketConfidence}%</strong></span>
+                                                            </div>
+                                                        </div>
+
+                                                        {strategy.rank === 1 && isConfidenceQualified && strategy.marketState !== 'INSUFFICIENT_DATA' && (
+                                                            <div className="best-badge">BEST MATCH</div>
+                                                        )}
+                                                        <span className={`strategy-expand-icon ${isExpanded ? 'open' : ''}`} aria-hidden="true">›</span>
+                                                    </div>
+                                                </button>
+                                                <div
+                                                    id={`strategy-details-${strategy.id}`}
+                                                    className={`strategy-card-body ${isExpanded ? 'visible' : ''}`}
+                                                    aria-hidden={!isExpanded}
+                                                >
+                                                    <div className="strategy-card-body-inner">
+                                                        <div className="strategy-description">{strategy.description}</div>
+
+                                                        <div className="strategy-market-live">
+                                                            <div>
+                                                                <span>Live Market</span>
+                                                                <strong>{strategy.marketState}</strong>
+                                                            </div>
+                                                            <div>
+                                                                <span>Direction</span>
+                                                                <strong className={`direction-${strategy.marketDirection.toLowerCase()}`}>{strategy.marketDirection}</strong>
+                                                            </div>
+                                                            <div>
+                                                                <span>Confidence</span>
+                                                                <strong>{strategy.marketConfidence}%</strong>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="strategy-market-live">
+                                                            <div>
+                                                                <span>Live Ticks</span>
+                                                                <strong>{strategyLiveTicksCount}/{MAX_TICKS_PER_SYMBOL}</strong>
+                                                            </div>
+                                                            <div>
+                                                                <span>Required</span>
+                                                                <strong>{strategy.marketProfile.minimumConfidence}%</strong>
+                                                            </div>
+                                                            <div>
+                                                                <span>Confidence Gate</span>
+                                                                <strong style={{ color: isConfidenceQualified ? '#22c55e' : '#eab308' }}>
+                                                                    {isConfidenceQualified ? 'PASS' : 'WAIT'}
+                                                                </strong>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="scanner-score">
+                                                            <div className="score-info">
+                                                                <span>Scanner Score</span>
+                                                                <strong>{strategy.scannerScore}%</strong>
+                                                            </div>
+                                                            <div className="score-track">
+                                                                <div className="score-fill" style={{ width: `${strategy.scannerScore}%` }} />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="scanner-score">
+                                                            <div className="score-info">
+                                                                <span>Market Compatibility</span>
+                                                                <strong>{strategy.marketCompatibility}%</strong>
+                                                            </div>
+                                                            <div className="score-track">
+                                                                <div className="score-fill" style={{ width: `${strategy.marketCompatibility}%` }} />
+                                                            </div>
+                                                        </div>
+                                                        <div className="strategy-details">
+                                                            <div className="strategy-detail">
+                                                                <span>Engine</span>
+                                                                <strong>{strategy.engine}</strong>
+                                                            </div>
+                                                            <div className="strategy-detail">
+                                                                <span>Market</span>
+                                                                <strong>{strategy.symbol}</strong>
+                                                            </div>
+                                                            <div className="strategy-detail">
+                                                                <span>Direction</span>
+                                                                <strong>{strategy.type || 'Default'}</strong>
+                                                            </div>
+
+                                                            <div className="strategy-detail editable-strategy-detail">
+                                                                <span>Stake</span>
+                                                                <div className="strategy-input-wrapper">
+                                                                    <span className="strategy-input-prefix">$</span>
+                                                                    <input
+                                                                        type="text"
+                                                                        inputMode="decimal"
+                                                                        value={stakeValues[strategy.id] ?? ''}
+                                                                        onChange={event => updateStake(strategy.id, event.target.value)}
+                                                                        onClick={event => event.stopPropagation()}
+                                                                        aria-label={`Stake for ${strategy.name}`}
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="strategy-detail">
+                                                                <span>Duration</span>
+                                                                <strong>{strategy.duration} {strategy.duration === 1 ? 'tick' : 'ticks'}</strong>
+                                                            </div>
+
+                                                            <div className="strategy-detail editable-strategy-detail">
+                                                                <span>Target</span>
+                                                                <div className="strategy-input-wrapper">
+                                                                    <span className="strategy-input-prefix">$</span>
+                                                                    <input
+                                                                        type="text"
+                                                                        inputMode="decimal"
+                                                                        value={targetValues[strategy.id] ?? ''}
+                                                                        onChange={event => updateTarget(strategy.id, event.target.value)}
+                                                                        onClick={event => event.stopPropagation()}
+                                                                        aria-label={`Target for ${strategy.name}`}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
                                                         <button
                                                             type="button"
-                                                            className="strategy-card-header"
-                                                            onClick={() =>
-                                                                toggleStrategyCard(
-                                                                    strategy.id
-                                                                )
+                                                            className="load-bot-button"
+                                                            onClick={() => loadStrategy(strategy)}
+                                                            disabled={
+                                                                loadingStrategyId !== null ||
+                                                                strategy.marketState === 'INSUFFICIENT_DATA' ||
+                                                                strategyLiveTicksCount < MIN_TICKS_FOR_LIVE_SCANNER
                                                             }
-                                                            aria-expanded={
-                                                                isExpanded
-                                                            }
-                                                            aria-controls={`strategy-details-${strategy.id}`}
                                                         >
-                                                            <div className="strategy-card-summary">
-                                                                <div
-                                                                    className={`strategy-rank ${
-                                                                        strategy.rank ===
-                                                                        1
-                                                                            ? 'rank-one'
-                                                                            : ''
-                                                                    }`}
-                                                                >
-                                                                    #
-                                                                    {
-                                                                        strategy.rank
-                                                                    }
-                                                                </div>
-
-                                                                <div className="strategy-summary-main">
-                                                                    <div className="strategy-summary-title-row">
-                                                                        <div className="strategy-name">
-                                                                            {
-                                                                                strategy.name
-                                                                            }
-                                                                        </div>
-
-                                                                        <div
-                                                                            className={`risk-badge risk-${strategy.risk.toLowerCase()}`}
-                                                                        >
-                                                                            {
-                                                                                strategy.risk
-                                                                            }
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="strategy-summary-meta">
-                                                                        <span>
-                                                                            Score{' '}
-                                                                            <strong>
-                                                                                {
-                                                                                    strategy.scannerScore
-                                                                                }
-                                                                                %
-                                                                            </strong>
-                                                                        </span>
-
-                                                                        <span>
-                                                                            Confidence{' '}
-                                                                            <strong>
-                                                                                {
-                                                                                    strategy.marketConfidence
-                                                                                }
-                                                                                %
-                                                                            </strong>
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-
-                                                                {strategy.rank ===
-                                                                    1 &&
-                                                                    strategy.confidenceQualified &&
-                                                                    strategy.marketState !==
-                                                                        'INSUFFICIENT_DATA' && (
-                                                                    <div className="best-badge">
-                                                                        BEST
-                                                                        MATCH
-                                                                    </div>
-                                                                )}
-
-                                                                <span
-                                                                    className={`strategy-expand-icon ${
-                                                                        isExpanded
-                                                                            ? 'open'
-                                                                            : ''
-                                                                    }`}
-                                                                    aria-hidden="true"
-                                                                >
-                                                                    ›
-                                                                </span>
-                                                            </div>
+                                                            {loadingStrategyId === strategy.id
+                                                                ? 'Loading...'
+                                                                : strategy.marketState === 'INSUFFICIENT_DATA' || strategyLiveTicksCount < MIN_TICKS_FOR_LIVE_SCANNER
+                                                                  ? 'Waiting for Data'
+                                                                  : 'Load Bot'}
                                                         </button>
-
-                                                        <div
-                                                            id={`strategy-details-${strategy.id}`}
-                                                            className={`strategy-card-body ${
-                                                                isExpanded
-                                                                    ? 'visible'
-                                                                    : ''
-                                                            }`}
-                                                            aria-hidden={
-                                                                !isExpanded
-                                                            }
-                                                        >
-                                                            <div className="strategy-description">
-                                                                {
-                                                                    strategy.description
-                                                                }
-                                                            </div>
-
-                                                            <div className="strategy-market-live">
-                                                                <div>
-                                                                    <span>
-                                                                        Live
-                                                                        Market
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy.marketState
-                                                                        }
-                                                                    </strong>
-                                                                </div>
-
-                                                                <div>
-                                                                    <span>
-                                                                        Direction
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy.marketDirection
-                                                                        }
-                                                                    </strong>
-                                                                </div>
-
-                                                                <div>
-                                                                    <span>
-                                                                        Confidence
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy.marketConfidence
-                                                                        }
-                                                                        %
-                                                                    </strong>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="strategy-market-live">
-                                                                <div>
-                                                                    <span>
-                                                                        Live
-                                                                        Ticks
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy.liveTickCount
-                                                                        }
-                                                                        /
-                                                                        {
-                                                                            MAX_TICKS_PER_SYMBOL
-                                                                        }
-                                                                    </strong>
-                                                                </div>
-
-                                                                <div>
-                                                                    <span>
-                                                                        Required
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy
-                                                                                .marketProfile
-                                                                                .minimumConfidence
-                                                                        }
-                                                                        %
-                                                                    </strong>
-                                                                </div>
-
-                                                                <div>
-                                                                    <span>
-                                                                        Confidence
-                                                                        Gate
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {strategy.confidenceQualified
-                                                                            ? 'PASS'
-                                                                            : 'WAIT'}
-                                                                    </strong>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="scanner-score">
-                                                                <div className="score-info">
-                                                                    <span>
-                                                                        Scanner
-                                                                        Score
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy.scannerScore
-                                                                        }
-                                                                        %
-                                                                    </strong>
-                                                                </div>
-
-                                                                <div className="score-track">
-                                                                    <div
-                                                                        className="score-fill"
-                                                                        style={{
-                                                                            width: `${strategy.scannerScore}%`,
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="scanner-score">
-                                                                <div className="score-info">
-                                                                    <span>
-                                                                        Market
-                                                                        Compatibility
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy.marketCompatibility
-                                                                        }
-                                                                        %
-                                                                    </strong>
-                                                                </div>
-
-                                                                <div className="score-track">
-                                                                    <div
-                                                                        className="score-fill"
-                                                                        style={{
-                                                                            width: `${strategy.marketCompatibility}%`,
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="strategy-details">
-                                                                <div className="strategy-detail">
-                                                                    <span>
-                                                                        Engine
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy.engine
-                                                                        }
-                                                                    </strong>
-                                                                </div>
-
-                                                                <div className="strategy-detail">
-                                                                    <span>
-                                                                        Market
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy.symbol
-                                                                        }
-                                                                    </strong>
-                                                                </div>
-
-                                                                <div className="strategy-detail">
-                                                                    <span>
-                                                                        Direction
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy.type ||
-                                                                            'Default'
-                                                                        }
-                                                                    </strong>
-                                                                </div>
-
-                                                                <div className="strategy-detail editable-strategy-detail">
-                                                                    <span>
-                                                                        Stake
-                                                                    </span>
-
-                                                                    <div className="strategy-input-wrapper">
-                                                                        <span className="strategy-input-prefix">
-                                                                            $
-                                                                        </span>
-
-                                                                        <input
-                                                                            type="text"
-                                                                            inputMode="decimal"
-                                                                            value={
-                                                                                stakeValues[
-                                                                                    strategy.id
-                                                                                ] ??
-                                                                                ''
-                                                                            }
-                                                                            onChange={event =>
-                                                                                updateStake(
-                                                                                    strategy.id,
-                                                                                    event
-                                                                                        .target
-                                                                                        .value
-                                                                                )
-                                                                            }
-                                                                            onClick={event =>
-                                                                                event.stopPropagation()
-                                                                            }
-                                                                            aria-label={`Stake for ${strategy.name}`}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className="strategy-detail">
-                                                                    <span>
-                                                                        Duration
-                                                                    </span>
-
-                                                                    <strong>
-                                                                        {
-                                                                            strategy.duration
-                                                                        }{' '}
-                                                                        {strategy.duration ===
-                                                                        1
-                                                                            ? 'tick'
-                                                                            : 'ticks'}
-                                                                    </strong>
-                                                                </div>
-
-                                                                <div className="strategy-detail editable-strategy-detail">
-                                                                    <span>
-                                                                        Target
-                                                                    </span>
-
-                                                                    <div className="strategy-input-wrapper">
-                                                                        <span className="strategy-input-prefix">
-                                                                            $
-                                                                        </span>
-
-                                                                        <input
-                                                                            type="text"
-                                                                            inputMode="decimal"
-                                                                            value={
-                                                                                targetValues[
-                                                                                    strategy.id
-                                                                                ] ??
-                                                                                ''
-                                                                            }
-                                                                            onChange={event =>
-                                                                                updateTarget(
-                                                                                    strategy.id,
-                                                                                    event
-                                                                                        .target
-                                                                                        .value
-                                                                                )
-                                                                            }
-                                                                            onClick={event =>
-                                                                                event.stopPropagation()
-                                                                            }
-                                                                            aria-label={`Target for ${strategy.name}`}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <button
-                                                                type="button"
-                                                                className="load-bot-button"
-                                                                onClick={() =>
-                                                                    loadStrategy(
-                                                                        strategy
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    loadingStrategyId !==
-                                                                        null ||
-                                                                    isScanning ||
-                                                                    strategy.marketState ===
-                                                                        'INSUFFICIENT_DATA' ||
-                                                                    strategy.liveTickCount <
-                                                                        MIN_TICKS_FOR_LIVE_SCANNER
-                                                                }
-                                                            >
-                                                                {loadingStrategyId ===
-                                                                strategy.id
-                                                                    ? 'Loading...'
-                                                                    : strategy.marketState ===
-                                                                            'INSUFFICIENT_DATA' ||
-                                                                        strategy.liveTickCount <
-                                                                            MIN_TICKS_FOR_LIVE_SCANNER
-                                                                      ? 'Waiting for Data'
-                                                                      : 'Load Bot'}
-                                                            </button>
-                                                        </div>
                                                     </div>
-                                                );
-                                            }
-                                        )}
-                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
 
-                                    <button
-                                        type="button"
-                                        className="rescan-button"
-                                        onClick={
-                                            scanAllStrategies
-                                        }
-                                        disabled={
-                                            isScanning ||
-                                            loadingStrategyId !==
-                                                null
-                                        }
-                                    >
-                                        ↻ Scan Again
-                                    </button>
-                                </>
-                            )}
+                                <button type="button" className="rescan-button" onClick={startLiveEvaluation} disabled={loadingStrategyId !== null}>
+                                    ↻ Force Model Recalculation
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
