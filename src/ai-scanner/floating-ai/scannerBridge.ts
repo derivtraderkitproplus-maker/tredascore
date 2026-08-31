@@ -1,109 +1,90 @@
-// ============================================================
-// AI SCANNER LIVE WEBSOCKET CONNECTOR BRIDGE
-// Location: src/ai-scanner/floating-ai/scannerBridge.ts
-// ============================================================
+// @ts-nocheck
+import { processIncomingTick } from './scannerLogic';
 
-import { api_base } from '../../external/bot-skeleton/services/api/api-base';
-import { scanMarket, ScannerResult } from './scannerLogic';
+let scannerSocket: WebSocket | null = null;
+let keepAlivePing: ReturnType<typeof setInterval> | null = null;
 
-type UIUpdateCallback = (data: {
-    marketState: string;
-    liveTicks: number;
-    confidenceGate: string;
-    progressPercentage: number;
-    rawScannerResult: ScannerResult | null;
-}) => void;
+/**
+ * The Easiest Method: Opens a direct, isolated background connection 
+ * strictly for the AI Scanner logic pipeline.
+ */
+export const startIsolatedScannerFeed = (symbol: string, onUiUpdate: () => void) => {
+    // 1. Clean up any existing connection to prevent ghost loops
+    stopIsolatedScannerFeed();
 
-export class ScannerBridge {
-    private disconnectSocketListener: (() => void) | null = null;
-    private accumulatedPrices: number[] = [];
-    private maxHistoryLookback: number = 100;
-    private activeUiCallback: UIUpdateCallback;
-    private trackedAsset: string = '1HZ100V';
+    // 2. Open a dedicated data tunnel using Deriv's public endpoint
+    // Using production App ID 1098 (Default public app id) or swap with your custom one
+    const derivAppId = localStorage.getItem('app_id') || '1098'; 
+    scannerSocket = new WebSocket(`wss://://derivws.com{derivAppId}`);
 
-    constructor(onUpdateSignal: UIUpdateCallback) {
-        this.activeUiCallback = onUpdateSignal;
-    }
+    scannerSocket.onopen = () => {
+        console.log(`[AI Scanner Socket] Connected. Requesting data for ${symbol}...`);
 
-    /**
-     * Initializes scanner operations and mounts to the centralized websocket pipe
-     */
-    public startLiveScanning(assetSymbol: string = '1HZ100V') {
-        this.stopLiveScanning();
-        this.accumulatedPrices = [];
-        this.trackedAsset = assetSymbol;
+        // 3. Request historical ticks instantly to clear the "INSUFFICIENT_DATA" gate
+        scannerSocket?.send(JSON.stringify({
+            ticks_history: symbol,
+            adjust_start_time: 1,
+            count: 100,
+            end: 'latest',
+            style: 'ticks'
+        }));
 
-        // Immediately flash initial loading indicators
-        this.activeUiCallback({
-            marketState: 'INSUFFICIENT_DATA',
-            liveTicks: 0,
-            confidenceGate: 'WAIT',
-            progressPercentage: 0,
-            rawScannerResult: null
-        });
+        // 4. Subscribe to the continuous live streaming ticks feed
+        scannerSocket?.send(JSON.stringify({
+            ticks: symbol,
+            subscribe: 1
+        }));
 
-        try {
-            // Hook straight into the central framework socket pipeline handler
-            this.disconnectSocketListener = api_base.subscribeToTicks(
-                this.trackedAsset, 
-                (incomingTick: { symbol: string; quote: number; epoch: number }) => {
-                    if (incomingTick && incomingTick.symbol === this.trackedAsset) {
-                        this.processIncomingSocketTick(incomingTick.quote);
-                    }
-                }
-            );
-        } catch (error) {
-            console.error('[ScannerBridge] Unable to mount background layout connection stream context:', error);
-        }
-    }
-    /**
-     * Extracts and validates numeric variables out of the raw stream objects
-     */
-    private processIncomingSocketTick(priceQuote: number) {
-        if (!Number.isFinite(priceQuote) || priceQuote <= 0) return;
-
-        this.accumulatedPrices.push(priceQuote);
-
-        // Keep local buffer from swelling up to preserve memory performance
-        if (this.accumulatedPrices.length > this.maxHistoryLookback) {
-            this.accumulatedPrices.shift();
-        }
-
-        const currentCount = this.accumulatedPrices.length;
-        const result: ScannerResult = scanMarket(this.accumulatedPrices);
-
-        if (currentCount < this.maxHistoryLookback) {
-            // Loading State: Counting upward to target lookback threshold
-            this.activeUiCallback({
-                marketState: 'INSUFFICIENT_DATA',
-                liveTicks: currentCount,
-                confidenceGate: 'WAIT',
-                progressPercentage: Math.floor((currentCount / this.maxHistoryLookback) * 100),
-                rawScannerResult: result
-            });
-        } else {
-            // Processing State: Buffer full, passing analytics calculations to UI view
-            this.activeUiCallback({
-                marketState: result?.analysis?.state || 'RANGE',
-                liveTicks: currentCount,
-                confidenceGate: result?.winnerConfirmed ? 'READY' : 'WAIT',
-                progressPercentage: 100,
-                rawScannerResult: result
-            });
-        }
-    }
-
-    /**
-     * Cleans up listeners when closing the component layout workspace panels
-     */
-    public stopLiveScanning() {
-        if (this.disconnectSocketListener) {
-            try {
-                this.disconnectSocketListener();
-            } catch (cleanupError) {
-                console.warn('[ScannerBridge] Safe cleanup warning handling socket clearing routine:', cleanupError);
+        // Keep-alive heartbeat loop to make sure connection never drops in the background
+        keepAlivePing = setInterval(() => {
+            if (scannerSocket?.readyState === WebSocket.OPEN) {
+                scannerSocket.send(JSON.stringify({ ping: 1 }));
             }
-            this.disconnectSocketListener = null;
+        }, 30000);
+    };
+
+    scannerSocket.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+
+            // Handle Historical Snapshot Backfill Packets
+            if (data?.msg_type === 'history' && data?.history?.times) {
+                data.history.times.forEach((time: number, idx: number) => {
+                    processIncomingTick({
+                        epoch: time,
+                        quote: Number(data.history.prices[idx])
+                    });
+                });
+                onUiUpdate(); // Force UI update out of loading state instantly
+            }
+
+            // Handle Real-Time Live Stream Price Ticks
+            if (data?.msg_type === 'tick' && data?.tick?.symbol === symbol) {
+                processIncomingTick({
+                    epoch: data.tick.epoch,
+                    quote: data.tick.quote
+                });
+                onUiUpdate(); // Repaint UI counters on every single tick change
+            }
+        } catch (error) {
+            console.error("[AI Scanner Data Error] Parsing failed:", error);
         }
+    };
+
+    scannerSocket.onerror = (err) => console.error("[AI Scanner Socket] Error:", err);
+    scannerSocket.onclose = () => console.log("[AI Scanner Socket] Feed closed cleanly.");
+};
+
+/**
+ * Shuts down the background network tunnel cleanly when the UI panel closes
+ */
+export const stopIsolatedScannerFeed = () => {
+    if (keepAlivePing) {
+        clearInterval(keepAlivePing);
+        keepAlivePing = null;
     }
-}
+    if (scannerSocket) {
+        scannerSocket.close();
+        scannerSocket = null;
+    }
+};
