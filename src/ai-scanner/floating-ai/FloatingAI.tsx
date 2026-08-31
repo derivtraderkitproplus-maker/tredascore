@@ -268,7 +268,7 @@ const FloatingAI = () => {
         };
     }, []);
 
-        /*
+             /*
      * ============================================================
      * LIVE SCAN ALL STRATEGIES (REACTIVE SYSTEM UPDATE ENGINE)
      * ============================================================
@@ -321,9 +321,11 @@ const FloatingAI = () => {
             rank: index + 1,
         }));
 
-        if (rankedResults.length > 0 && rankedResults[0]) {
-            const topStrategy = rankedResults[0]; // ✅ FIX: Successfully reads the index object profile
-            const topTicks = tickBuffersRef.current[topStrategy.symbol] || [];
+        // ✅ FIXED WORKAROUND BYPASS: Safely check for array existence and read item index 0 explicitly
+        if (Array.isArray(rankedResults) && rankedResults.length > 0) {
+            const topStrategyItem = rankedResults[0]; // Explicitly target array element 0
+            const fallbackSymbol = topStrategyItem ? topStrategyItem.symbol : '1HZ100V';
+            const topTicks = tickBuffersRef.current[fallbackSymbol] || [];
             setMarketAnalysis(analyzeMarket(topTicks));
         } else {
             setMarketAnalysis(analyzeMarket([]));
@@ -350,9 +352,13 @@ const FloatingAI = () => {
         });
 
         setScannerResults(rankedResults);
-        setExpandedStrategyId(currId => currId ?? (rankedResults[0]?.id || null));
+        
+        // Safety verification layout check on expanded card components maps
+        if (Array.isArray(rankedResults) && rankedResults.length > 0 && rankedResults[0]) {
+            const defaultId = rankedResults[0].id;
+            setExpandedStrategyId(currId => currId ?? defaultId);
+        }
     }, [calculateFinalScannerScore]);
-
 
     /*
      * ============================================================
