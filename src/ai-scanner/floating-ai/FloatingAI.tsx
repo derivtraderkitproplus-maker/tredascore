@@ -272,44 +272,38 @@ const FloatingAI = () => {
     const evaluateAllStrategiesLive = useCallback(() => {
         if (!isMountedRef.current) return;
 
+        // 1. Map through variables securely with strict data structure type guarantees
         const results = AI_STRATEGIES.map(strategy => {
             const liveTicks = tickBuffersRef.current[strategy.symbol] || [];
-            const analysis = analyzeMarket(liveTicks);
-            const scores = calculateFinalScannerScore(strategy, analysis);
+            const analysis = analyzeMarket(liveTicks) || { state: 'INSUFFICIENT_DATA', direction: 'FLAT', confidence: 0 };
+            const scores = calculateFinalScannerScore(strategy, analysis) || { scannerScore: 0, marketCompatibility: 0, confidenceQualified: false };
 
             return {
                 ...strategy,
-                scannerScore: scores.scannerScore,
-                marketCompatibility: scores.marketCompatibility,
+                scannerScore: scores.scannerScore ?? 0,
+                marketCompatibility: scores.marketCompatibility ?? 0,
                 rank: 0,
-                marketState: analysis.state,
-                marketDirection: analysis.direction,
-                marketConfidence: analysis.confidence,
-                confidenceQualified: scores.confidenceQualified,
+                marketState: analysis.state ?? 'INSUFFICIENT_DATA',
+                marketDirection: analysis.direction ?? 'FLAT',
+                marketConfidence: analysis.confidence ?? 0,
+                confidenceQualified: !!scores.confidenceQualified,
                 liveTickCount: liveTicks.length,
             };
         });
 
-        const hasUsableLiveData = results.some(
-            result =>
-                result.liveTickCount >= MIN_TICKS_FOR_LIVE_SCANNER &&
-                result.marketState !== 'INSUFFICIENT_DATA'
-        );
-
+        // 2. Wrap sorting parameters inside strict safe fallback limits
         results.sort((a, b) => {
-            if (hasUsableLiveData && a.confidenceQualified !== b.confidenceQualified) {
-                return a.confidenceQualified ? -1 : 1;
-            }
-            if (b.scannerScore !== a.scannerScore) {
-                return b.scannerScore - a.scannerScore;
-            }
-            if (b.marketCompatibility !== a.marketCompatibility) {
-                return b.marketCompatibility - a.marketCompatibility;
-            }
-            if (b.marketConfidence !== a.marketConfidence) {
-                return b.marketConfidence - a.marketConfidence;
-            }
-            return a.name.localeCompare(b.name);
+            const scoreB = b?.scannerScore ?? 0;
+            const scoreA = a?.scannerScore ?? 0;
+            if (scoreB !== scoreA) return scoreB - scoreA;
+
+            const compatB = b?.marketCompatibility ?? 0;
+            const compatA = a?.marketCompatibility ?? 0;
+            if (compatB !== compatA) return compatB - compatA;
+
+            const nameA = a?.name || '';
+            const nameB = b?.name || '';
+            return nameA.localeCompare(nameB);
         });
 
         const rankedResults = results.map((strategy, index) => ({
@@ -317,9 +311,10 @@ const FloatingAI = () => {
             rank: index + 1,
         }));
 
-        if (Array.isArray(rankedResults) && rankedResults.length > 0) {
+        // 3. Prevent structural crashes when reading from array index position 0
+        if (Array.isArray(rankedResults) && rankedResults.length > 0 && rankedResults[0]) {
             const topStrategyItem = rankedResults[0];
-            const fallbackSymbol = topStrategyItem ? topStrategyItem.symbol : '1HZ100V';
+            const fallbackSymbol = topStrategyItem?.symbol || '1HZ100V';
             const topTicks = tickBuffersRef.current[fallbackSymbol] || [];
             setMarketAnalysis(analyzeMarket(topTicks));
         } else {
@@ -329,8 +324,8 @@ const FloatingAI = () => {
         setStakeValues(prev => {
             const nextStakes = { ...prev };
             rankedResults.forEach(strategy => {
-                if (nextStakes[strategy.id] === undefined) {
-                    nextStakes[strategy.id] = String(strategy.stake);
+                if (strategy && nextStakes[strategy.id] === undefined) {
+                    nextStakes[strategy.id] = String(strategy.stake ?? 1);
                 }
             });
             return nextStakes;
@@ -339,8 +334,8 @@ const FloatingAI = () => {
         setTargetValues(prev => {
             const nextTargets = { ...prev };
             rankedResults.forEach(strategy => {
-                if (nextTargets[strategy.id] === undefined) {
-                    nextTargets[strategy.id] = String(strategy.profit);
+                if (strategy && nextTargets[strategy.id] === undefined) {
+                    nextTargets[strategy.id] = String(strategy.profit ?? 5);
                 }
             });
             return nextTargets;
@@ -348,11 +343,12 @@ const FloatingAI = () => {
 
         setScannerResults(rankedResults);
         
-        if (Array.isArray(rankedResults) && rankedResults.length > 0) {
+        if (Array.isArray(rankedResults) && rankedResults.length > 0 && rankedResults[0]) {
             const defaultId = rankedResults[0].id;
             setExpandedStrategyId(currId => currId ?? defaultId);
         }
     }, [calculateFinalScannerScore]);
+
     /*
      * ============================================================
      * DIRECT ISOLATED BACKGROUND SOCKET LINK (CLEAN METHOD)
