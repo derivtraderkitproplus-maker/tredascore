@@ -378,7 +378,8 @@ const FloatingAI = () => {
         const symbols = getStrategySymbols();
         if (symbols.length === 0) return;
 
-        const appId = localStorage.getItem('app_id') || '1098';
+        // 🌟 YOUR REAL PRODUCTION APP ID INJECTED DIRECTLY HERE
+        const appId = '34ejT2LT1yG5Ryj0o1OHN'; 
         const wsUrl = `wss://://derivws.com{appId}`;
         
         console.log(`[AI Scanner Socket] Opening direct pipeline lane via App ID ${appId}`);
