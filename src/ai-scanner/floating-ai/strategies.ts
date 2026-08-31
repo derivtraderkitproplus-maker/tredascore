@@ -6,15 +6,32 @@
 //
 // IMPORTANT:
 // - These are PROFILES only.
-// - They reuse the existing Quick Strategy engines.
+// - They reuse existing Quick Strategy engines.
 // - They do NOT create new Blockly blocks.
 // - They do NOT create WebSocket connections.
 // - They do NOT handle OAuth.
 // - Live market/tick analysis is handled by scannerlogic.ts.
 // - Live connection/bridge handling is handled by scannerbridge.ts.
 //
-// The marketProfile section tells the scanner what type of
-// live market behaviour is preferred for each strategy.
+// IMPORTANT DIRECTION DESIGN:
+// ------------------------------------------------------------
+// Strategy profiles describe the TYPE of market they prefer,
+// but normal directional strategies are allowed to operate in
+// either live direction.
+//
+// The scanner determines the actual market direction.
+//
+// For risefall strategies:
+//   UP   -> CALL
+//   DOWN -> PUT
+//
+// This prevents the AI scanner from being permanently biased
+// toward CALL/UP markets.
+//
+// ============================================================
+
+// ============================================================
+// TYPES
 // ============================================================
 
 export type AIStrategyBias =
@@ -46,6 +63,14 @@ export type AIStrategyRisk =
 export type AIStrategyMarketProfile = {
     bias: AIStrategyBias;
 
+    /**
+     * Preferred live market direction.
+     *
+     * BOTH means the strategy can operate in either direction.
+     *
+     * The scanner will resolve the actual CALL/PUT execution
+     * direction from the live market.
+     */
     preferredDirection: AIStrategyDirection;
 
     preferredVolatility: AIStrategyVolatility;
@@ -53,9 +78,6 @@ export type AIStrategyMarketProfile = {
     /**
      * Minimum live-market confidence required before
      * the scanner considers the strategy actionable.
-     *
-     * This is a scanner threshold.
-     * It does not execute a trade by itself.
      */
     minimumConfidence: number;
 };
@@ -77,9 +99,6 @@ export type AIStrategy = {
 
     /**
      * Must match an existing Quick Strategy engine.
-     *
-     * Do not create new engine names here unless the actual
-     * engine exists elsewhere in the application.
      */
     engine: string;
 
@@ -127,7 +146,7 @@ export type AIStrategy = {
 export const AI_STRATEGIES: AIStrategy[] = [
 
     // ========================================================
-    // 01 — CLASSIC STRATEGIES
+    // 01–06 — CLASSIC STRATEGIES
     // ========================================================
 
     {
@@ -153,7 +172,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'RECOVERY',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'LOW',
             minimumConfidence: 70,
         },
@@ -182,7 +201,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'BALANCED',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'LOW',
             minimumConfidence: 65,
         },
@@ -238,7 +257,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'MOMENTUM',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'MEDIUM',
             minimumConfidence: 72,
         },
@@ -267,7 +286,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'TREND',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'MEDIUM',
             minimumConfidence: 68,
         },
@@ -385,7 +404,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'MOMENTUM',
-            preferredDirection: 'BOTH',
+            preferredDirection: 'NEUTRAL',
             preferredVolatility: 'MEDIUM',
             minimumConfidence: 72,
         },
@@ -414,7 +433,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'TREND',
-            preferredDirection: 'BOTH',
+            preferredDirection: 'NEUTRAL',
             preferredVolatility: 'MEDIUM',
             minimumConfidence: 68,
         },
@@ -501,7 +520,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'MOMENTUM',
-            preferredDirection: 'BOTH',
+            preferredDirection: 'NEUTRAL',
             preferredVolatility: 'MEDIUM',
             minimumConfidence: 75,
         },
@@ -530,7 +549,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'TREND',
-            preferredDirection: 'BOTH',
+            preferredDirection: 'NEUTRAL',
             preferredVolatility: 'LOW',
             minimumConfidence: 70,
         },
@@ -563,7 +582,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'RECOVERY',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'LOW',
             minimumConfidence: 72,
         },
@@ -592,7 +611,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'TREND',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'MEDIUM',
             minimumConfidence: 75,
         },
@@ -621,7 +640,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'MOMENTUM',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'HIGH',
             minimumConfidence: 78,
         },
@@ -650,7 +669,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'REVERSAL',
-            preferredDirection: 'DOWN',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'MEDIUM',
             minimumConfidence: 75,
         },
@@ -679,7 +698,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'TREND',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'LOW',
             minimumConfidence: 72,
         },
@@ -764,7 +783,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'RECOVERY',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'LOW',
             minimumConfidence: 75,
         },
@@ -793,7 +812,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'TREND',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'MEDIUM',
             minimumConfidence: 75,
         },
@@ -878,7 +897,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'MOMENTUM',
-            preferredDirection: 'UP',
+            preferredDirection: 'BOTH',
             preferredVolatility: 'HIGH',
             minimumConfidence: 80,
         },
@@ -965,7 +984,7 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
         marketProfile: {
             bias: 'MOMENTUM',
-            preferredDirection: 'BOTH',
+            preferredDirection: 'NEUTRAL',
             preferredVolatility: 'MEDIUM',
             minimumConfidence: 75,
         },
@@ -1000,18 +1019,34 @@ export const AI_STRATEGIES: AIStrategy[] = [
 ];
 
 // ============================================================
+// COUNT
+// ============================================================
+
+export const AI_STRATEGY_COUNT =
+    AI_STRATEGIES.length;
+
+// ============================================================
 // VALIDATION
 // ============================================================
 
-/**
- * Compile-time/runtime-friendly count of the strategy library.
- *
- * The scanner UI currently expects 30 profiles.
- */
-export const AI_STRATEGY_COUNT = AI_STRATEGIES.length;
+export const isAIStrategyLibraryValid = (): boolean => {
+    return (
+        AI_STRATEGIES.length === 30 &&
+        AI_STRATEGIES.every(
+            strategy =>
+                Boolean(strategy.id) &&
+                Boolean(strategy.name) &&
+                Boolean(strategy.engine) &&
+                strategy.stake > 0 &&
+                strategy.duration > 0 &&
+                strategy.marketProfile.minimumConfidence >= 0 &&
+                strategy.marketProfile.minimumConfidence <= 100
+        )
+    );
+};
 
 // ============================================================
-// LOOKUP HELPERS
+// LOOKUP
 // ============================================================
 
 export const getAIStrategy = (
@@ -1054,7 +1089,8 @@ export const getAIStrategiesByBias = (
     bias: AIStrategyBias
 ): AIStrategy[] => {
     return AI_STRATEGIES.filter(
-        strategy => strategy.marketProfile.bias === bias
+        strategy =>
+            strategy.marketProfile.bias === bias
     );
 };
 
@@ -1068,6 +1104,54 @@ export const getRandomAIStrategy = (): AIStrategy => {
     );
 
     return AI_STRATEGIES[index];
+};
+
+// ============================================================
+// RESOLVE LIVE DIRECTION
+// ============================================================
+//
+// This is intentionally kept here as a pure configuration
+// helper.
+//
+// It does NOT execute a trade.
+//
+// For risefall strategies:
+//   UP   -> CALL
+//   DOWN -> PUT
+//
+// NEUTRAL remains unchanged.
+//
+// ============================================================
+
+export const resolveAIStrategyDirection = (
+    strategy: AIStrategy,
+    direction: 'UP' | 'DOWN' | 'FLAT'
+): AIStrategy => {
+    if (
+        strategy.tradetype !== 'risefall'
+    ) {
+        return {
+            ...strategy,
+        };
+    }
+
+    if (direction === 'UP') {
+        return {
+            ...strategy,
+            type: 'CALL',
+        };
+    }
+
+    if (direction === 'DOWN') {
+        return {
+            ...strategy,
+            type: 'PUT',
+        };
+    }
+
+    return {
+        ...strategy,
+    };
 };
 
 // ============================================================
