@@ -1,29 +1,15 @@
 // @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
-
 /* [AI] - Analytics removed - utility functions moved to @/utils/account-helpers */
-import {
-    getAccountId,
-    getAccountType,
-    isDemoAccount,
-    removeUrlParameter,
-} from '@/utils/account-helpers';
+import { getAccountId, getAccountType, isDemoAccount, removeUrlParameter } from '@/utils/account-helpers';
 /* [/AI] */
-
 import CommonStore from '@/stores/common-store';
 import { DerivWSAccountsService } from '@/services/derivws-accounts.service';
 import { TAuthData } from '@/types/api-types';
 import { clearAuthData } from '@/utils/auth-utils';
-import {
-    handleBackendError,
-    isBackendError,
-} from '@/utils/error-handler';
+import { handleBackendError, isBackendError } from '@/utils/error-handler';
 import { activeSymbolsProcessorService } from '../../../../services/active-symbols-processor.service';
 import { observer as globalObserver } from '../../utils/observer';
-import {
-    doUntilDone,
-    socket_state,
-} from '../tradeEngine/utils/helpers';
-
+import { doUntilDone, socket_state } from '../tradeEngine/utils/helpers';
 import {
     CONNECTION_STATUS,
     setAccountList,
@@ -32,19 +18,9 @@ import {
     setIsAuthorized,
     setIsAuthorizing,
 } from './observables/connection-status-stream';
-
 import ApiHelpers from './api-helpers';
-import {
-    generateDerivApiInstance,
-    V2GetActiveAccountId,
-} from './appId';
+import { generateDerivApiInstance, V2GetActiveAccountId } from './appId';
 import chart_api from './chart-api';
-
-/*
- * ============================================================
- * TYPES
- * ============================================================
- */
 
 type CurrentSubscription = {
     id: string;
@@ -55,171 +31,566 @@ type SubscriptionPromise = Promise<{
     subscription: CurrentSubscription;
 }>;
 
-type ScannerTick = {
-    symbol: string;
-    quote: number;
-    epoch: number;
-};
-
-type ScannerTickCallback = (
-    tick: ScannerTick
-) => void;
-
-type ScannerTickStream = {
-    symbol: string;
-
-    callbacks: Set<ScannerTickCallback>;
-
-    messageSubscription: {
-        unsubscribe: () => void;
-    } | null;
-
-    active: boolean;
-
-    subscriptionId: string | null;
-
-    subscriptionRequested: boolean;
-};
-
 type TApiBaseApi = {
     connection: {
         readyState: keyof typeof socket_state;
-
-        addEventListener: (
-            event: string,
-            callback: () => void
-        ) => void;
-
-        removeEventListener: (
-            event: string,
-            callback: () => void
-        ) => void;
+        addEventListener: (event: string, callback: () => void) => void;
+        removeEventListener: (event: string, callback: () => void) => void;
     };
-
-    send: (data: unknown) => any;
-
+    send: (data: unknown) => void;
     disconnect: () => void;
-
-    authorize: (
-        token: string
-    ) => Promise<{
-        authorize: TAuthData;
-        error: unknown;
-    }>;
+    authorize: (token: string) => Promise<{ authorize: TAuthData; error: unknown }>;
 
     onMessage: () => {
-        subscribe: (
-            callback: (
-                message: unknown
-            ) => void
-        ) => {
+        subscribe: (callback: (message: unknown) => void) => {
             unsubscribe: () => void;
         };
     };
-} & ReturnType<
-    typeof generateDerivApiInstance
->;
-/*
- * ============================================================
- * API BASE
- * ============================================================
- */
+} & ReturnType<typeof generateDerivApiInstance>;
 
 class APIBase {
     api: TApiBaseApi | null = null;
-
     token: string = '';
-
     account_id: string = '';
-
     pip_sizes = {};
-
     account_info = {};
-
     is_running = false;
-
     subscriptions: CurrentSubscription[] = [];
-
-    time_interval:
-        | ReturnType<typeof setInterval>
-        | null = null;
-
+    time_interval: ReturnType<typeof setInterval> | null = null;
     has_active_symbols = false;
-
     is_stopping = false;
-
     active_symbols: any[] = [];
-
-    current_auth_subscriptions:
-        SubscriptionPromise[] = [];
-
+    current_auth_subscriptions: SubscriptionPromise[] = [];
     is_authorized = false;
-
-    active_symbols_promise:
-        Promise<any[] | undefined> | null =
-        null;
-
-    common_store:
-        | CommonStore
-        | undefined;
-
+    active_symbols_promise: Promise<any[] | undefined> | null = null;
+    common_store: CommonStore | undefined;
     reconnection_attempts: number = 0;
 
-    /*
-     * ========================================================
-     * AI SCANNER LIVE TICK BRIDGE
-     * ========================================================
-     */
+    // ========================================================
+    // AI SCANNER STATE
+    // ========================================================
+    //
+    // The scanner uses the SAME Deriv WebSocket connection.
+    // No second WebSocket is created.
+    //
+    // scanner_ticks contains clean numeric quote values that
+    // can be passed directly to:
+    //
+    // analyzeMarket(scannerTicks)
+    //
+    // The scanner itself remains completely separate from this
+    // API layer.
+    // ========================================================
 
-    private scannerTickStreams =
-        new Map<string, ScannerTickStream>();
+    private readonly SCANNER_MAX_TICKS = 120;
 
-    private readonly ACTIVE_SYMBOLS_TIMEOUT_MS =
-        10000;
+    private scanner_ticks: number[] = [];
 
-    private readonly ENRICHMENT_TIMEOUT_MS =
-        10000;
+    private scanner_symbol: string = '';
 
-    private readonly MAX_RECONNECTION_ATTEMPTS =
-        5;
+    private scanner_message_unsubscribe:
+        (() => void) | null = null;
 
-    /*
-     * ========================================================
-     * SUBSCRIPTION CLEANUP
-     * ========================================================
-     */
+    private scanner_subscription_id:
+        string | null = null;
+
+    private scanner_subscription_active = false;
+
+    // Constants for timeouts - extracted magic numbers for better maintainability
+    private readonly ACTIVE_SYMBOLS_TIMEOUT_MS = 10000; // 10 seconds
+    private readonly ENRICHMENT_TIMEOUT_MS = 10000; // 10 seconds
+    private readonly MAX_RECONNECTION_ATTEMPTS = 5; // Maximum number of reconnection attempts before session reset
+
+    // ========================================================
+    // EXISTING SUBSCRIPTION CLEANUP
+    // ========================================================
 
     unsubscribeAllSubscriptions = () => {
-        this.current_auth_subscriptions?.forEach(
-            subscription_promise => {
-                subscription_promise.then(
-                    ({ subscription }) => {
-                        if (subscription?.id) {
-                            this.api?.send({
-                                forget:
-                                    subscription.id,
-                            });
-                        }
-                    }
-                );
-            }
-        );
+        this.current_auth_subscriptions?.forEach(subscription_promise => {
+            subscription_promise.then(({ subscription }) => {
+                if (subscription?.id) {
+                    this.api?.send({
+                        forget: subscription.id,
+                    });
+                }
+            });
+        });
 
-        this.current_auth_subscriptions =
-            [];
+        this.current_auth_subscriptions = [];
     };
 
-    /*
-     * ========================================================
-     * SOCKET OPEN
-     * ========================================================
+    // ========================================================
+    // AI SCANNER HELPERS
+    // ========================================================
+
+    /**
+     * Return the current scanner tick history.
+     *
+     * The returned array is copied so callers cannot directly
+     * mutate APIBase's internal tick buffer.
+     *
+     * This array is compatible with:
+     *
+     * analyzeMarket(api_base.getScannerTicks())
      */
+    getScannerTicks = (): number[] => {
+        return [...this.scanner_ticks];
+    };
+
+    /**
+     * Return the symbol currently being monitored by the scanner.
+     */
+    getScannerSymbol = (): string => {
+        return this.scanner_symbol;
+    };
+
+    /**
+     * Return whether the scanner tick stream is active.
+     */
+    isScannerTickStreamActive = (): boolean => {
+        return this.scanner_subscription_active;
+    };
+
+    /**
+     * Clear the scanner's local tick history.
+     *
+     * This does NOT disconnect the Deriv API.
+     * It only resets the data consumed by the AI scanner.
+     */
+    clearScannerTicks = () => {
+        this.scanner_ticks = [];
+    };
+
+    /**
+     * Add a validated quote to the scanner buffer.
+     *
+     * The scanner logic expects a number[].
+     * Invalid, negative, NaN and infinite values are ignored.
+     */
+    private pushScannerTick = (value: unknown) => {
+        const quote = Number(value);
+
+        if (
+            !Number.isFinite(quote) ||
+            quote < 0
+        ) {
+            return;
+        }
+
+        this.scanner_ticks.push(quote);
+
+        if (
+            this.scanner_ticks.length >
+            this.SCANNER_MAX_TICKS
+        ) {
+            this.scanner_ticks =
+                this.scanner_ticks.slice(
+                    -this.SCANNER_MAX_TICKS
+                );
+        }
+    };
+
+    /**
+     * Add historical prices returned by Deriv.
+     *
+     * Deriv history responses normally contain:
+     *
+     * history.prices
+     *
+     * The values are normalized into the same number[] format
+     * used by the live tick stream.
+     */
+    private pushScannerHistory = (
+        prices: unknown
+    ) => {
+        if (!Array.isArray(prices)) {
+            return;
+        }
+
+        prices.forEach(price => {
+            const quote = Number(price);
+
+            if (
+                Number.isFinite(quote) &&
+                quote >= 0
+            ) {
+                this.scanner_ticks.push(
+                    quote
+                );
+            }
+        });
+
+        if (
+            this.scanner_ticks.length >
+            this.SCANNER_MAX_TICKS
+        ) {
+            this.scanner_ticks =
+                this.scanner_ticks.slice(
+                    -this.SCANNER_MAX_TICKS
+                );
+        }
+    };
+
+    /**
+     * Process a single message from the existing Deriv
+     * WebSocket message stream.
+     *
+     * This listener is intentionally passive.
+     * It does not execute trades or alter existing API logic.
+     */
+    private handleScannerMessage = (
+        rawMessage: unknown
+    ) => {
+        if (
+            !rawMessage ||
+            typeof rawMessage !== 'object'
+        ) {
+            return;
+        }
+
+        const message =
+            rawMessage as Record<
+                string,
+                any
+            >;
+
+        // ----------------------------------------------------
+        // INITIAL TICK HISTORY
+        // ----------------------------------------------------
+
+        if (
+            message.history &&
+            Array.isArray(
+                message.history.prices
+            )
+        ) {
+            this.pushScannerHistory(
+                message.history.prices
+            );
+        }
+
+        // ----------------------------------------------------
+        // LIVE TICK
+        // ----------------------------------------------------
+
+        if (
+            message.tick
+        ) {
+            const quote =
+                message.tick.quote;
+
+            this.pushScannerTick(
+                quote
+            );
+
+            return;
+        }
+
+        // ----------------------------------------------------
+        // ALTERNATIVE QUOTE FORM
+        // ----------------------------------------------------
+        //
+        // Some API wrappers expose quote at the top level.
+        // Only consume it when the message is clearly a tick.
+        // ----------------------------------------------------
+
+        if (
+            message.msg_type === 'tick' &&
+            message.quote !== undefined
+        ) {
+            this.pushScannerTick(
+                message.quote
+            );
+        }
+    };
+
+    /**
+     * Start the AI scanner's tick stream.
+     *
+     * IMPORTANT:
+     * This uses the existing `this.api` WebSocket.
+     *
+     * It does NOT create another WebSocket.
+     *
+     * Example:
+     *
+     * api_base.startScannerTicks('R_100');
+     */
+    startScannerTicks = async (
+        symbol: string
+    ) => {
+        if (
+            !symbol ||
+            typeof symbol !== 'string'
+        ) {
+            throw new Error(
+                'A valid Deriv symbol is required to start scanner ticks'
+            );
+        }
+
+        if (!this.api) {
+            throw new Error(
+                'API connection not available for scanner tick stream'
+            );
+        }
+
+        // ----------------------------------------------------
+        // If already monitoring this symbol, do nothing.
+        // ----------------------------------------------------
+
+        if (
+            this.scanner_subscription_active &&
+            this.scanner_symbol === symbol
+        ) {
+            return {
+                success: true,
+                symbol,
+                ticks:
+                    this.getScannerTicks(),
+            };
+        }
+
+        // ----------------------------------------------------
+        // Stop an existing scanner stream before changing
+        // symbols.
+        // ----------------------------------------------------
+
+        if (
+            this.scanner_subscription_active
+        ) {
+            await this.stopScannerTicks();
+        }
+
+        // ----------------------------------------------------
+        // Reset scanner data for the new symbol.
+        // ----------------------------------------------------
+
+        this.clearScannerTicks();
+
+        this.scanner_symbol =
+            symbol;
+
+        // ----------------------------------------------------
+        // Attach to the EXISTING API message stream.
+        // ----------------------------------------------------
+
+        try {
+            const messageStream =
+                this.api.onMessage();
+
+            if (
+                messageStream &&
+                typeof messageStream.subscribe ===
+                    'function'
+            ) {
+                const messageSubscription =
+                    messageStream.subscribe(
+                        this.handleScannerMessage
+                    );
+
+                if (
+                    messageSubscription &&
+                    typeof messageSubscription
+                        .unsubscribe ===
+                        'function'
+                ) {
+                    this.scanner_message_unsubscribe =
+                        messageSubscription.unsubscribe;
+                }
+            }
+        } catch (error) {
+            console.error(
+                '[APIBase] Failed to attach scanner message listener:',
+                error
+            );
+
+            this.scanner_symbol = '';
+
+            throw error;
+        }
+
+        // ----------------------------------------------------
+        // Request initial history + live ticks.
+        //
+        // We deliberately use a bounded history request.
+        // The scanner itself only needs its most recent
+        // MAX_ANALYSIS_TICKS values.
+        // ----------------------------------------------------
+
+        try {
+            const response =
+                await doUntilDone(
+                    () =>
+                        this.api?.send({
+                            ticks_history:
+                                symbol,
+                            count:
+                                this.SCANNER_MAX_TICKS,
+                            end: 'latest',
+                            style: 'ticks',
+                            subscribe: 1,
+                        }),
+                    [],
+                    this
+                );
+
+            // Some API wrappers return the history response
+            // directly through send().
+            if (
+                response &&
+                typeof response ===
+                    'object'
+            ) {
+                const result =
+                    response as Record<
+                        string,
+                        any
+                    >;
+
+                if (
+                    result.error
+                ) {
+                    throw new Error(
+                        result.error.message ||
+                            'Deriv scanner history request failed'
+                    );
+                }
+
+                if (
+                    result.history &&
+                    Array.isArray(
+                        result.history.prices
+                    )
+                ) {
+                    this.pushScannerHistory(
+                        result.history.prices
+                    );
+                }
+
+                if (
+                    result.tick
+                ) {
+                    this.pushScannerTick(
+                        result.tick.quote
+                    );
+                }
+            }
+
+            this.scanner_subscription_active =
+                true;
+
+            return {
+                success: true,
+                symbol,
+                ticks:
+                    this.getScannerTicks(),
+            };
+        } catch (error) {
+            console.error(
+                '[APIBase] Failed to start scanner tick stream:',
+                error
+            );
+
+            if (
+                this.scanner_message_unsubscribe
+            ) {
+                try {
+                    this.scanner_message_unsubscribe();
+                } catch {
+                    // Ignore cleanup errors.
+                }
+            }
+
+            this.scanner_message_unsubscribe =
+                null;
+
+            this.scanner_symbol =
+                '';
+
+            this.scanner_subscription_active =
+                false;
+
+            throw error;
+        }
+    };
+
+    /**
+     * Stop the AI scanner tick subscription.
+     *
+     * This does NOT disconnect the main Deriv WebSocket.
+     * It only stops the scanner's tick subscription.
+     */
+    stopScannerTicks = async () => {
+        // ----------------------------------------------------
+        // Forget Deriv subscription when we have its ID.
+        // ----------------------------------------------------
+
+        if (
+            this.scanner_subscription_id &&
+            this.api
+        ) {
+            try {
+                this.api.send({
+                    forget:
+                        this.scanner_subscription_id,
+                });
+            } catch (error) {
+                console.warn(
+                    '[APIBase] Failed to forget scanner subscription:',
+                    error
+                );
+            }
+        }
+
+        this.scanner_subscription_id =
+            null;
+
+        // ----------------------------------------------------
+        // Remove local message listener.
+        // ----------------------------------------------------
+
+        if (
+            this.scanner_message_unsubscribe
+        ) {
+            try {
+                this.scanner_message_unsubscribe();
+            } catch (error) {
+                console.warn(
+                    '[APIBase] Failed to unsubscribe scanner listener:',
+                    error
+                );
+            }
+        }
+
+        this.scanner_message_unsubscribe =
+            null;
+
+        this.scanner_subscription_active =
+            false;
+
+        this.scanner_symbol = '';
+    };
+
+    /**
+     * Completely reset scanner state.
+     *
+     * This is useful when switching symbols, logging out or
+     * intentionally resetting the scanner.
+     */
+    resetScanner = async () => {
+        await this.stopScannerTicks();
+
+        this.clearScannerTicks();
+    };
+
+    // ========================================================
+    // SOCKET OPEN
+    // ========================================================
 
     onsocketopen() {
-        setConnectionStatus(
-            CONNECTION_STATUS.OPENED
-        );
+        setConnectionStatus(CONNECTION_STATUS.OPENED);
 
+        // Reset reconnection attempts on successful connection
         this.reconnection_attempts = 0;
 
         const currentClientStore =
@@ -233,20 +604,8 @@ class APIBase {
             );
         }
 
-        /*
-         * Restore scanner tick streams only after
-         * the WebSocket is confirmed OPEN.
-         */
-        this.restoreScannerTickStreams();
-
         this.handleTokenExchangeIfNeeded();
     }
-
-    /*
-     * ========================================================
-     * TOKEN EXCHANGE
-     * ========================================================
-     */
 
     private async handleTokenExchangeIfNeeded() {
         const urlParams =
@@ -255,10 +614,14 @@ class APIBase {
             );
 
         const account_id =
-            urlParams.get('account_id');
+            urlParams.get(
+                'account_id'
+            );
 
         const accountType =
-            urlParams.get('account_type');
+            urlParams.get(
+                'account_type'
+            );
 
         if (account_id) {
             localStorage.setItem(
@@ -266,6 +629,7 @@ class APIBase {
                 account_id
             );
 
+            // Remove account_id from URL after storing
             removeUrlParameter(
                 'account_id'
             );
@@ -277,16 +641,18 @@ class APIBase {
                 accountType
             );
 
+            // Remove account_type from URL after storing
             removeUrlParameter(
                 'account_type'
             );
         }
 
+        // Check if we have an account_id from URL or localStorage
         let activeAccountId:
-            | string
-            | null =
+            string | null =
             getAccountId();
 
+        // If no account_id in localStorage, check sessionStorage for accounts
         if (!activeAccountId) {
             try {
                 const storedAccounts =
@@ -299,12 +665,15 @@ class APIBase {
                         JSON.parse(
                             storedAccounts
                         );
+
                     if (
                         accounts &&
-                        accounts.length > 0 &&
+                        accounts.length >
+                            0 &&
                         accounts[0]
                             .account_id
                     ) {
+                        // Use the first account as default
                         const accountId =
                             accounts[0]
                                 .account_id as string;
@@ -317,6 +686,7 @@ class APIBase {
                             accountId
                         );
 
+                        // Set account type based on account_id prefix
                         const isDemo =
                             accountId.startsWith(
                                 'VRT'
@@ -341,34 +711,52 @@ class APIBase {
             }
         }
 
+        // Now proceed with normal authorization if we have an account_id
         if (activeAccountId) {
-            setIsAuthorizing(true);
+            setIsAuthorizing(
+                true
+            );
 
             await this.authorizeAndSubscribe();
         }
     }
 
-    /*
-     * ========================================================
-     * SOCKET CLOSE
-     * ========================================================
-     */
+    // ========================================================
+    // SOCKET CLOSE
+    // ========================================================
 
     onsocketclose() {
         setConnectionStatus(
             CONNECTION_STATUS.CLOSED
         );
 
-        this.detachScannerTickMessageSubscriptions();
+        // The WebSocket is gone, therefore the scanner's
+        // subscription is also gone.
+        this.scanner_subscription_id =
+            null;
+
+        this.scanner_subscription_active =
+            false;
+
+        if (
+            this.scanner_message_unsubscribe
+        ) {
+            try {
+                this.scanner_message_unsubscribe();
+            } catch {
+                // Ignore cleanup errors.
+            }
+        }
+
+        this.scanner_message_unsubscribe =
+            null;
 
         this.reconnectIfNotConnected();
     }
 
-    /*
-     * ========================================================
-     * INITIALIZE API
-     * ========================================================
-     */
+    // ========================================================
+    // INIT
+    // ========================================================
 
     async init(
         force_create_connection = false
@@ -379,6 +767,7 @@ class APIBase {
             this.unsubscribeAllSubscriptions();
         }
 
+        // Reset reconnection attempts counter on successful connection initialization
         if (!force_create_connection) {
             this.reconnection_attempts = 0;
         }
@@ -389,9 +778,30 @@ class APIBase {
                 1 ||
             force_create_connection
         ) {
-            this.detachScannerTickMessageSubscriptions();
+            if (
+                this.api?.connection
+            ) {
+                // Remove scanner listener before disposing
+                // the existing API instance.
+                if (
+                    this.scanner_message_unsubscribe
+                ) {
+                    try {
+                        this.scanner_message_unsubscribe();
+                    } catch {
+                        // Ignore cleanup errors.
+                    }
+                }
 
-            if (this.api?.connection) {
+                this.scanner_message_unsubscribe =
+                    null;
+
+                this.scanner_subscription_id =
+                    null;
+
+                this.scanner_subscription_active =
+                    false;
+
                 ApiHelpers.disposeInstance();
 
                 setConnectionStatus(
@@ -432,22 +842,29 @@ class APIBase {
                 )
             );
 
+            // Store the current account ID used for this WebSocket connection
+            // This will be used to check if we need to regenerate the connection when the tab becomes active
             const currentClientStore =
                 globalObserver.getState(
                     'client.store'
                 );
 
-            if (currentClientStore) {
+            if (
+                currentClientStore
+            ) {
                 const active_login_id =
                     getAccountId();
 
-                if (active_login_id) {
+                if (
+                    active_login_id
+                ) {
                     currentClientStore.setWebSocketLoginId(
                         active_login_id
                     );
                 }
             }
         }
+
         const hasAccountID =
             V2GetActiveAccountId();
 
@@ -463,66 +880,59 @@ class APIBase {
 
         this.initEventListeners();
 
-        if (this.time_interval) {
+        if (
+            this.time_interval
+        ) {
             clearInterval(
                 this.time_interval
             );
         }
 
-        this.time_interval = null;
+        this.time_interval =
+            null;
 
         chart_api.init(
             force_create_connection
         );
-
-        if (
-            this.api?.connection.readyState ===
-            1
-        ) {
-            this.restoreScannerTickStreams();
-        }
     }
 
-    /*
-     * ========================================================
-     * CONNECTION STATUS
-     * ========================================================
-     */
+    // ========================================================
+    // CONNECTION STATUS
+    // ========================================================
 
     getConnectionStatus() {
-        if (this.api?.connection) {
+        if (
+            this.api?.connection
+        ) {
             const ready_state =
-                this.api.connection.readyState;
+                this.api.connection
+                    .readyState;
 
             return (
                 socket_state[
                     ready_state as keyof typeof socket_state
-                ] || 'Unknown'
+                ] ||
+                'Unknown'
             );
         }
 
         return 'Socket not initialized';
     }
 
-    /*
-     * ========================================================
-     * TERMINATE
-     * ========================================================
-     */
+    // ========================================================
+    // TERMINATE
+    // ========================================================
 
     terminate() {
-        this.unsubscribeAllTickStreams();
-
+        // eslint-disable-next-line no-console
         if (this.api) {
             this.api.disconnect();
         }
     }
 
-    /*
-     * ========================================================
-     * EVENT LISTENERS
-     * ========================================================
-     */
+    // ========================================================
+    // EVENT LISTENERS
+    // ========================================================
 
     initEventListeners() {
         if (window) {
@@ -538,11 +948,9 @@ class APIBase {
         }
     }
 
-    /*
-     * ========================================================
-     * NEW API INSTANCE
-     * ========================================================
-     */
+    // ========================================================
+    // ACCOUNT INSTANCE
+    // ========================================================
 
     async createNewInstance(
         account_id: string
@@ -555,34 +963,58 @@ class APIBase {
         }
     }
 
-    /*
-     * ========================================================
-     * RECONNECT
-     * ========================================================
-     */
+    // ========================================================
+    // RECONNECT
+    // ========================================================
 
     reconnectIfNotConnected = () => {
         if (
-            this.api?.connection?.readyState &&
-            this.api.connection.readyState >
-                1
+            this.api?.connection
+                ?.readyState &&
+            this.api?.connection
+                ?.readyState > 1
         ) {
             this.reconnection_attempts +=
                 1;
 
             if (
                 this.reconnection_attempts >=
-                this
-                    .MAX_RECONNECTION_ATTEMPTS
+                this.MAX_RECONNECTION_ATTEMPTS
             ) {
-                this.reconnection_attempts =
-                    0;
-                setIsAuthorized(false);
+                // Reset reconnection counter
+                this.reconnection_attempts = 0;
+
+                // Reset scanner state because the old
+                // WebSocket session is no longer valid.
+                this.scanner_subscription_id =
+                    null;
+
+                this.scanner_subscription_active =
+                    false;
+
+                if (
+                    this.scanner_message_unsubscribe
+                ) {
+                    try {
+                        this.scanner_message_unsubscribe();
+                    } catch {
+                        // Ignore cleanup errors.
+                    }
+                }
+
+                this.scanner_message_unsubscribe =
+                    null;
+
+                // Properly handle logout through the API
+                setIsAuthorized(
+                    false
+                );
 
                 setAccountList([]);
 
                 setAuthData(null);
 
+                // Clear necessary storage items
                 localStorage.removeItem(
                     'active_loginid'
                 );
@@ -604,11 +1036,9 @@ class APIBase {
         }
     };
 
-    /*
-     * ========================================================
-     * AUTHORIZATION
-     * ========================================================
-     */
+    // ========================================================
+    // AUTHORIZATION
+    // ========================================================
 
     async authorizeAndSubscribe() {
         if (!this.api) return;
@@ -616,7 +1046,9 @@ class APIBase {
         this.account_id =
             getAccountId() || '';
 
-        setIsAuthorizing(true);
+        setIsAuthorizing(
+            true
+        );
 
         try {
             const {
@@ -634,12 +1066,15 @@ class APIBase {
                         : error.message ||
                           'Authorization failed';
 
+                // Authorization error
                 console.error(
                     'Authorization error:',
                     errorMessage
                 );
 
-                setIsAuthorizing(false);
+                setIsAuthorizing(
+                    false
+                );
 
                 return {
                     ...error,
@@ -687,12 +1122,16 @@ class APIBase {
                               balance.loginid,
                       }
                     : null;
+
+            // Build full account list from sessionStorage (populated during OAuth flow)
+            // Falls back to just the current account if sessionStorage has no data
             const storedAccounts =
                 DerivWSAccountsService.getStoredAccounts();
 
             const accountList =
                 storedAccounts &&
-                storedAccounts.length > 0
+                storedAccounts.length >
+                    0
                     ? storedAccounts
                           .filter(
                               a =>
@@ -700,25 +1139,28 @@ class APIBase {
                                   a.status ===
                                       'active'
                           )
-                          .map(a => ({
-                              balance:
-                                  parseFloat(
-                                      a.balance
-                                  ) || 0,
+                          .map(
+                              a => ({
+                                  balance:
+                                      parseFloat(
+                                          a.balance
+                                      ) ||
+                                      0,
 
-                              currency:
-                                  a.currency ||
-                                  'USD',
+                                  currency:
+                                      a.currency ||
+                                      'USD',
 
-                              is_virtual:
-                                  a.account_type ===
-                                  'demo'
-                                      ? 1
-                                      : 0,
+                                  is_virtual:
+                                      a.account_type ===
+                                      'demo'
+                                          ? 1
+                                          : 0,
 
-                              loginid:
-                                  a.account_id,
-                          }))
+                                  loginid:
+                                      a.account_id,
+                              })
+                          )
                     : currentAccount
                       ? [currentAccount]
                       : [];
@@ -747,11 +1189,15 @@ class APIBase {
                     accountList,
             });
 
+            // Set account_type in localStorage based on loginid prefix using centralized utility
             const loginid =
-                balance?.loginid || '';
+                balance?.loginid ||
+                '';
 
             const isDemo =
-                isDemoAccount(loginid);
+                isDemoAccount(
+                    loginid
+                );
 
             if (isDemo) {
                 localStorage.setItem(
@@ -794,6 +1240,7 @@ class APIBase {
                 }
             );
 
+            // Update the WebSocket login ID in the client store
             const currentClientStore =
                 globalObserver.getState(
                     'client.store'
@@ -808,7 +1255,9 @@ class APIBase {
                 );
             }
 
-            setIsAuthorized(true);
+            setIsAuthorized(
+                true
+            );
 
             this.is_authorized =
                 true;
@@ -825,14 +1274,18 @@ class APIBase {
                 balance?.country
             );
 
-            if (balance?.loginid) {
+            if (
+                balance?.loginid
+            ) {
                 localStorage.setItem(
                     'active_loginid',
                     balance.loginid
                 );
             }
 
-            if (this.has_active_symbols) {
+            if (
+                this.has_active_symbols
+            ) {
                 this.toggleRunButton(
                     false
                 );
@@ -841,34 +1294,31 @@ class APIBase {
                     this.getActiveSymbols();
             }
 
-            await this.subscribe();
-
-            /*
-             * Restore scanner streams after authorization.
-             */
-            this.restoreScannerTickStreams();
+            this.subscribe();
         } catch (e) {
             this.is_authorized =
                 false;
 
             clearAuthData();
 
-            setIsAuthorized(false);
+            setIsAuthorized(
+                false
+            );
 
             globalObserver.emit(
                 'Error',
                 e
             );
         } finally {
-            setIsAuthorizing(false);
+            setIsAuthorizing(
+                false
+            );
         }
     }
 
-    /*
-     * ========================================================
-     * NORMAL AUTH STREAMS
-     * ========================================================
-     */
+    // ========================================================
+    // EXISTING ACCOUNT STREAMS
+    // ========================================================
 
     async subscribe() {
         const subscribeToStream = (
@@ -878,11 +1328,16 @@ class APIBase {
                 () => {
                     const subscription =
                         this.api?.send({
-                            [streamName]: 1,
-                            subscribe: 1,
+                            [streamName]:
+                                1,
+
+                            subscribe:
+                                1,
                         });
 
-                    if (subscription) {
+                    if (
+                        subscription
+                    ) {
                         this.current_auth_subscriptions.push(
                             subscription
                         );
@@ -895,11 +1350,12 @@ class APIBase {
             );
         };
 
-        const streamsToSubscribe = [
-            'balance',
-            'transaction',
-            'proposal_open_contract',
-        ];
+        const streamsToSubscribe =
+            [
+                'balance',
+                'transaction',
+                'proposal_open_contract',
+            ];
 
         await Promise.all(
             streamsToSubscribe.map(
@@ -907,511 +1363,10 @@ class APIBase {
             )
         );
     }
-    /*
-     * ============================================================
-     * AI SCANNER — CREATE/RESTORE TICK STREAM
-     * ============================================================
-     */
 
-    private attachScannerTickStream(
-        stream: ScannerTickStream
-    ) {
-        if (!this.api) {
-            return false;
-        }
-
-        if (!stream.active) {
-            return false;
-        }
-
-        /*
-         * Never send a subscription while the socket
-         * is not OPEN.
-         */
-        if (this.api.connection.readyState !== 1) {
-            console.log(
-                `[AI Scanner] Waiting for WebSocket to open before subscribing to ${stream.symbol}.`
-            );
-            return false;
-        }
-
-        /*
-         * Attach the incoming-message listener.
-         */
-        if (!stream.messageSubscription) {
-            try {
-                const messageSubscription = this.api
-                    .onMessage()
-                    .subscribe(
-                        (message: any) => {
-                            if (!stream.active || !message) {
-                                return;
-                            }
-
-                            /*
-                             * TEMPORARY DIAGNOSTIC:
-                             * Helps verify the exact payload arriving from the WS.
-                             */
-                            console.log('[AI Scanner] RAW WS MESSAGE RECEIVED:', message);
-
-                            /*
-                             * ADAPTIVE EXTRACTOR:
-                             * Handle both nested raw WS shapes and flat, parsed framework shapes.
-                             */
-                            const tickData = message.tick || message;
-                            
-                            // Check if this payload belongs to our expected symbol index
-                            const msgSymbol = tickData.symbol || message.echo_req?.ticks;
-                            if (msgSymbol && msgSymbol !== stream.symbol) {
-                                return; // Safely skip data meant for other open asset pairs
-                            }
-
-                            // Extract values safely from either nested structures or root keys
-                            const rawQuote = tickData.quote || tickData.price || message.price;
-                            const rawEpoch = tickData.epoch || message.time;
-
-                            const quote = Number(rawQuote);
-                            const epoch = Number(rawEpoch || Math.floor(Date.now() / 1000));
-
-                            /*
-                             * Strict numerical validation.
-                             */
-                            if (!Number.isFinite(quote)) {
-                                return; // Silent discard if a valid quote price wasn't found
-                            }
-
-                            const normalizedTick: ScannerTick = {
-                                symbol: stream.symbol,
-                                quote,
-                                epoch,
-                            };
-
-                            console.log('[AI Scanner] VALID TICK PARSED:', normalizedTick);
-
-                            const callbacks = Array.from(stream.callbacks);
-                            callbacks.forEach(callback => {
-                                try {
-                                    callback(normalizedTick);
-                                } catch (error) {
-                                    console.error(
-                                        `[APIBase] AI scanner tick callback failed for ${stream.symbol}:`,
-                                        error
-                                    );
-                                }
-                            });
-                        }
-                    );
-
-                stream.messageSubscription = messageSubscription;
-            } catch (error) {
-                console.error(
-                    `[APIBase] Failed to create tick message listener for ${stream.symbol}:`,
-                    error
-                );
-                stream.messageSubscription = null;
-                return false;
-            }
-        }
-        /*
-         * Don't send the same Deriv subscription
-         * twice on the same WebSocket session.
-         */
-        if (stream.subscriptionRequested) {
-            return true;
-        }
-
-        try {
-            /*
-             * THIS is the actual Deriv subscription.
-             * Keep the exact strategy symbol.
-             * Example: { ticks: '1HZ100V', subscribe: 1 }
-             */
-            const subscriptionRequest = {
-                ticks: stream.symbol,
-                subscribe: 1,
-            };
-
-            console.log(
-                '[AI Scanner] SENDING TICK SUBSCRIPTION:',
-                subscriptionRequest
-            );
-
-            const subscriptionResult = this.api.send(subscriptionRequest);
-            stream.subscriptionRequested = true;
-
-            /*
-             * Some API implementations return the subscription response directly.
-             */
-            if (
-                subscriptionResult &&
-                typeof subscriptionResult === 'object' &&
-                subscriptionResult.id
-            ) {
-                stream.subscriptionId = subscriptionResult.id;
-            }
-
-            /*
-             * Some implementations return a Promise.
-             */
-            if (
-                subscriptionResult &&
-                typeof subscriptionResult.then === 'function'
-            ) {
-                subscriptionResult
-                    .then((result: any) => {
-                        console.log(
-                            '[AI Scanner] TICK SUBSCRIPTION RESPONSE:',
-                            {
-                                symbol: stream.symbol,
-                                result,
-                            }
-                        );
-
-                        if (result?.id) {
-                            stream.subscriptionId = result.id;
-                        }
-
-                        if (result?.subscription?.id) {
-                            stream.subscriptionId = result.subscription.id;
-                        }
-
-                        if (result?.error) {
-                            console.error(
-                                `[AI Scanner] Deriv rejected tick subscription for ${stream.symbol}:`,
-                                result.error
-                            );
-                            stream.subscriptionRequested = false;
-                        }
-                    })
-                    .catch((error: unknown) => {
-                        stream.subscriptionRequested = false;
-                        stream.subscriptionId = null;
-                        console.error(
-                            `[APIBase] Could not complete tick subscription for ${stream.symbol}:`,
-                            error
-                        );
-                    });
-            }
-
-            console.log(
-                `[AI Scanner] Live tick subscription requested: ${stream.symbol}`
-            );
-            return true;
-        } catch (error) {
-            stream.subscriptionRequested = false;
-            stream.subscriptionId = null;
-
-            console.error(
-                `[APIBase] Failed to subscribe to live ticks for ${stream.symbol}:`,
-                error
-            );
-
-            return false;
-        }
-    }
-    /*
-     * ============================================================
-     * AI SCANNER — SUBSCRIBE TO TICKS
-     * ============================================================
-     */
-
-    subscribeToTicks(
-        symbol: string,
-        callback: ScannerTickCallback
-    ) {
-        if (
-            typeof symbol !== 'string' ||
-            symbol.trim().length === 0
-        ) {
-            console.error(
-                '[APIBase] Cannot subscribe to ticks: symbol is missing'
-            );
-
-            return () => {};
-        }
-
-        if (
-            typeof callback !==
-            'function'
-        ) {
-            console.error(
-                `[APIBase] Cannot subscribe to ticks for ${symbol}: callback is invalid`
-            );
-
-            return () => {};
-        }
-
-        const normalizedSymbol =
-            symbol.trim();
-
-        let stream =
-            this.scannerTickStreams.get(
-                normalizedSymbol
-            );
-
-        if (!stream) {
-            stream = {
-                symbol:
-                    normalizedSymbol,
-
-                callbacks:
-                    new Set<ScannerTickCallback>(),
-
-                messageSubscription:
-                    null,
-
-                active: true,
-
-                subscriptionId:
-                    null,
-
-                subscriptionRequested:
-                    false,
-            };
-
-            this.scannerTickStreams.set(
-                normalizedSymbol,
-                stream
-            );
-        }
-
-        stream.active = true;
-
-        stream.callbacks.add(
-            callback
-        );
-
-        console.log(
-            `[AI Scanner] Callback registered for ${normalizedSymbol}. Consumers: ${stream.callbacks.size}`
-        );
-
-        /*
-         * If already open, attach immediately.
-         */
-        if (
-            this.api &&
-            this.api.connection.readyState ===
-                1
-        ) {
-            this.attachScannerTickStream(
-                stream
-            );
-        } else {
-            console.log(
-                `[AI Scanner] Tick stream registered for ${normalizedSymbol}; waiting for WebSocket connection.`
-            );
-        }
-
-        let isSubscribed = true;
-
-        return () => {
-            if (!isSubscribed) {
-                return;
-            }
-
-            isSubscribed = false;
-
-            const currentStream =
-                this.scannerTickStreams.get(
-                    normalizedSymbol
-                );
-
-            if (!currentStream) {
-                return;
-            }
-
-            currentStream.callbacks.delete(
-                callback
-            );
-
-            console.log(
-                `[AI Scanner] Callback removed for ${normalizedSymbol}. Consumers remaining: ${currentStream.callbacks.size}`
-            );
-
-            if (
-                currentStream.callbacks.size >
-                0
-            ) {
-                return;
-            }
-
-            this.stopScannerTickStream(
-                normalizedSymbol
-            );
-        };
-    }
-
-    /*
-     * ============================================================
-     * AI SCANNER — STOP ONE SYMBOL
-     * ============================================================
-     */
-
-    private stopScannerTickStream(
-        symbol: string
-    ) {
-        const stream =
-            this.scannerTickStreams.get(
-                symbol
-            );
-
-        if (!stream) {
-            return;
-        }
-
-        stream.active = false;
-
-        if (
-            stream.subscriptionId &&
-            this.api &&
-            this.api.connection.readyState ===
-                1
-        ) {
-            try {
-                console.log(
-                    `[AI Scanner] Forgetting tick subscription: ${symbol}`
-                );
-
-                this.api.send({
-                    forget:
-                        stream.subscriptionId,
-                });
-            } catch (error) {
-                console.warn(
-                    `[APIBase] Failed to forget tick stream ${symbol}:`,
-                    error
-                );
-            }
-        }
-
-        try {
-            stream.messageSubscription?.unsubscribe();
-        } catch (error) {
-            console.warn(
-                `[APIBase] Failed to remove tick listener for ${symbol}:`,
-                error
-            );
-        }
-
-        stream.messageSubscription =
-            null;
-
-        stream.subscriptionId =
-            null;
-
-        stream.subscriptionRequested =
-            false;
-
-        stream.callbacks.clear();
-
-        this.scannerTickStreams.delete(
-            symbol
-        );
-
-        console.log(
-            `[AI Scanner] Live tick stream stopped: ${symbol}`
-        );
-    }
-
-    /*
-     * ============================================================
-     * AI SCANNER — DETACH MESSAGE LISTENERS
-     * ============================================================
-     */
-
-    private detachScannerTickMessageSubscriptions() {
-        this.scannerTickStreams.forEach(
-            stream => {
-                try {
-                    stream.messageSubscription?.unsubscribe();
-                } catch (error) {
-                    console.warn(
-                        `[APIBase] Failed to detach scanner listener for ${stream.symbol}:`,
-                        error
-                    );
-                }
-
-                stream.messageSubscription =
-                    null;
-
-                /*
-                 * Old subscription IDs belong to
-                 * the old WebSocket session.
-                 */
-                stream.subscriptionId =
-                    null;
-
-                /*
-                 * Force a fresh subscription on
-                 * the new socket.
-                 */
-                stream.subscriptionRequested =
-                    false;
-            }
-        );
-    }
-
-    /*
-     * ============================================================
-     * AI SCANNER — RESTORE STREAMS
-     * ============================================================
-     */
-
-    private restoreScannerTickStreams() {
-        if (!this.api) {
-            return;
-        }
-
-        if (
-            this.api.connection.readyState !==
-            1
-        ) {
-            return;
-        }
-
-        console.log(
-            '[AI Scanner] Restoring scanner tick streams.'
-        );
-
-        this.scannerTickStreams.forEach(
-            stream => {
-                if (
-                    stream.active &&
-                    stream.callbacks.size > 0
-                ) {
-                    this.attachScannerTickStream(
-                        stream
-                    );
-                }
-            }
-        );
-    }
-
-    /*
-     * ============================================================
-     * AI SCANNER — STOP ALL TICK STREAMS
-     * ============================================================
-     */
-
-    unsubscribeAllTickStreams() {
-        const symbols =
-            Array.from(
-                this.scannerTickStreams.keys()
-            );
-
-        symbols.forEach(symbol => {
-            this.stopScannerTickStream(
-                symbol
-            );
-        });
-
-        this.scannerTickStreams.clear();
-    }
-    /*
-     * ========================================================
-     * ACTIVE SYMBOLS
-     * ========================================================
-     */
+    // ========================================================
+    // ACTIVE SYMBOLS
+    // ========================================================
 
     getActiveSymbols =
         async () => {
@@ -1422,12 +1377,10 @@ class APIBase {
             }
 
             try {
+                // Add timeout to prevent hanging
                 const timeout =
                     new Promise(
-                        (
-                            _,
-                            reject
-                        ) =>
+                        (_, reject) =>
                             setTimeout(
                                 () =>
                                     reject(
@@ -1443,10 +1396,12 @@ class APIBase {
                 const activeSymbolsPromise =
                     doUntilDone(
                         () =>
-                            this.api?.send({
-                                active_symbols:
-                                    'brief',
-                            }),
+                            this.api?.send(
+                                {
+                                    active_symbols:
+                                        'brief',
+                                }
+                            ),
                         [],
                         this
                     );
@@ -1469,7 +1424,8 @@ class APIBase {
                     error &&
                     Object.keys(
                         error
-                    ).length > 0
+                    ).length >
+                        0
                 ) {
                     throw new Error(
                         `Active symbols API error: ${
@@ -1490,6 +1446,7 @@ class APIBase {
                 this.has_active_symbols =
                     true;
 
+                // Process active symbols using the dedicated service with fallback
                 try {
                     const enrichmentTimeout =
                         new Promise<never>(
@@ -1535,10 +1492,12 @@ class APIBase {
                         enrichmentError
                     );
 
+                    // Fallback to raw symbols if enrichment fails
                     this.active_symbols =
                         active_symbols;
 
-                    this.pip_sizes = {};
+                    this.pip_sizes =
+                        {};
                 }
 
                 this.toggleRunButton(
@@ -1556,34 +1515,29 @@ class APIBase {
             }
         };
 
-    /*
-     * ========================================================
-     * RUN BUTTON
-     * ========================================================
-     */
+    // ========================================================
+    // RUN BUTTON
+    // ========================================================
 
-    toggleRunButton = (
-        toggle: boolean
-    ) => {
-        const run_button =
-            document.querySelector(
-                '#db-animation__run-button'
-            );
+    toggleRunButton =
+        (toggle: boolean) => {
+            const run_button =
+                document.querySelector(
+                    '#db-animation__run-button'
+                );
 
-        if (!run_button) {
-            return;
-        }
+            if (!run_button)
+                return;
 
-        (
-            run_button as HTMLButtonElement
-        ).disabled = toggle;
-    };
+            (
+                run_button as HTMLButtonElement
+            ).disabled =
+                toggle;
+        };
 
-    /*
-     * ========================================================
-     * RUN STATE
-     * ========================================================
-     */
+    // ========================================================
+    // RUNNING STATE
+    // ========================================================
 
     setIsRunning(
         toggle = false
@@ -1592,11 +1546,9 @@ class APIBase {
             toggle;
     }
 
-    /*
-     * ========================================================
-     * GENERAL SUBSCRIPTIONS
-     * ========================================================
-     */
+    // ========================================================
+    // GENERIC SUBSCRIPTIONS
+    // ========================================================
 
     pushSubscription(
         subscription: CurrentSubscription
@@ -1608,11 +1560,14 @@ class APIBase {
 
     clearSubscriptions() {
         this.subscriptions.forEach(
-            s => s.unsubscribe()
+            s =>
+                s.unsubscribe()
         );
 
-        this.subscriptions = [];
+        this.subscriptions =
+            [];
 
+        // Resetting timeout resolvers
         const global_timeouts =
             globalObserver.getState(
                 'global_timeouts'
@@ -1620,8 +1575,7 @@ class APIBase {
 
         global_timeouts.forEach(
             (
-                _:
-                    unknown,
+                _: unknown,
                 i: number
             ) => {
                 clearTimeout(i);
@@ -1630,11 +1584,9 @@ class APIBase {
     }
 }
 
-/*
- * ============================================================
- * SINGLETON
- * ============================================================
- */
+// ============================================================
+// SINGLE API BASE INSTANCE
+// ============================================================
 
 export const api_base =
     new APIBase();
