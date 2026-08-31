@@ -19,8 +19,6 @@ import {
     MarketAnalysis,
 } from './scannerLogic';
 
-import { api_base } from '@/external/bot-skeleton/services/api/api-base';
-
 import './FloatingAI.css';
 
 /*
@@ -55,7 +53,6 @@ interface DragPosition {
 
 const MAX_TICKS_PER_SYMBOL = 100;
 const MIN_TICKS_FOR_LIVE_SCANNER = 20;
-const LIVE_TICK_RETRY_MS = 1000;
 const SCAN_SETTLE_MS = 1500;
 
 /*
@@ -95,21 +92,20 @@ const FloatingAI = () => {
     
     const hasMovedRef = useRef(false);
     const suppressClickRef = useRef(false);
-
     /*
      * ------------------------------------------------------------
-     * LIVE SNAPSHOT MEMORY CONTAINERS
+     * LIVE SNAPSHOT MEMORY CONTAINERS (DIRECT ISOLATED WEBSOCKET)
      * ------------------------------------------------------------
      */
 
     const tickBuffersRef = useRef<Record<string, number[]>>({});
     const lastTickTimeRef = useRef<Record<string, number>>({});
-    
     const invalidTickCountRef = useRef(0);
-    const tickUnsubscribersRef = useRef<Array<() => void>>([]);
-    const subscribedSymbolsRef = useRef<Set<string>>(new Set());
     
-    const tickRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Dedicated isolated WebSocket tracking references
+    const scannerSocketRef = useRef<WebSocket | null>(null);
+    const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    
     const isMountedRef = useRef(true);
     const scanInProgressRef = useRef(false);
 
@@ -119,6 +115,7 @@ const FloatingAI = () => {
 
     const [stakeValues, setStakeValues] = useState<Record<string, string>>({});
     const [targetValues, setTargetValues] = useState<Record<string, string>>({});
+
     /*
      * ------------------------------------------------------------
      * CLAMP CONTROL MECHANICS
@@ -149,7 +146,6 @@ const FloatingAI = () => {
 
         setDragPos(prev => (prev && prev.x === clamped.x && prev.y === clamped.y ? prev : clamped));
     }, [clampDragPosition, dragPos]);
-
     useEffect(() => {
         const button = buttonRef.current;
         if (!button) return;
@@ -188,6 +184,7 @@ const FloatingAI = () => {
         }
         return tickBuffersRef.current[symbol];
     }, []);
+
     /*
      * ------------------------------------------------------------
      * MATHEMATICAL PROFILING SCORE COMPUTATION ENGINES
@@ -232,7 +229,6 @@ const FloatingAI = () => {
 
         return Math.min(99, Math.max(50, score));
     };
-
     const calculateFinalScannerScore = useCallback((
         strategy: AIStrategy,
         analysis: MarketAnalysis
@@ -268,7 +264,7 @@ const FloatingAI = () => {
         };
     }, []);
 
-             /*
+    /*
      * ============================================================
      * LIVE SCAN ALL STRATEGIES (REACTIVE SYSTEM UPDATE ENGINE)
      * ============================================================
@@ -321,9 +317,8 @@ const FloatingAI = () => {
             rank: index + 1,
         }));
 
-        // ✅ FIXED WORKAROUND BYPASS: Safely check for array existence and read item index 0 explicitly
         if (Array.isArray(rankedResults) && rankedResults.length > 0) {
-            const topStrategyItem = rankedResults[0]; // Explicitly target array element 0
+            const topStrategyItem = rankedResults[0];
             const fallbackSymbol = topStrategyItem ? topStrategyItem.symbol : '1HZ100V';
             const topTicks = tickBuffersRef.current[fallbackSymbol] || [];
             setMarketAnalysis(analyzeMarket(topTicks));
@@ -353,122 +348,125 @@ const FloatingAI = () => {
 
         setScannerResults(rankedResults);
         
-        // Safety verification layout check on expanded card components maps
         if (Array.isArray(rankedResults) && rankedResults.length > 0 && rankedResults[0]) {
             const defaultId = rankedResults[0].id;
             setExpandedStrategyId(currId => currId ?? defaultId);
         }
     }, [calculateFinalScannerScore]);
-
     /*
      * ============================================================
-     * CENTRALIZED WEBSOCKET SUBSCRIPTION CONTROLLER CONNECTORS
+     * DIRECT ISOLATED BACKGROUND SOCKET LINK (CLEAN METHOD)
      * ============================================================
      */
+
+    const cleanupLiveTickBridge = useCallback(() => {
+        if (pingIntervalRef.current) {
+            clearInterval(pingIntervalRef.current);
+            pingIntervalRef.current = null;
+        }
+        if (scannerSocketRef.current) {
+            scannerSocketRef.current.close();
+            scannerSocketRef.current = null;
+        }
+    }, []);
 
     const subscribeToLiveTicks = useCallback(() => {
         if (!isMountedRef.current) return;
 
+        cleanupLiveTickBridge();
+
         const symbols = getStrategySymbols();
+        if (symbols.length === 0) return;
 
-        if (tickRetryTimerRef.current !== null) {
-            clearTimeout(tickRetryTimerRef.current);
-            tickRetryTimerRef.current = null;
-        }
+        const appId = localStorage.getItem('app_id') || '1098';
+        const wsUrl = `wss://://derivws.com{appId}`;
+        
+        console.log(`[AI Scanner Socket] Opening direct pipeline lane via App ID ${appId}`);
+        const ws = new WebSocket(wsUrl);
+        scannerSocketRef.current = ws;
 
-        if (symbols.length === 0 || !api_base || !api_base.api) {
-            tickRetryTimerRef.current = setTimeout(() => {
-                tickRetryTimerRef.current = null;
-                if (isMountedRef.current) subscribeToLiveTicks();
-            }, LIVE_TICK_RETRY_MS);
-            return;
-        }
+        ws.onopen = () => {
+            if (!isMountedRef.current) {
+                ws.close();
+                return;
+            }
 
-        symbols.forEach(symbol => {
-            if (subscribedSymbolsRef.current.has(symbol)) return;
-            ensureTickBuffer(symbol);
+            symbols.forEach(symbol => {
+                ensureTickBuffer(symbol);
+
+                ws.send(JSON.stringify({
+                    ticks_history: symbol,
+                    adjust_start_time: 1,
+                    count: MAX_TICKS_PER_SYMBOL,
+                    end: 'latest',
+                    style: 'ticks'
+                }));
+
+                ws.send(JSON.stringify({
+                    ticks: symbol,
+                    subscribe: 1
+                }));
+            });
+
+            pingIntervalRef.current = setInterval(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ ping: 1 }));
+                }
+            }, 30000);
+        };
+
+        ws.onmessage = (event) => {
+            if (!isMountedRef.current) return;
 
             try {
-                const unsubscribe = api_base.subscribeToTicks(symbol, tick => {
-                    if (!isMountedRef.current) return;
+                const response = JSON.parse(event.data);
 
-                    if (!tick || !Number.isFinite(tick.quote)) {
+                if (response.msg_type === 'history' && response.history?.times) {
+                    const symbolKey = response.echo_req?.ticks_history;
+                    if (symbolKey) {
+                        const compiledPrices = response.history.times.map((_: number, index: number) => 
+                            Number(response.history.prices[index])
+                        );
+                        tickBuffersRef.current[symbolKey] = compiledPrices.slice(-MAX_TICKS_PER_SYMBOL);
+                        lastTickTimeRef.current[symbolKey] = Date.now();
+                        evaluateAllStrategiesLive();
+                    }
+                }
+
+                if (response.msg_type === 'tick' && response.tick) {
+                    const tickData = response.tick;
+                    if (!tickData || !Number.isFinite(tickData.quote)) {
                         invalidTickCountRef.current += 1;
                         return;
                     }
 
-                    const currentTicks = tickBuffersRef.current[symbol] || [];
-                    tickBuffersRef.current[symbol] = [...currentTicks, tick.quote].slice(-MAX_TICKS_PER_SYMBOL);
-                    lastTickTimeRef.current[symbol] = Date.now();
+                    const targetSymbol = tickData.symbol;
+                    const existingBuffer = tickBuffersRef.current[targetSymbol] || [];
+                    
+                    tickBuffersRef.current[targetSymbol] = [...existingBuffer, tickData.quote].slice(-MAX_TICKS_PER_SYMBOL);
+                    lastTickTimeRef.current[targetSymbol] = Date.now();
 
                     evaluateAllStrategiesLive();
-                });
-
-                subscribedSymbolsRef.current.add(symbol);
-                if (typeof unsubscribe === 'function') {
-                    tickUnsubscribersRef.current.push(unsubscribe);
                 }
-            } catch (error) {
-                console.error(`[AI Scanner] Thread initialization exception on ${symbol}:`, error);
+            } catch (err) {
+                console.error("[AI Scanner Parsing Error]:", err);
             }
-        });
-    }, [ensureTickBuffer, getStrategySymbols, evaluateAllStrategiesLive]);
+        };
 
-    const cleanupLiveTickBridge = useCallback(() => {
-        if (tickRetryTimerRef.current !== null) {
-            clearTimeout(tickRetryTimerRef.current);
-            tickRetryTimerRef.current = null;
-        }
-        tickUnsubscribersRef.current.forEach(unsubscribe => {
-            try { unsubscribe(); } catch {}
-        });
-        tickUnsubscribersRef.current = [];
-        subscribedSymbolsRef.current.clear();
-    }, []);
+        ws.onerror = (error) => console.error("[AI Scanner Socket Endpoint Error]:", error);
+        ws.onclose = () => console.log("[AI Scanner Socket Direct Lane Closed]");
+
+    }, [ensureTickBuffer, getStrategySymbols, evaluateAllStrategiesLive, cleanupLiveTickBridge]);
     const startLiveStreamingEvaluation = async () => {
         scanInProgressRef.current = true;
         setIsScanning(true);
         setScannerResults([]);
         setExpandedStrategyId(null);
 
-        // Reset tracking array memory
         tickBuffersRef.current = {};
 
         subscribeToLiveTicks();
 
-        // 📱 MOBILE LOCAL BYPASS FOR TESTING
-        // If the socket connection drops or stays unauthenticated on mobile browser view,
-        // this fallback safely loops simulated price numbers to test calculations.
-        let fallbackTickCounter = 0;
-        let basePriceMock = 1250.75;
-        
-        const testSimulationInterval = setInterval(() => {
-            if (!scanInProgressRef.current || !isScanning) {
-                clearInterval(testSimulationInterval);
-                return;
-            }
-            
-            const symbols = getStrategySymbols();
-            symbols.forEach(symbol => {
-                const currentBuffer = tickBuffersRef.current[symbol] || [];
-                // Only inject simulated data if the live server stream is empty
-                if (currentBuffer.length < MAX_TICKS_PER_SYMBOL) {
-                    basePriceMock += (Math.random() - 0.5) * 1.5;
-                    tickBuffersRef.current[symbol] = [...currentBuffer, basePriceMock].slice(-MAX_TICKS_PER_SYMBOL);
-                }
-            });
-            
-            fallbackTickCounter += 1;
-            evaluateAllStrategiesLive();
-            
-            // Turn off loader panel smoothly when lookback window requirements are fulfilled
-            if (fallbackTickCounter >= MIN_TICKS_FOR_LIVE_SCANNER) {
-                setIsScanning(false);
-                clearInterval(testSimulationInterval);
-            }
-        }, 150); // Streams fresh price calculations directly to your screen layout every 150ms
-
-        // Visual delay to let mobile sockets wake up cleanly
         let elapsed = 0;
         while (elapsed < SCAN_SETTLE_MS) {
             await new Promise(r => setTimeout(r, 150));
@@ -478,10 +476,7 @@ const FloatingAI = () => {
             if (totalTicksReceived > 5) break;
         }
 
-        if (!isMountedRef.current) {
-            clearInterval(testSimulationInterval);
-            return;
-        }
+        if (!isMountedRef.current) return;
 
         evaluateAllStrategiesLive();
         setIsScanning(false);
@@ -513,6 +508,7 @@ const FloatingAI = () => {
     const toggleStrategyCard = (strategyId: string) => {
         setExpandedStrategyId(currentId => (currentId === strategyId ? null : strategyId));
     };
+
     const loadStrategy = async (strategy: ScannerResult) => {
         if (loadingStrategyId !== null || scanInProgressRef.current) return;
 
@@ -560,11 +556,6 @@ const FloatingAI = () => {
         };
     }, [cleanupLiveTickBridge]);
 
-    /*
-     * ------------------------------------------------------------
-     * POINTER EVENT MANAGEMENT ENGINE
-     * ------------------------------------------------------------
-     */
     const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
         if (event.pointerType === 'mouse' && event.button !== 0) return;
 
@@ -717,7 +708,7 @@ const FloatingAI = () => {
                                 <h3>Scanning Market Pipelines...</h3>
                                 <p>Analyzing {AI_STRATEGIES.length} strategies against live ticks.</p>
                                 <div className="scanning-progress">
-                                    <div className="scanning-progress-bar" style={{ width: '35%' }} />
+                                    <div className="scanning-progress-bar" style={{ width: '100%', animation: 'none' }} />
                                 </div>
                             </div>
                         )}
@@ -752,7 +743,6 @@ const FloatingAI = () => {
                                         Waiting for enough ticks. Keep the scanner open to let historical lookback snapshots fill.
                                     </div>
                                 )}
-
                                 <div className="strategy-list">
                                     {scannerResults.map(strategy => {
                                         const isExpanded = expandedStrategyId === strategy.id;
@@ -801,7 +791,7 @@ const FloatingAI = () => {
                                                         <div className="strategy-market-live">
                                                             <div><span>Live Market</span><strong>{strategy.marketState}</strong></div>
                                                             <div><span>Direction</span><strong className={`direction-${strategy.marketDirection.toLowerCase()}`}>{strategy.marketDirection}</strong></div>
-                                                            <div><span>Confidence</span>...</div>
+                                                            <div><span>Confidence</span><strong>{strategy.marketConfidence}%</strong></div>
                                                         </div>
                                                         <div className="strategy-market-live">
                                                             <div><span>Live Ticks</span><strong>{strategyLiveTicksCount}/{MAX_TICKS_PER_SYMBOL}</strong></div>
@@ -818,8 +808,8 @@ const FloatingAI = () => {
                                                         </div>
                                                         <div className="strategy-details">
                                                             <div className="strategy-detail"><span>Engine</span><strong>{strategy.engine}</strong></div>
-                                                            <div className="strategy-detail"><span>Market</span>...</div>
-                                                            <div className="strategy-detail"><span>Direction</span>...<strong>{strategy.type || 'Default'}</strong></div>
+                                                            <div className="strategy-detail"><span>Asset Ticker</span><strong>{strategy.symbol}</strong></div>
+                                                            <div className="strategy-detail"><span>Contract Type</span><strong>{strategy.type || 'Default'}</strong></div>
                                                             <div className="strategy-detail editable-strategy-detail">
                                                                 <span>Stake</span>
                                                                 <div className="strategy-input-wrapper">
@@ -845,7 +835,7 @@ const FloatingAI = () => {
                                         );
                                     })}
                                 </div>
-                                <button type="button" className="rescan-button" onClick={startLiveStreamingEvaluation} disabled={loadingStrategyId !== null}>↻ Scan Again</button>
+                                <button type="button" className="rescan-button" onClick={startLiveStreamingEvaluation} disabled={loadingStrategyId !== null}>✦ Scan Again</button>
                             </>
                         )}
                     </div>
