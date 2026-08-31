@@ -57,7 +57,7 @@ interface DragPosition {
 const MAX_TICKS_PER_SYMBOL = 100;
 const MIN_TICKS_FOR_LIVE_SCANNER = 20;
 const LIVE_TICK_RETRY_MS = 1000;
-const SCAN_SETTLE_MS = 900;
+const SCAN_SETTLE_MS = 1500;
 
 /*
  * ============================================================
@@ -113,7 +113,6 @@ const FloatingAI = () => {
     const tickRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isMountedRef = useRef(true);
     const scanInProgressRef = useRef(false);
-    const scanGenerationRef = useRef(0);
 
     const [marketAnalysis, setMarketAnalysis] = useState<MarketAnalysis>(() =>
         analyzeMarket([])
@@ -121,7 +120,6 @@ const FloatingAI = () => {
 
     const [stakeValues, setStakeValues] = useState<Record<string, string>>({});
     const [targetValues, setTargetValues] = useState<Record<string, string>>({});
-
     /*
      * ------------------------------------------------------------
      * CLAMP CONTROL MECHANICS
@@ -172,10 +170,353 @@ const FloatingAI = () => {
 
     /*
      * ------------------------------------------------------------
-     * POINTER EVENT MANAGEMENT ENGINE
+     * CORE PIPELINE LOOKBACK SEARCH HELPERS
      * ------------------------------------------------------------
      */
 
+    const getStrategySymbols = useCallback(() => {
+        return Array.from(
+            new Set(
+                AI_STRATEGIES.map(strategy => strategy.symbol)
+                    .filter(symbol => typeof symbol === 'string' && symbol.trim().length > 0)
+            )
+        );
+    }, []);
+
+    const ensureTickBuffer = useCallback((symbol: string) => {
+        if (!tickBuffersRef.current[symbol]) {
+            tickBuffersRef.current[symbol] = [];
+        }
+        return tickBuffersRef.current[symbol];
+    }, []);
+
+    /*
+     * ------------------------------------------------------------
+     * MATHEMATICAL PROFILING SCORE COMPUTATION ENGINES
+     * ------------------------------------------------------------
+     */
+
+    const calculateProfileScore = (strategy: AIStrategy): number => {
+        let score = 70;
+
+        if (strategy.risk === 'LOW') {
+            score += 8;
+        } else if (strategy.risk === 'MEDIUM') {
+            score += 5;
+        } else {
+            score += 2;
+        }
+
+        if (strategy.profit > 0 && strategy.loss > 0) {
+            const ratio = strategy.profit / strategy.loss;
+            if (ratio >= 1) {
+                score += 5;
+            } else {
+                score += 2;
+            }
+        }
+
+        if (strategy.duration <= 1) {
+            score += 4;
+        }
+
+        const preferredEngines = [
+            'D_ALEMBERT',
+            'OSCARS_GRIND',
+            'STRATEGY_1_3_2_6',
+            'REVERSE_D_ALEMBERT',
+            'REVERSE_MARTINGALE',
+        ];
+
+        if (preferredEngines.includes(strategy.engine)) {
+            score += 3;
+        }
+
+        return Math.min(99, Math.max(50, score));
+    };
+
+    const calculateFinalScannerScore = useCallback((
+        strategy: AIStrategy,
+        analysis: MarketAnalysis
+    ): {
+        scannerScore: number;
+        marketCompatibility: number;
+        confidenceQualified: boolean;
+    } => {
+        const profileScore = calculateProfileScore(strategy);
+        const marketCompatibility = calculateMarketCompatibility(strategy, analysis);
+
+        if (analysis.state === 'INSUFFICIENT_DATA') {
+            return {
+                scannerScore: 0,
+                marketCompatibility: 0,
+                confidenceQualified: false,
+            };
+        }
+
+        const confidenceQualified =
+            analysis.confidence >= strategy.marketProfile.minimumConfidence;
+
+        let finalScore = profileScore * 0.4 + marketCompatibility * 0.6;
+
+        if (!confidenceQualified) {
+            finalScore *= 0.65;
+        }
+
+        return {
+            scannerScore: Math.round(Math.min(99, Math.max(0, finalScore))),
+            marketCompatibility: Math.round(Math.min(100, Math.max(0, marketCompatibility))),
+            confidenceQualified,
+        };
+    }, []);
+    /*
+     * ============================================================
+     * LIVE SCAN ALL STRATEGIES (REACTIVE SYSTEM UPDATE ENGINE)
+     * ============================================================
+     */
+    const evaluateAllStrategiesLive = useCallback(() => {
+        if (!isMountedRef.current) return;
+
+        const results = AI_STRATEGIES.map(strategy => {
+            const liveTicks = tickBuffersRef.current[strategy.symbol] || [];
+            const analysis = analyzeMarket(liveTicks);
+            const scores = calculateFinalScannerScore(strategy, analysis);
+
+            return {
+                ...strategy,
+                scannerScore: scores.scannerScore,
+                marketCompatibility: scores.marketCompatibility,
+                rank: 0,
+                marketState: analysis.state,
+                marketDirection: analysis.direction,
+                marketConfidence: analysis.confidence,
+                confidenceQualified: scores.confidenceQualified,
+                liveTickCount: liveTicks.length,
+            };
+        });
+
+        const hasUsableLiveData = results.some(
+            result =>
+                result.liveTickCount >= MIN_TICKS_FOR_LIVE_SCANNER &&
+                result.marketState !== 'INSUFFICIENT_DATA'
+        );
+
+        results.sort((a, b) => {
+            if (hasUsableLiveData && a.confidenceQualified !== b.confidenceQualified) {
+                return a.confidenceQualified ? -1 : 1;
+            }
+            if (b.scannerScore !== a.scannerScore) {
+                return b.scannerScore - a.scannerScore;
+            }
+            if (b.marketCompatibility !== a.marketCompatibility) {
+                return b.marketCompatibility - a.marketCompatibility;
+            }
+            if (b.marketConfidence !== a.marketConfidence) {
+                return b.marketConfidence - a.marketConfidence;
+            }
+            return a.name.localeCompare(b.name);
+        });
+
+        const rankedResults = results.map((strategy, index) => ({
+            ...strategy,
+            rank: index + 1,
+        }));
+
+        if (rankedResults.length > 0) {
+            const topStrategy = rankedResults[0];
+            const topTicks = tickBuffersRef.current[topStrategy.symbol] || [];
+            setMarketAnalysis(analyzeMarket(topTicks));
+        } else {
+            setMarketAnalysis(analyzeMarket([]));
+        }
+
+        setStakeValues(prev => {
+            const nextStakes = { ...prev };
+            rankedResults.forEach(strategy => {
+                if (nextStakes[strategy.id] === undefined) {
+                    nextStakes[strategy.id] = String(strategy.stake);
+                }
+            });
+            return nextStakes;
+        });
+
+        setTargetValues(prev => {
+            const nextTargets = { ...prev };
+            rankedResults.forEach(strategy => {
+                if (nextTargets[strategy.id] === undefined) {
+                    nextTargets[strategy.id] = String(strategy.profit);
+                }
+            });
+            return nextTargets;
+        });
+
+        setScannerResults(rankedResults);
+        setExpandedStrategyId(currId => currId ?? rankedResults[0]?.id ?? null);
+    }, [calculateFinalScannerScore]);
+
+    /*
+     * ============================================================
+     * CENTRALIZED WEBSOCKET SUBSCRIPTION CONTROLLER CONNECTORS
+     * ============================================================
+     */
+
+    const subscribeToLiveTicks = useCallback(() => {
+        if (!isMountedRef.current) return;
+
+        const symbols = getStrategySymbols();
+
+        if (tickRetryTimerRef.current !== null) {
+            clearTimeout(tickRetryTimerRef.current);
+            tickRetryTimerRef.current = null;
+        }
+
+        if (symbols.length === 0 || !api_base || !api_base.api) {
+            tickRetryTimerRef.current = setTimeout(() => {
+                tickRetryTimerRef.current = null;
+                if (isMountedRef.current) subscribeToLiveTicks();
+            }, LIVE_TICK_RETRY_MS);
+            return;
+        }
+
+        symbols.forEach(symbol => {
+            if (subscribedSymbolsRef.current.has(symbol)) return;
+            ensureTickBuffer(symbol);
+
+            try {
+                const unsubscribe = api_base.subscribeToTicks(symbol, tick => {
+                    if (!isMountedRef.current) return;
+
+                    if (!tick || !Number.isFinite(tick.quote)) {
+                        invalidTickCountRef.current += 1;
+                        return;
+                    }
+
+                    const currentTicks = tickBuffersRef.current[symbol] || [];
+                    tickBuffersRef.current[symbol] = [...currentTicks, tick.quote].slice(-MAX_TICKS_PER_SYMBOL);
+                    lastTickTimeRef.current[symbol] = Date.now();
+
+                    evaluateAllStrategiesLive();
+                });
+
+                subscribedSymbolsRef.current.add(symbol);
+                if (typeof unsubscribe === 'function') {
+                    tickUnsubscribersRef.current.push(unsubscribe);
+                }
+            } catch (error) {
+                console.error(`[AI Scanner] Thread initialization exception on ${symbol}:`, error);
+            }
+        });
+    }, [ensureTickBuffer, getStrategySymbols, evaluateAllStrategiesLive]);
+
+    const cleanupLiveTickBridge = useCallback(() => {
+        if (tickRetryTimerRef.current !== null) {
+            clearTimeout(tickRetryTimerRef.current);
+            tickRetryTimerRef.current = null;
+        }
+        tickUnsubscribersRef.current.forEach(unsubscribe => {
+            try { unsubscribe(); } catch {}
+        });
+        tickUnsubscribersRef.current = [];
+        subscribedSymbolsRef.current.clear();
+    }, []);
+    const startLiveStreamingEvaluation = async () => {
+        scanInProgressRef.current = true;
+        setIsScanning(true);
+        setScannerResults([]);
+        setExpandedStrategyId(null);
+
+        tickBuffersRef.current = {};
+
+        subscribeToLiveTicks();
+
+        let elapsed = 0;
+        while (elapsed < SCAN_SETTLE_MS) {
+            await new Promise(r => setTimeout(r, 150));
+            elapsed += 150;
+            
+            const totalTicksReceived = Object.values(tickBuffersRef.current).reduce((acc, curr) => acc + curr.length, 0);
+            if (totalTicksReceived > 5) break;
+        }
+
+        if (!isMountedRef.current) return;
+
+        evaluateAllStrategiesLive();
+        setIsScanning(false);
+    };
+
+    const closeScanner = () => {
+        scanInProgressRef.current = false;
+        setIsScanning(false);
+        setIsOpen(false);
+        setScannerResults([]);
+        setLoadingStrategyId(null);
+        setStakeValues({});
+        setTargetValues({});
+        setExpandedStrategyId(null);
+        setMarketAnalysis(analyzeMarket([]));
+        cleanupLiveTickBridge();
+    };
+
+    const updateStake = (strategyId: string, value: string) => {
+        if (!/^\d*\.?\d*$/.test(value)) return;
+        setStakeValues(previous => ({ ...previous, [strategyId]: value }));
+    };
+
+    const updateTarget = (strategyId: string, value: string) => {
+        if (!/^\d*\.?\d*$/.test(value)) return;
+        setTargetValues(previous => ({ ...previous, [strategyId]: value }));
+    };
+
+    const toggleStrategyCard = (strategyId: string) => {
+        setExpandedStrategyId(currentId => (currentId === strategyId ? null : strategyId));
+    };
+
+    const loadStrategy = async (strategy: ScannerResult) => {
+        if (loadingStrategyId !== null || scanInProgressRef.current) return;
+
+        const editedStake = parseFloat(stakeValues[strategy.id] ?? String(strategy.stake));
+        const editedTarget = parseFloat(targetValues[strategy.id] ?? String(strategy.profit));
+
+        if (!Number.isFinite(editedStake) || editedStake <= 0 || !Number.isFinite(editedTarget) || editedTarget <= 0) {
+            return;
+        }
+
+        setLoadingStrategyId(strategy.id);
+
+        try {
+            quick_strategy.setSelectedStrategy(strategy.engine);
+
+            await quick_strategy.onSubmit({
+                symbol: strategy.symbol,
+                tradetype: strategy.tradetype,
+                type: strategy.type,
+                stake: editedStake,
+                durationtype: strategy.durationtype,
+                duration: strategy.duration,
+                profit: editedTarget,
+                loss: strategy.loss,
+                size: strategy.size,
+                unit: strategy.unit,
+                action: 'LOAD',
+            });
+
+            if (isMountedRef.current) {
+                closeScanner();
+            }
+        } catch (error) {
+            console.error('[AI Scanner] Failed to submit layout blueprints:', error);
+        } finally {
+            if (isMountedRef.current) setLoadingStrategyId(null);
+        }
+    };
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+            cleanupLiveTickBridge();
+        };
+    }, [cleanupLiveTickBridge]);
     const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
         if (event.pointerType === 'mouse' && event.button !== 0) return;
 
@@ -265,431 +606,9 @@ const FloatingAI = () => {
             startLiveStreamingEvaluation();
         }
     };
-    /*
-     * ============================================================
-     * CORE PIPELINE LOOKBACK SEARCH HELPERS
-     * ============================================================
-     */
-
-    const getStrategySymbols = useCallback(() => {
-        return Array.from(
-            new Set(
-                AI_STRATEGIES.map(strategy => strategy.symbol)
-                    .filter(symbol => typeof symbol === 'string' && symbol.trim().length > 0)
-            )
-        );
-    }, []);
-
-    const ensureTickBuffer = useCallback((symbol: string) => {
-        if (!tickBuffersRef.current[symbol]) {
-            tickBuffersRef.current[symbol] = [];
-        }
-        return tickBuffersRef.current[symbol];
-    }, []);
-    /*
-     * ============================================================
-     * MATHEMATICAL PROFILING SCORE COMPUTATION ENGINES
-     * ============================================================
-     */
-
-    const calculateProfileScore = (strategy: AIStrategy): number => {
-        let score = 70;
-
-        if (strategy.risk === 'LOW') {
-            score += 8;
-        } else if (strategy.risk === 'MEDIUM') {
-            score += 5;
-        } else {
-            score += 2;
-        }
-
-        if (strategy.profit > 0 && strategy.loss > 0) {
-            const ratio = strategy.profit / strategy.loss;
-            if (ratio >= 1) {
-                score += 5;
-            } else {
-                score += 2;
-            }
-        }
-
-        if (strategy.duration <= 1) {
-            score += 4;
-        }
-
-        const preferredEngines = [
-            'D_ALEMBERT',
-            'OSCARS_GRIND',
-            'STRATEGY_1_3_2_6',
-            'REVERSE_D_ALEMBERT',
-            'REVERSE_MARTINGALE',
-        ];
-
-        if (preferredEngines.includes(strategy.engine)) {
-            score += 3;
-        }
-
-        return Math.min(99, Math.max(50, score));
-    };
-
-    const calculateFinalScannerScore = (
-        strategy: AIStrategy,
-        analysis: MarketAnalysis
-    ): {
-        scannerScore: number;
-        marketCompatibility: number;
-        confidenceQualified: boolean;
-    } => {
-        const profileScore = calculateProfileScore(strategy);
-        const marketCompatibility = calculateMarketCompatibility(strategy, analysis);
-
-        if (analysis.state === 'INSUFFICIENT_DATA') {
-            return {
-                scannerScore: 0,
-                marketCompatibility: 0,
-                confidenceQualified: false,
-            };
-        }
-
-        const confidenceQualified =
-            analysis.confidence >= strategy.marketProfile.minimumConfidence;
-
-        let finalScore = profileScore * 0.4 + marketCompatibility * 0.6;
-
-        if (!confidenceQualified) {
-            finalScore *= 0.65;
-        }
-
-        return {
-            scannerScore: Math.round(Math.min(99, Math.max(0, finalScore))),
-            marketCompatibility: Math.round(Math.min(100, Math.max(0, marketCompatibility))),
-            confidenceQualified,
-        };
-    };
-    /*
-     * ============================================================
-     * LIVE SCAN ALL STRATEGIES (REACTIVE SYSTEM UPDATE ENGINE)
-     * ============================================================
-     * Replaces manual interval polling entirely to bind with WebSocket.
-     */
-    const evaluateAllStrategiesLive = useCallback(() => {
-        if (!isMountedRef.current) return;
-
-        const results = AI_STRATEGIES.map(strategy => {
-            const liveTicks = tickBuffersRef.current[strategy.symbol] || [];
-            const analysis = analyzeMarket(liveTicks);
-            const scores = calculateFinalScannerScore(strategy, analysis);
-
-            return {
-                ...strategy,
-                scannerScore: scores.scannerScore,
-                marketCompatibility: scores.marketCompatibility,
-                rank: 0,
-                marketState: analysis.state,
-                marketDirection: analysis.direction,
-                marketConfidence: analysis.confidence,
-                confidenceQualified: scores.confidenceQualified,
-                liveTickCount: liveTicks.length,
-            };
-        });
-
-        const hasUsableLiveData = results.some(
-            result =>
-                result.liveTickCount >= MIN_TICKS_FOR_LIVE_SCANNER &&
-                result.marketState !== 'INSUFFICIENT_DATA'
-        );
-
-        results.sort((a, b) => {
-            if (hasUsableLiveData && a.confidenceQualified !== b.confidenceQualified) {
-                return a.confidenceQualified ? -1 : 1;
-            }
-            if (b.scannerScore !== a.scannerScore) {
-                return b.scannerScore - a.scannerScore;
-            }
-            if (b.marketCompatibility !== a.marketCompatibility) {
-                return b.marketCompatibility - a.marketCompatibility;
-            }
-            if (b.marketConfidence !== a.marketConfidence) {
-                return b.marketConfidence - a.marketConfidence;
-            }
-            return a.name.localeCompare(b.name);
-        });
-
-        const rankedResults = results.map((strategy, index) => ({
-            ...strategy,
-            rank: index + 1,
-        }));
-
-        if (rankedResults.length > 0) {
-            const topStrategy = rankedResults[0];
-            const topTicks = tickBuffersRef.current[topStrategy.symbol] || [];
-            setMarketAnalysis(analyzeMarket(topTicks));
-        } else {
-            setMarketAnalysis(analyzeMarket([]));
-        }
-
-        setStakeValues(prev => {
-            const nextStakes = { ...prev };
-            rankedResults.forEach(strategy => {
-                if (nextStakes[strategy.id] === undefined) {
-                    nextStakes[strategy.id] = String(strategy.stake);
-                }
-            });
-            return nextStakes;
-        });
-
-        setTargetValues(prev => {
-            const nextTargets = { ...prev };
-            rankedResults.forEach(strategy => {
-                if (nextTargets[strategy.id] === undefined) {
-                    nextTargets[strategy.id] = String(strategy.profit);
-                }
-            });
-            return nextTargets;
-        });
-
-        if (hasUsableLiveData) {
-            setScannerResults(rankedResults);
-            setExpandedStrategyId(currId => currId ?? rankedResults[0]?.id ?? null);
-        } else {
-            const initialSeedingList = AI_STRATEGIES.map((strategy, idx) => ({
-                ...strategy,
-                scannerScore: 0,
-                marketCompatibility: 0,
-                rank: idx + 1,
-                marketState: 'INSUFFICIENT_DATA' as const,
-                marketDirection: 'FLAT' as const,
-                marketConfidence: 0,
-                confidenceQualified: false,
-                liveTickCount: tickBuffersRef.current[strategy.symbol]?.length || 0,
-            }));
-            setScannerResults(initialSeedingList);
-            setExpandedStrategyId(currId => currId ?? initialSeedingList[0]?.id ?? null);
-        }
-    }, [calculateFinalScannerScore]);
-    /*
-     * ============================================================
-     * CENTRALIZED WEBSOCKET SUBSCRIPTION CONTROLLER CONNECTORS
-     * ============================================================
-     */
-
-    const subscribeToLiveTicks = useCallback(() => {
-        if (!isMountedRef.current) return;
-
-        const symbols = getStrategySymbols();
-
-        if (symbols.length === 0 || !api_base.api) {
-            if (tickRetryTimerRef.current === null) {
-                tickRetryTimerRef.current = setTimeout(() => {
-                    tickRetryTimerRef.current = null;
-                    if (isMountedRef.current) subscribeToLiveTicks();
-                }, LIVE_TICK_RETRY_MS);
-            }
-            return;
-        }
-
-        if (tickRetryTimerRef.current !== null) {
-            clearTimeout(tickRetryTimerRef.current);
-            tickRetryTimerRef.current = null;
-        }
-
-        symbols.forEach(symbol => {
-            if (subscribedSymbolsRef.current.has(symbol)) return;
-            ensureTickBuffer(symbol);
-
-            try {
-                const unsubscribe = api_base.subscribeToTicks(symbol, tick => {
-                    if (!isMountedRef.current) return;
-
-                    if (!tick || tick.symbol !== symbol || !Number.isFinite(tick.quote)) {
-                        invalidTickCountRef.current += 1;
-                        return;
-                    }
-
-                    const currentTicks = tickBuffersRef.current[symbol] || [];
-                    tickBuffersRef.current[symbol] = [...currentTicks, tick.quote].slice(-MAX_TICKS_PER_SYMBOL);
-                    lastTickTimeRef.current[symbol] = Date.now();
-
-                    // ⚡ BROADCAST ENTRY ELEMENT: Re-evaluate and push canvas paints reactively on data arrivals
-                    if (scanInProgressRef.current) {
-                        evaluateAllStrategiesLive();
-                    }
-                });
-
-                subscribedSymbolsRef.current.add(symbol);
-                if (typeof unsubscribe === 'function') {
-                    tickUnsubscribersRef.current.push(unsubscribe);
-                }
-            } catch (error) {
-                console.error(`[AI Scanner] Thread initialization exception on ${symbol}:`, error);
-            }
-        });
-    }, [ensureTickBuffer, getStrategySymbols, evaluateAllStrategiesLive]);
-    const cleanupLiveTickBridge = useCallback(() => {
-        if (tickRetryTimerRef.current !== null) {
-            clearTimeout(tickRetryTimerRef.current);
-            tickRetryTimerRef.current = null;
-        }
-        tickUnsubscribersRef.current.forEach(unsubscribe => {
-            try { unsubscribe(); } catch {}
-        });
-        tickUnsubscribersRef.current = [];
-        subscribedSymbolsRef.current.clear();
-    }, []);
-
-    useEffect(() => {
-        isMountedRef.current = true;
-        subscribeToLiveTicks();
-        return () => {
-            isMountedRef.current = false;
-            scanGenerationRef.current += 1;
-            scanInProgressRef.current = false;
-            cleanupLiveTickBridge();
-        };
-    }, [cleanupLiveTickBridge, subscribeToLiveTicks]);
-
-    const startLiveStreamingEvaluation = async () => {
-        if (scanInProgressRef.current) return;
-
-        scanInProgressRef.current = true;
-        setIsScanning(true);
-        setScannerResults([]);
-        setExpandedStrategyId(null);
-
-        subscribeToLiveTicks();
-
-        // Add a clean initialization pause matching the settle cooldown parameters
-        await new Promise(resolve => setTimeout(resolve, SCAN_SETTLE_MS));
-
-        if (!isMountedRef.current) return;
-
-        evaluateAllStrategiesLive();
-        setIsScanning(false);
-    };
-    /*
-     * ============================================================
-     * INTERACTIVE INPUT FIELD MODIFIER HANDLERS
-     * ============================================================
-     */
-
-    const updateStake = (strategyId: string, value: string) => {
-        if (!/^\d*\.?\d*$/.test(value)) {
-            return;
-        }
-
-        setStakeValues(previous => ({
-            ...previous,
-            [strategyId]: value,
-        }));
-    };
-
-    const updateTarget = (strategyId: string, value: string) => {
-        if (!/^\d*\.?\d*$/.test(value)) {
-            return;
-        }
-
-        setTargetValues(previous => ({
-            ...previous,
-            [strategyId]: value,
-        }));
-    };
-
-    const toggleStrategyCard = (strategyId: string) => {
-        setExpandedStrategyId(currentId =>
-            currentId === strategyId ? null : strategyId
-        );
-    };
-
-    /*
-     * ============================================================
-     * CORE BOT PARAMETER SUBMISSION CONTROLLERS
-     * ============================================================
-     */
-
-    const loadStrategy = async (strategy: ScannerResult) => {
-        if (loadingStrategyId !== null || scanInProgressRef.current) {
-            return;
-        }
-
-        const editedStake = parseFloat(stakeValues[strategy.id] ?? '');
-        const editedTarget = parseFloat(targetValues[strategy.id] ?? '');
-
-        if (!Number.isFinite(editedStake) || editedStake <= 0) {
-            console.error('[AI Scanner] Invalid stake amount.');
-            return;
-        }
-
-        if (!Number.isFinite(editedTarget) || editedTarget <= 0) {
-            console.error('[AI Scanner] Invalid target amount.');
-            return;
-        }
-
-        if (
-            strategy.marketState === 'INSUFFICIENT_DATA' ||
-            strategy.liveTickCount < MIN_TICKS_FOR_LIVE_SCANNER
-        ) {
-            console.warn('[AI Scanner] Insufficient data to load blueprint.');
-            return;
-        }
-
-        setLoadingStrategyId(strategy.id);
-
-        try {
-            quick_strategy.setSelectedStrategy(strategy.engine);
-
-            await quick_strategy.onSubmit({
-                symbol: strategy.symbol,
-                tradetype: strategy.tradetype,
-                type: strategy.type,
-                stake: editedStake,
-                durationtype: strategy.durationtype,
-                duration: strategy.duration,
-                profit: editedTarget,
-                loss: strategy.loss,
-                size: strategy.size,
-                unit: strategy.unit,
-                action: 'LOAD',
-            });
-
-            if (isMountedRef.current) {
-                setIsOpen(false);
-                scanInProgressRef.current = false;
-                setScannerResults([]);
-                setStakeValues({});
-                setTargetValues({});
-                setExpandedStrategyId(null);
-                setMarketAnalysis(analyzeMarket([]));
-            }
-        } catch (error) {
-            console.error('[AI Scanner] Failed to submit layout blueprints:', error);
-        } finally {
-            if (isMountedRef.current) {
-                setLoadingStrategyId(null);
-            }
-        }
-    };
-
-    const closeScanner = () => {
-        scanGenerationRef.current += 1;
-        scanInProgressRef.current = false;
-
-        setIsScanning(false);
-        setIsOpen(false);
-        setScannerResults([]);
-        setLoadingStrategyId(null);
-        setStakeValues({});
-        setTargetValues({});
-        setExpandedStrategyId(null);
-        setMarketAnalysis(analyzeMarket([]));
-    };
-    /*
-     * ============================================================
-     * VISUAL LAYOUT WORKSPACE RENDER MATRIX
-     * ============================================================
-     */
 
     return (
         <>
-            {/* 🕺 INTERACTIVE FLOATING ORB TRIGGER CENTER CONTROL BUTTON */}
             <button
                 ref={buttonRef}
                 type="button"
@@ -708,10 +627,8 @@ const FloatingAI = () => {
                 <span className="ai-core">✦</span>
             </button>
 
-            {/* PREMIUM METRIC PANEL MANAGEMENT CONTAINER */}
             {isOpen && (
                 <div className="floating-ai-panel">
-                    {/* STABLE UPPER DESKTOP RUNTIME HEADER SECTION */}
                     <div className="floating-ai-header">
                         <div>
                             <span 
@@ -750,7 +667,7 @@ const FloatingAI = () => {
                                 <h3>Scanning Market Pipelines...</h3>
                                 <p>Analyzing {AI_STRATEGIES.length} strategies against live ticks.</p>
                                 <div className="scanning-progress">
-                                    <div className="scanning-progress-bar" style={{ width: '30%' }} />
+                                    <div className="scanning-progress-bar" style={{ width: '35%' }} />
                                 </div>
                             </div>
                         )}
@@ -822,7 +739,6 @@ const FloatingAI = () => {
                                                         <span className={`strategy-expand-icon ${isExpanded ? 'open' : ''}`} aria-hidden="true">›</span>
                                                     </div>
                                                 </button>
-
                                                 <div
                                                     id={`strategy-details-${strategy.id}`}
                                                     className={`strategy-card-body ${isExpanded ? 'visible' : ''}`}
@@ -838,7 +754,7 @@ const FloatingAI = () => {
                                                         <div className="strategy-market-live">
                                                             <div><span>Live Ticks</span><strong>{strategyLiveTicksCount}/{MAX_TICKS_PER_SYMBOL}</strong></div>
                                                             <div><span>Required</span><strong>{strategy.marketProfile.minimumConfidence}%</strong></div>
-                                                            <div><span>Confidence Gate</span><strong style={{ color: isConfidenceQualified ? '#22c55e' : '#eab308' }}>{isConfidenceQualified ? 'PASS' : 'WAIT'}</strong></div>
+                                                            <div><span>Confidence Gate</span><strong className={isConfidenceQualified ? 'gate-ready' : 'gate-wait'}>{isConfidenceQualified ? 'READY' : 'WAIT'}</strong></div>
                                                         </div>
                                                         <div className="scanner-score">
                                                             <div className="score-info"><span>Scanner Score</span><strong>{strategy.scannerScore}%</strong></div>
