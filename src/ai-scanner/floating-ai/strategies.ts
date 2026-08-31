@@ -1,87 +1,154 @@
-// AI Strategy Library
-// 30 selectable strategy profiles built on the existing Quick Strategy engines.
+// ============================================================
+// AI STRATEGY LIBRARY
+// ============================================================
+//
+// 30 selectable AI strategy profiles.
 //
 // IMPORTANT:
-// These are strategy PROFILES. They reuse the existing bot engines.
-// They do not create new Blockly blocks.
+// - These are PROFILES only.
+// - They reuse the existing Quick Strategy engines.
+// - They do NOT create new Blockly blocks.
+// - They do NOT create WebSocket connections.
+// - They do NOT handle OAuth.
+// - Live market/tick analysis is handled by scannerlogic.ts.
+// - Live connection/bridge handling is handled by scannerbridge.ts.
 //
-// The marketProfile section describes the type of market condition
-// the AI Scanner should prefer for each profile.
+// The marketProfile section tells the scanner what type of
+// live market behaviour is preferred for each strategy.
+// ============================================================
+
+export type AIStrategyBias =
+    | 'MOMENTUM'
+    | 'TREND'
+    | 'REVERSAL'
+    | 'RANGE'
+    | 'ACCUMULATION'
+    | 'RECOVERY'
+    | 'BALANCED';
+
+export type AIStrategyDirection =
+    | 'UP'
+    | 'DOWN'
+    | 'BOTH'
+    | 'NEUTRAL';
+
+export type AIStrategyVolatility =
+    | 'LOW'
+    | 'MEDIUM'
+    | 'HIGH'
+    | 'ANY';
+
+export type AIStrategyRisk =
+    | 'LOW'
+    | 'MEDIUM'
+    | 'HIGH';
+
+export type AIStrategyMarketProfile = {
+    bias: AIStrategyBias;
+
+    preferredDirection: AIStrategyDirection;
+
+    preferredVolatility: AIStrategyVolatility;
+
+    /**
+     * Minimum live-market confidence required before
+     * the scanner considers the strategy actionable.
+     *
+     * This is a scanner threshold.
+     * It does not execute a trade by itself.
+     */
+    minimumConfidence: number;
+};
 
 export type AIStrategy = {
+    // ========================================================
+    // Identity
+    // ========================================================
+
     id: string;
+
     name: string;
+
     description: string;
 
+    // ========================================================
     // Existing Quick Strategy engine
+    // ========================================================
+
+    /**
+     * Must match an existing Quick Strategy engine.
+     *
+     * Do not create new engine names here unless the actual
+     * engine exists elsewhere in the application.
+     */
     engine: string;
 
+    // ========================================================
     // Default trading configuration
+    // ========================================================
+
     symbol: string;
+
     tradetype: string;
+
     type: string;
 
     stake: number;
+
     durationtype: string;
+
     duration: number;
 
     profit: number;
+
     loss: number;
 
-    // Used by progressive strategies
+    // ========================================================
+    // Progressive strategy parameters
+    // ========================================================
+
     size?: number;
+
     unit?: number;
 
+    // ========================================================
     // Scanner metadata
-    risk: 'LOW' | 'MEDIUM' | 'HIGH';
+    // ========================================================
 
-    // AI Scanner market preferences
-    marketProfile: {
-        bias:
-            | 'MOMENTUM'
-            | 'TREND'
-            | 'REVERSAL'
-            | 'RANGE'
-            | 'ACCUMULATION'
-            | 'RECOVERY'
-            | 'BALANCED';
+    risk: AIStrategyRisk;
 
-        preferredDirection:
-            | 'UP'
-            | 'DOWN'
-            | 'BOTH'
-            | 'NEUTRAL';
-
-        preferredVolatility:
-            | 'LOW'
-            | 'MEDIUM'
-            | 'HIGH'
-            | 'ANY';
-
-        minimumConfidence: number;
-    };
+    marketProfile: AIStrategyMarketProfile;
 };
+
+// ============================================================
+// 30 AI STRATEGY PROFILES
+// ============================================================
 
 export const AI_STRATEGIES: AIStrategy[] = [
 
-    // ============================================================
-    // CLASSIC STRATEGIES
-    // ============================================================
+    // ========================================================
+    // 01 — CLASSIC STRATEGIES
+    // ========================================================
 
     {
         id: 'martingale-classic',
         name: 'Martingale Classic',
         description: 'Classic loss-recovery strategy.',
         engine: 'MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         size: 2,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -97,15 +164,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: "D'Alembert Classic",
         description: 'Gradually adjusts the stake after trade results.',
         engine: 'D_ALEMBERT',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         unit: 1,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -121,14 +193,18 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: "Oscar's Grind",
         description: 'Progressive stake management based on trade results.',
         engine: 'OSCARS_GRIND',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -144,15 +220,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'Reverse Martingale',
         description: 'Increases exposure following successful trades.',
         engine: 'REVERSE_MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         size: 2,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -168,15 +249,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: "Reverse D'Alembert",
         description: 'Progressive adjustment following successful trades.',
         engine: 'REVERSE_D_ALEMBERT',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         unit: 1,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -192,14 +278,18 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: '1-3-2-6',
         description: 'Fixed progressive staking sequence.',
         engine: 'STRATEGY_1_3_2_6',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -210,24 +300,29 @@ export const AI_STRATEGIES: AIStrategy[] = [
         },
     },
 
-    // ============================================================
-    // ACCUMULATOR STRATEGIES
-    // ============================================================
+    // ========================================================
+    // 07–14 — ACCUMULATOR STRATEGIES
+    // ========================================================
 
     {
         id: 'accumulator-martingale',
         name: 'Accumulator Martingale',
         description: 'Accumulator profile using progressive loss recovery.',
         engine: 'ACCUMULATORS_MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         size: 2,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -240,18 +335,23 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
     {
         id: 'accumulator-dalembert',
-        name: 'Accumulator D’Alembert',
+        name: "Accumulator D'Alembert",
         description: 'Accumulator profile using unit-based progression.',
         engine: 'ACCUMULATORS_DALEMBERT',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         unit: 1,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -267,15 +367,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'Accumulator Reverse Martingale',
         description: 'Accumulator profile increasing after successful trades.',
         engine: 'ACCUMULATORS_REVERSE_MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         size: 2,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -288,18 +393,23 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
     {
         id: 'accumulator-reverse-dalembert',
-        name: 'Accumulator Reverse D’Alembert',
+        name: "Accumulator Reverse D'Alembert",
         description: 'Accumulator profile using reverse unit progression.',
         engine: 'ACCUMULATORS_REVERSE_DALEMBERT',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         unit: 1,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -315,15 +425,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'Accumulator Martingale Reset',
         description: 'Accumulator Martingale with statistical reset.',
         engine: 'ACCUMULATORS_MARTINGALE_ON_STAT_RESET',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         size: 2,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -336,18 +451,23 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
     {
         id: 'accumulator-dalembert-reset',
-        name: 'Accumulator D’Alembert Reset',
+        name: "Accumulator D'Alembert Reset",
         description: 'Accumulator D’Alembert with statistical reset.',
         engine: 'ACCUMULATORS_DALEMBERT_ON_STAT_RESET',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         unit: 1,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -363,15 +483,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'Accumulator Reverse Martingale Reset',
         description: 'Reverse accumulator progression with reset.',
         engine: 'ACCUMULATORS_REVERSE_MARTINGALE_ON_STAT_RESET',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         size: 2,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -384,18 +509,23 @@ export const AI_STRATEGIES: AIStrategy[] = [
 
     {
         id: 'accumulator-reverse-dalembert-reset',
-        name: 'Accumulator Reverse D’Alembert Reset',
+        name: "Accumulator Reverse D'Alembert Reset",
         description: 'Reverse D’Alembert accumulator with reset.',
         engine: 'ACCUMULATORS_REVERSE_DALEMBERT_ON_STAT_RESET',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 10,
+
         unit: 1,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -406,24 +536,29 @@ export const AI_STRATEGIES: AIStrategy[] = [
         },
     },
 
-    // ============================================================
-    // AI PROFILES
-    // ============================================================
+    // ========================================================
+    // 15–30 — AI PROFILES
+    // ========================================================
 
     {
         id: 'ai-dollar-flow',
         name: 'AI Dollar Flow',
         description: 'AI profile focused on controlled progressive entries.',
         engine: 'MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 5,
+
         size: 1.5,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -439,15 +574,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Trend Printer',
         description: 'Trend-following profile using successful trade progression.',
         engine: 'REVERSE_MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 5,
+
         size: 1.5,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -463,15 +603,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Momentum',
         description: 'Momentum-oriented progressive profile.',
         engine: 'REVERSE_MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 5,
+
         size: 1.5,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -487,15 +632,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Reversal',
         description: 'Contrarian profile using controlled progression.',
         engine: 'D_ALEMBERT',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'PUT',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 5,
+
         unit: 1,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -511,15 +661,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Precision',
         description: 'Conservative unit-based profile.',
         engine: 'D_ALEMBERT',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 3,
+
         unit: 1,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -535,15 +690,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Conservative',
         description: 'Lower progression profile designed for controlled exposure.',
         engine: 'D_ALEMBERT',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 3,
         loss: 3,
+
         unit: 1,
+
         risk: 'LOW',
 
         marketProfile: {
@@ -559,14 +719,18 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Balanced',
         description: 'Balanced progressive strategy profile.',
         engine: 'OSCARS_GRIND',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 5,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -582,15 +746,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Recovery',
         description: 'Recovery-oriented profile using progressive staking.',
         engine: 'MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 5,
+
         size: 1.5,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -606,15 +775,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Growth',
         description: 'Growth-oriented profile following successful trades.',
         engine: 'REVERSE_MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 5,
+
         size: 1.5,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -630,14 +804,18 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Scalper',
         description: 'Short-duration profile for rapid entries.',
         engine: 'STRATEGY_1_3_2_6',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 3,
         loss: 3,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -653,15 +831,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Steady Flow',
         description: 'Steady unit-based progression profile.',
         engine: 'D_ALEMBERT',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 5,
+
         unit: 1,
+
         risk: 'LOW',
 
         marketProfile: {
@@ -677,15 +860,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Power Trend',
         description: 'Higher-intensity trend progression profile.',
         engine: 'REVERSE_MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 10,
         loss: 5,
+
         size: 2,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -701,15 +889,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Smart Reset',
         description: 'Accumulator profile with statistical reset.',
         engine: 'ACCUMULATORS_MARTINGALE_ON_STAT_RESET',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 5,
+
         size: 1.5,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -725,15 +918,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Accumulator Flow',
         description: 'Accumulator-based progressive profile.',
         engine: 'ACCUMULATORS_DALEMBERT',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 5,
+
         unit: 1,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -749,15 +947,20 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Reverse Flow',
         description: 'Reverse accumulator progression profile.',
         engine: 'ACCUMULATORS_REVERSE_MARTINGALE',
+
         symbol: '1HZ100V',
         tradetype: '',
         type: '',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 5,
+
         size: 1.5,
+
         risk: 'HIGH',
 
         marketProfile: {
@@ -773,14 +976,18 @@ export const AI_STRATEGIES: AIStrategy[] = [
         name: 'AI Adaptive',
         description: 'Adaptive profile selected by the scanner.',
         engine: 'STRATEGY_1_3_2_6',
+
         symbol: '1HZ100V',
         tradetype: 'risefall',
         type: 'CALL',
+
         stake: 1,
         durationtype: 't',
         duration: 1,
+
         profit: 5,
         loss: 5,
+
         risk: 'MEDIUM',
 
         marketProfile: {
@@ -793,7 +1000,18 @@ export const AI_STRATEGIES: AIStrategy[] = [
 ];
 
 // ============================================================
-// HELPERS
+// VALIDATION
+// ============================================================
+
+/**
+ * Compile-time/runtime-friendly count of the strategy library.
+ *
+ * The scanner UI currently expects 30 profiles.
+ */
+export const AI_STRATEGY_COUNT = AI_STRATEGIES.length;
+
+// ============================================================
+// LOOKUP HELPERS
 // ============================================================
 
 export const getAIStrategy = (
@@ -804,20 +1022,56 @@ export const getAIStrategy = (
     );
 };
 
+// ============================================================
+// RISK FILTER
+// ============================================================
+
 export const getAIStrategiesByRisk = (
-    risk: AIStrategy['risk']
+    risk: AIStrategyRisk
 ): AIStrategy[] => {
     return AI_STRATEGIES.filter(
         strategy => strategy.risk === risk
     );
 };
 
-export const getRandomAIStrategy = (): AIStrategy => {
-    return AI_STRATEGIES[
-        Math.floor(
-            Math.random() * AI_STRATEGIES.length
-        )
-    ];
+// ============================================================
+// ENGINE FILTER
+// ============================================================
+
+export const getAIStrategiesByEngine = (
+    engine: string
+): AIStrategy[] => {
+    return AI_STRATEGIES.filter(
+        strategy => strategy.engine === engine
+    );
 };
+
+// ============================================================
+// MARKET-BIAS FILTER
+// ============================================================
+
+export const getAIStrategiesByBias = (
+    bias: AIStrategyBias
+): AIStrategy[] => {
+    return AI_STRATEGIES.filter(
+        strategy => strategy.marketProfile.bias === bias
+    );
+};
+
+// ============================================================
+// RANDOM STRATEGY
+// ============================================================
+
+export const getRandomAIStrategy = (): AIStrategy => {
+    const index = Math.floor(
+        Math.random() * AI_STRATEGIES.length
+    );
+
+    return AI_STRATEGIES[index];
+};
+
+// ============================================================
+// DEFAULT EXPORT
+// ============================================================
 
 export default AI_STRATEGIES;
