@@ -348,7 +348,7 @@ const FloatingAI = () => {
 
         setScannerResults(rankedResults);
         
-        if (Array.isArray(rankedResults) && rankedResults.length > 0 && rankedResults[0]) {
+        if (Array.isArray(rankedResults) && rankedResults.length > 0) {
             const defaultId = rankedResults[0].id;
             setExpandedStrategyId(currId => currId ?? defaultId);
         }
@@ -414,7 +414,6 @@ const FloatingAI = () => {
                 }
             }, 30000);
         };
-
         ws.onmessage = (event) => {
             if (!isMountedRef.current) return;
 
@@ -468,12 +467,16 @@ const FloatingAI = () => {
         subscribeToLiveTicks();
 
         let elapsed = 0;
+        const checkInterval = 150;
         while (elapsed < SCAN_SETTLE_MS) {
-            await new Promise(r => setTimeout(r, 150));
-            elapsed += 150;
+            await new Promise(r => setTimeout(r, checkInterval));
+            elapsed += checkInterval;
             
-            const totalTicksReceived = Object.values(tickBuffersRef.current).reduce((acc, curr) => acc + curr.length, 0);
-            if (totalTicksReceived > 5) break;
+            const totalTicksReceived = Object.values(tickBuffersRef.current).reduce(
+                (acc, curr) => acc + curr.length, 
+                0
+            );
+            if (totalTicksReceived > 20) break;
         }
 
         if (!isMountedRef.current) return;
@@ -508,7 +511,6 @@ const FloatingAI = () => {
     const toggleStrategyCard = (strategyId: string) => {
         setExpandedStrategyId(currentId => (currentId === strategyId ? null : strategyId));
     };
-
     const loadStrategy = async (strategy: ScannerResult) => {
         if (loadingStrategyId !== null || scanInProgressRef.current) return;
 
