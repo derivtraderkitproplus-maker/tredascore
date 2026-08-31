@@ -272,10 +272,38 @@ const FloatingAI = () => {
     const evaluateAllStrategiesLive = useCallback(() => {
         if (!isMountedRef.current) return;
 
-        // 1. Map through variables securely with strict data structure type guarantees
+        // 1. Map through strategy fields securely with clean fallback models
         const results = AI_STRATEGIES.map(strategy => {
             const liveTicks = tickBuffersRef.current[strategy.symbol] || [];
-            const analysis = analyzeMarket(liveTicks) || { state: 'INSUFFICIENT_DATA', direction: 'FLAT', confidence: 0 };
+            
+            // 🌟 CRITICAL FIX GHASTLY HANDSHAKE BLOCK: 
+            // If the lookback window is completely empty, DO NOT call analyzeMarket.
+            // This prevents your internal scannerLogic math layout from crashing.
+            let analysis: MarketAnalysis = {
+                state: 'INSUFFICIENT_DATA',
+                direction: 'FLAT',
+                momentum: 0, recentMomentum: 0, acceleration: 0,
+                trendStrength: 0, recentTrendStrength: 0,
+                volatility: 0, volatilityLevel: 'LOW',
+                consecutiveUp: 0, consecutiveDown: 0,
+                priceChange: 0, normalizedPriceChange: 0,
+                confidence: 0, tickCount: liveTicks.length,
+                directionalConsistency: 0, recentDirectionalConsistency: 0,
+                reversalStrength: 0, marketQuality: 0,
+                choppiness: 0, recentChoppiness: 0, noiseLevel: 0,
+                isChoppy: false, isConfirmed: false,
+                reasons: ['Awaiting data stream baseline initialization...']
+            };
+
+            if (liveTicks.length >= 5) {
+                try {
+                    const dynamicAnalysis = analyzeMarket(liveTicks);
+                    if (dynamicAnalysis) analysis = dynamicAnalysis;
+                } catch (e) {
+                    console.warn(`[Scanner Core Math Bypass] Suppressed calculation noise on ${strategy.symbol}:`, e);
+                }
+            }
+
             const scores = calculateFinalScannerScore(strategy, analysis) || { scannerScore: 0, marketCompatibility: 0, confidenceQualified: false };
 
             return {
@@ -291,7 +319,7 @@ const FloatingAI = () => {
             };
         });
 
-        // 2. Wrap sorting parameters inside strict safe fallback limits
+        // 2. Wrap sorting routines inside safe, structured numbers bounds
         results.sort((a, b) => {
             const scoreB = b?.scannerScore ?? 0;
             const scoreA = a?.scannerScore ?? 0;
@@ -311,14 +339,22 @@ const FloatingAI = () => {
             rank: index + 1,
         }));
 
-        // 3. Prevent structural crashes when reading from array index position 0
-        if (Array.isArray(rankedResults) && rankedResults.length > 0 && rankedResults[0]) {
+        // 3. Isolated top profile baseline snapshot mapping
+        if (Array.isArray(rankedResults) && rankedResults.length > 0) {
             const topStrategyItem = rankedResults[0];
             const fallbackSymbol = topStrategyItem?.symbol || '1HZ100V';
             const topTicks = tickBuffersRef.current[fallbackSymbol] || [];
-            setMarketAnalysis(analyzeMarket(topTicks));
-        } else {
-            setMarketAnalysis(analyzeMarket([]));
+            
+            if (topTicks.length >= 5) {
+                try { setMarketAnalysis(analyzeMarket(topTicks)); } catch {}
+            } else {
+                setMarketAnalysis({
+                    state: 'INSUFFICIENT_DATA',
+                    direction: 'FLAT',
+                    confidence: 0,
+                    reasons: ['Accumulating tick streams...']
+                } as any);
+            }
         }
 
         setStakeValues(prev => {
@@ -343,11 +379,12 @@ const FloatingAI = () => {
 
         setScannerResults(rankedResults);
         
-        if (Array.isArray(rankedResults) && rankedResults.length > 0 && rankedResults[0]) {
+        if (Array.isArray(rankedResults) && rankedResults.length > 0) {
             const defaultId = rankedResults[0].id;
             setExpandedStrategyId(currId => currId ?? defaultId);
         }
     }, [calculateFinalScannerScore]);
+
 
     /*
      * ============================================================
