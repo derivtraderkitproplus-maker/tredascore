@@ -268,7 +268,7 @@ const FloatingAI = () => {
         };
     }, []);
 
-    /*
+        /*
      * ============================================================
      * LIVE SCAN ALL STRATEGIES (REACTIVE SYSTEM UPDATE ENGINE)
      * ============================================================
@@ -321,13 +321,14 @@ const FloatingAI = () => {
             rank: index + 1,
         }));
 
-        if (rankedResults.length > 0) {
-            const topStrategy = rankedResults[0];
+        if (rankedResults.length > 0 && rankedResults[0]) {
+            const topStrategy = rankedResults[0]; // ✅ FIX: Successfully reads the index object profile
             const topTicks = tickBuffersRef.current[topStrategy.symbol] || [];
             setMarketAnalysis(analyzeMarket(topTicks));
         } else {
             setMarketAnalysis(analyzeMarket([]));
         }
+
         setStakeValues(prev => {
             const nextStakes = { ...prev };
             rankedResults.forEach(strategy => {
@@ -349,8 +350,9 @@ const FloatingAI = () => {
         });
 
         setScannerResults(rankedResults);
-        setExpandedStrategyId(currId => currId ?? rankedResults[0]?.id ?? null);
+        setExpandedStrategyId(currId => currId ?? (rankedResults[0]?.id || null));
     }, [calculateFinalScannerScore]);
+
 
     /*
      * ============================================================
