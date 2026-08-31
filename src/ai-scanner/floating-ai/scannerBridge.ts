@@ -1,5 +1,5 @@
 // ============================================================
-// AI SCANNER LIVE WEBSOCKET CONNECTOR BRIDGE (POPUP ALERT DEBUGGER)
+// AI SCANNER LIVE WEBSOCKET CONNECTOR BRIDGE
 // Location: src/ai-scanner/floating-ai/scannerBridge.ts
 // ============================================================
 
@@ -23,17 +23,17 @@ export class ScannerBridge {
 
     constructor(onUpdateSignal: UIUpdateCallback) {
         this.activeUiCallback = onUpdateSignal;
-        // Immediate visual alert confirming the code exists and class was constructed
-        alert("🟢 ScannerBridge constructor initialized successfully on your phone!");
     }
 
+    /**
+     * Initializes scanner operations and mounts to the centralized websocket pipe
+     */
     public startLiveScanning(assetSymbol: string = '1HZ100V') {
         this.stopLiveScanning();
         this.accumulatedPrices = [];
         this.trackedAsset = assetSymbol;
 
-        alert(`🚀 Scanning triggered for asset: ${assetSymbol}`);
-
+        // Immediately flash initial loading indicators
         this.activeUiCallback({
             marketState: 'INSUFFICIENT_DATA',
             liveTicks: 0,
@@ -43,36 +43,28 @@ export class ScannerBridge {
         });
 
         try {
-            if (!api_base) {
-                alert("❌ ERROR: api_base is undefined or missing completely!");
-                return;
-            }
-
-            if (typeof api_base.subscribeToTicks !== 'function') {
-                alert("❌ ERROR: api_base exists, but subscribeToTicks function is missing!");
-                return;
-            }
-
-            alert("📡 Calling api_base.subscribeToTicks now...");
-
+            // Hook straight into the central framework socket pipeline handler
             this.disconnectSocketListener = api_base.subscribeToTicks(
                 this.trackedAsset, 
                 (incomingTick: { symbol: string; quote: number; epoch: number }) => {
-                    alert(`🔴 TICK DETECTED! Price: ${incomingTick.quote}`);
-                    this.processIncomingSocketTick(incomingTick.quote);
+                    if (incomingTick && incomingTick.symbol === this.trackedAsset) {
+                        this.processIncomingSocketTick(incomingTick.quote);
+                    }
                 }
             );
-
-        } catch (error: any) {
-            alert(`❌ CRITICAL SYSTEM EXCEPTION: ${error?.message || error}`);
+        } catch (error) {
+            console.error('[ScannerBridge] Unable to mount background layout connection stream context:', error);
         }
     }
-
+    /**
+     * Extracts and validates numeric variables out of the raw stream objects
+     */
     private processIncomingSocketTick(priceQuote: number) {
         if (!Number.isFinite(priceQuote) || priceQuote <= 0) return;
 
         this.accumulatedPrices.push(priceQuote);
 
+        // Keep local buffer from swelling up to preserve memory performance
         if (this.accumulatedPrices.length > this.maxHistoryLookback) {
             this.accumulatedPrices.shift();
         }
@@ -80,18 +72,37 @@ export class ScannerBridge {
         const currentCount = this.accumulatedPrices.length;
         const result: ScannerResult = scanMarket(this.accumulatedPrices);
 
-        this.activeUiCallback({
-            marketState: currentCount < this.maxHistoryLookback ? 'INSUFFICIENT_DATA' : (result?.analysis?.state || 'UP/DOWN/RANGE'),
-            liveTicks: currentCount,
-            confidenceGate: result?.winnerConfirmed ? 'READY' : 'WAIT',
-            progressPercentage: Math.min(100, Math.floor((currentCount / this.maxHistoryLookback) * 100)),
-            rawScannerResult: result
-        });
+        if (currentCount < this.maxHistoryLookback) {
+            // Loading State: Counting upward to target lookback threshold
+            this.activeUiCallback({
+                marketState: 'INSUFFICIENT_DATA',
+                liveTicks: currentCount,
+                confidenceGate: 'WAIT',
+                progressPercentage: Math.floor((currentCount / this.maxHistoryLookback) * 100),
+                rawScannerResult: result
+            });
+        } else {
+            // Processing State: Buffer full, passing analytics calculations to UI view
+            this.activeUiCallback({
+                marketState: result?.analysis?.state || 'RANGE',
+                liveTicks: currentCount,
+                confidenceGate: result?.winnerConfirmed ? 'READY' : 'WAIT',
+                progressPercentage: 100,
+                rawScannerResult: result
+            });
+        }
     }
 
+    /**
+     * Cleans up listeners when closing the component layout workspace panels
+     */
     public stopLiveScanning() {
         if (this.disconnectSocketListener) {
-            this.disconnectSocketListener();
+            try {
+                this.disconnectSocketListener();
+            } catch (cleanupError) {
+                console.warn('[ScannerBridge] Safe cleanup warning handling socket clearing routine:', cleanupError);
+            }
             this.disconnectSocketListener = null;
         }
     }
