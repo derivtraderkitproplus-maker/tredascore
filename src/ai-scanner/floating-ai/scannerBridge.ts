@@ -1,5 +1,5 @@
 // ============================================================
-// AI SCANNER LIVE WEBSOCKET CONNECTOR BRIDGE (DIAGNOSTIC LOG)
+// AI SCANNER LIVE WEBSOCKET CONNECTOR BRIDGE (POPUP ALERT DEBUGGER)
 // Location: src/ai-scanner/floating-ai/scannerBridge.ts
 // ============================================================
 
@@ -20,47 +20,11 @@ export class ScannerBridge {
     private maxHistoryLookback: number = 100;
     private activeUiCallback: UIUpdateCallback;
     private trackedAsset: string = '1HZ100V';
-    private logContainer: HTMLDivElement | null = null;
 
     constructor(onUpdateSignal: UIUpdateCallback) {
         this.activeUiCallback = onUpdateSignal;
-        this.createVisualLogOverlay();
-    }
-
-    /**
-     * Injects a raw floating terminal onto your phone screen to read real-time errors
-     */
-    private createVisualLogOverlay() {
-        if (document.getElementById('mobile-debug-console')) return;
-        
-        const container = document.createElement('div');
-        container.id = 'mobile-debug-console';
-        container.style.position = 'fixed';
-        container.style.bottom = '0';
-        container.style.left = '0';
-        container.style.width = '100%';
-        container.style.height = '140px';
-        container.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
-        container.style.color = '#00ff00';
-        container.style.fontFamily = 'monospace';
-        container.style.fontSize = '10px';
-        container.style.overflowY = 'scroll';
-        container.style.padding = '8px';
-        container.style.zIndex = '99999';
-        container.style.borderTop = '2px solid #333';
-        container.innerHTML = '<div>📱 Scanner Mobile Logger Initialized...</div>';
-        
-        document.body.appendChild(container);
-        this.logContainer = container;
-    }
-
-    private printLog(message: string) {
-        if (this.logContainer) {
-            const entry = document.createElement('div');
-            entry.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
-            this.logContainer.appendChild(entry);
-            this.logContainer.scrollTop = this.logContainer.scrollHeight;
-        }
+        // Immediate visual alert confirming the code exists and class was constructed
+        alert("🟢 ScannerBridge constructor initialized successfully on your phone!");
     }
 
     public startLiveScanning(assetSymbol: string = '1HZ100V') {
@@ -68,7 +32,7 @@ export class ScannerBridge {
         this.accumulatedPrices = [];
         this.trackedAsset = assetSymbol;
 
-        this.printLog(`Starting Scan for Asset: ${assetSymbol}`);
+        alert(`🚀 Scanning triggered for asset: ${assetSymbol}`);
 
         this.activeUiCallback({
             marketState: 'INSUFFICIENT_DATA',
@@ -79,19 +43,28 @@ export class ScannerBridge {
         });
 
         try {
-            this.printLog("Calling api_base.subscribeToTicks...");
-            
+            if (!api_base) {
+                alert("❌ ERROR: api_base is undefined or missing completely!");
+                return;
+            }
+
+            if (typeof api_base.subscribeToTicks !== 'function') {
+                alert("❌ ERROR: api_base exists, but subscribeToTicks function is missing!");
+                return;
+            }
+
+            alert("📡 Calling api_base.subscribeToTicks now...");
+
             this.disconnectSocketListener = api_base.subscribeToTicks(
                 this.trackedAsset, 
                 (incomingTick: { symbol: string; quote: number; epoch: number }) => {
-                    this.printLog(`🔴 TICK RECEIVED: ${incomingTick.symbol} -> ${incomingTick.quote}`);
+                    alert(`🔴 TICK DETECTED! Price: ${incomingTick.quote}`);
                     this.processIncomingSocketTick(incomingTick.quote);
                 }
             );
 
-            this.printLog("Subscription initialization hook executed.");
         } catch (error: any) {
-            this.printLog(`❌ CRITICAL ENTRY ERROR: ${error?.message || error}`);
+            alert(`❌ CRITICAL SYSTEM EXCEPTION: ${error?.message || error}`);
         }
     }
 
@@ -107,28 +80,17 @@ export class ScannerBridge {
         const currentCount = this.accumulatedPrices.length;
         const result: ScannerResult = scanMarket(this.accumulatedPrices);
 
-        if (currentCount < this.maxHistoryLookback) {
-            this.activeUiCallback({
-                marketState: 'INSUFFICIENT_DATA',
-                liveTicks: currentCount,
-                confidenceGate: 'WAIT',
-                progressPercentage: Math.floor((currentCount / this.maxHistoryLookback) * 100),
-                rawScannerResult: result
-            });
-        } else {
-            this.activeUiCallback({
-                marketState: result?.analysis?.state || 'UP/DOWN/RANGE', 
-                liveTicks: currentCount,
-                confidenceGate: result?.winnerConfirmed ? 'READY' : 'WAIT',
-                progressPercentage: 100,
-                rawScannerResult: result
-            });
-        }
+        this.activeUiCallback({
+            marketState: currentCount < this.maxHistoryLookback ? 'INSUFFICIENT_DATA' : (result?.analysis?.state || 'UP/DOWN/RANGE'),
+            liveTicks: currentCount,
+            confidenceGate: result?.winnerConfirmed ? 'READY' : 'WAIT',
+            progressPercentage: Math.min(100, Math.floor((currentCount / this.maxHistoryLookback) * 100)),
+            rawScannerResult: result
+        });
     }
 
     public stopLiveScanning() {
         if (this.disconnectSocketListener) {
-            this.printLog("Stopping tick streams safely.");
             this.disconnectSocketListener();
             this.disconnectSocketListener = null;
         }
