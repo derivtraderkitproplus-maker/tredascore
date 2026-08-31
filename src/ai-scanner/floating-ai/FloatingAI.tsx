@@ -457,7 +457,7 @@ const FloatingAI = () => {
         ws.onclose = () => console.log("[AI Scanner Socket Direct Lane Closed]");
 
     }, [ensureTickBuffer, getStrategySymbols, evaluateAllStrategiesLive, cleanupLiveTickBridge]);
-    const startLiveStreamingEvaluation = async () => {
+        const startLiveStreamingEvaluation = async () => {
         scanInProgressRef.current = true;
         setIsScanning(true);
         setScannerResults([]);
@@ -467,6 +467,7 @@ const FloatingAI = () => {
 
         subscribeToLiveTicks();
 
+        // ⏳ FAIL-SAFE TIMER: Let background sockets try to backfill for 1.5 seconds max
         let elapsed = 0;
         const checkInterval = 150;
         while (elapsed < SCAN_SETTLE_MS) {
@@ -482,22 +483,13 @@ const FloatingAI = () => {
 
         if (!isMountedRef.current) return;
 
+        // 🧮 FORCE CALCULATION: Run a sweep to build the baseline results array instantly
         evaluateAllStrategiesLive();
-        setIsScanning(false);
+        
+        // 💥 UNBLOCK THE UI: Forces the loading overlay off, painting cards on screen!
+        setIsScanning(false); 
     };
 
-    const closeScanner = () => {
-        scanInProgressRef.current = false;
-        setIsScanning(false);
-        setIsOpen(false);
-        setScannerResults([]);
-        setLoadingStrategyId(null);
-        setStakeValues({});
-        setTargetValues({});
-        setExpandedStrategyId(null);
-        setMarketAnalysis(analyzeMarket([]));
-        cleanupLiveTickBridge();
-    };
 
     const updateStake = (strategyId: string, value: string) => {
         if (!/^\d*\.?\d*$/.test(value)) return;
