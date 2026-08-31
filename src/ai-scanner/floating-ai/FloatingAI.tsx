@@ -268,97 +268,73 @@ const FloatingAI = () => {
         };
     }, []);
 
-             /*
+                 /*
      * ============================================================
-     * LIVE SCAN ALL STRATEGIES (REACTIVE SYSTEM UPDATE ENGINE)
+     * ULTRA-SIMPLE TEMPLATE TICK LISTENER
      * ============================================================
+     * Simply hooks into the active chart asset channel managed by the template.
      */
-    const evaluateAllStrategiesLive = useCallback(() => {
+    const subscribeToLiveTicks = useCallback(() => {
         if (!isMountedRef.current) return;
 
-        const results = AI_STRATEGIES.map(strategy => {
-            const liveTicks = tickBuffersRef.current[strategy.symbol] || [];
-            const analysis = analyzeMarket(liveTicks);
-            const scores = calculateFinalScannerScore(strategy, analysis);
+        // Clear previous listeners to avoid memory leaks
+        cleanupLiveTickBridge();
 
-            return {
-                ...strategy,
-                scannerScore: scores.scannerScore,
-                marketCompatibility: scores.marketCompatibility,
-                rank: 0,
-                marketState: analysis.state,
-                marketDirection: analysis.direction,
-                marketConfidence: analysis.confidence,
-                confidenceQualified: scores.confidenceQualified,
-                liveTickCount: liveTicks.length,
-            };
-        });
+        // 1. Ask the pre-engineered strategy store what symbol is currently open
+        const activeWorkspaceSymbol = quick_strategy?.symbol || '1HZ100V';
 
-        const hasUsableLiveData = results.some(
-            result =>
-                result.liveTickCount >= MIN_TICKS_FOR_LIVE_SCANNER &&
-                result.marketState !== 'INSUFFICIENT_DATA'
-        );
+        // 2. Ensure our scanner storage buffer is ready for this specific symbol
+        ensureTickBuffer(activeWorkspaceSymbol);
 
-        results.sort((a, b) => {
-            if (hasUsableLiveData && a.confidenceQualified !== b.confidenceQualified) {
-                return a.confidenceQualified ? -1 : 1;
-            }
-            if (b.scannerScore !== a.scannerScore) {
-                return b.scannerScore - a.scannerScore;
-            }
-            if (b.marketCompatibility !== a.marketCompatibility) {
-                return b.marketCompatibility - a.marketCompatibility;
-            }
-            if (b.marketConfidence !== a.marketConfidence) {
-                return b.marketConfidence - a.marketConfidence;
-            }
-            return a.name.localeCompare(b.name);
-        });
+        try {
+            // 3. Directly listen to the single, live network line managed by the engineers
+            const unsubscribe = api_base.subscribeToTicks(activeWorkspaceSymbol, (tick: any) => {
+                if (!isMountedRef.current || !tick) return;
 
-        const rankedResults = results.map((strategy, index) => ({
-            ...strategy,
-            rank: index + 1,
-        }));
+                // Extract the numerical price quote from the pre-parsed payload object
+                const rawPrice = tick.quote || tick.price;
+                if (!Number.isFinite(rawPrice)) return;
 
-        // ✅ FIXED WORKAROUND BYPASS: Safely check for array existence and read item index 0 explicitly
-        if (Array.isArray(rankedResults) && rankedResults.length > 0) {
-            const topStrategyItem = rankedResults[0]; // Explicitly target array element 0
-            const fallbackSymbol = topStrategyItem ? topStrategyItem.symbol : '1HZ100V';
-            const topTicks = tickBuffersRef.current[fallbackSymbol] || [];
-            setMarketAnalysis(analyzeMarket(topTicks));
-        } else {
-            setMarketAnalysis(analyzeMarket([]));
-        }
+                // 4. Force all strategies to evaluate based on this live asset stream
+                AI_STRATEGIES.forEach(strategy => {
+                    const currentTicks = tickBuffersRef.current[strategy.symbol] || [];
+                    tickBuffersRef.current[strategy.symbol] = [...currentTicks, rawPrice].slice(-MAX_TICKS_PER_SYMBOL);
+                });
 
-        setStakeValues(prev => {
-            const nextStakes = { ...prev };
-            rankedResults.forEach(strategy => {
-                if (nextStakes[strategy.id] === undefined) {
-                    nextStakes[strategy.id] = String(strategy.stake);
-                }
+                // 5. Instantly repaint the screen layout with the fresh values
+                evaluateAllStrategiesLive();
             });
-            return nextStakes;
-        });
 
-        setTargetValues(prev => {
-            const nextTargets = { ...prev };
-            rankedResults.forEach(strategy => {
-                if (nextTargets[strategy.id] === undefined) {
-                    nextTargets[strategy.id] = String(strategy.profit);
-                }
-            });
-            return nextTargets;
-        });
-
-        setScannerResults(rankedResults);
-        
-        // Safety verification layout check on expanded card components maps
-        if (Array.isArray(rankedResults) && rankedResults.length > 0 && rankedResults[0]) {
-            const defaultId = rankedResults[0].id;
-            setExpandedStrategyId(currId => currId ?? defaultId);
+            if (typeof unsubscribe === 'function') {
+                tickUnsubscribersRef.current.push(unsubscribe);
+            }
+        } catch (error) {
+            console.error(`[AI Scanner] Simple listen hook failed for ${activeWorkspaceSymbol}:`, error);
         }
-    }, [calculateFinalScannerScore]);
+    }, [ensureTickBuffer, quick_strategy?.symbol, evaluateAllStrategiesLive, cleanupLiveTickBridge]);
+
+    /*
+     * ============================================================
+     * SCAN TRIGGER
+     * ============================================================
+     */
+    const startLiveStreamingEvaluation = async () => {
+        scanInProgressRef.current = true;
+        setIsScanning(true);
+        setScannerResults([]);
+        setExpandedStrategyId(null);
+
+        // Turn on our simple stream listener
+        subscribeToLiveTicks();
+
+        // Give the UI a brief moment to settle as the first stream messages land
+        await new Promise(resolve => setTimeout(resolve, SCAN_SETTLE_MS));
+
+        if (!isMountedRef.current) return;
+
+        evaluateAllStrategiesLive();
+        setIsScanning(false);
+    };
 
     /*
      * ============================================================
