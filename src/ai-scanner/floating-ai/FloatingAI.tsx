@@ -102,7 +102,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   // Isolated matrix display layer rules
   const visualDisplayList = useMemo(() => {
     if (activeTab && frozenDisplayList.length > 0) {
-      // FIXED LOCK: Freezes both position AND text parameters (scores, metrics, confidence) entirely
+      // Freezes both position AND text parameters (scores, metrics, confidence) entirely
       return frozenDisplayList;
     }
     
@@ -129,7 +129,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     if (sourceList.length === 0) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    return sourceList[0].metrics;
+    // FIXED: Safely fetch metrics direct from the top element inside the list node
+    return sourceList[0].metrics; 
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
   const handleLoadBot = (targetDirection: string) => {
@@ -140,7 +141,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       takeProfit: parseFloat(takeProfit) || 0
     });
 
-    // FIXED: Closes panel modal window instantly after workspace synchronization processes
     if (typeof onCloseScanner === 'function') {
       onCloseScanner();
     }
