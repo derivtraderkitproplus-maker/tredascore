@@ -20,7 +20,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   useEffect(() => {
     if (!selectedMarket) return;
     logicEngine.setMarket(selectedMarket);
-    setRawPipelineData([]); // Clean container view metrics during asset transitions
+    setRawPipelineData([]);
 
     let throttleTimeout: any = null;
 
@@ -32,7 +32,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
           const frameAnalysis = logicEngine.runScannerPipeline();
           setRawPipelineData(frameAnalysis);
           throttleTimeout = null;
-        }, 100); // Batches calculations into safe rendering frame blocks
+        }, 100);
       }
     });
 
@@ -47,11 +47,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     return [...rawPipelineData].sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence);
   }, [rawPipelineData]);
 
-  // FIXED: Fallback array initialization populates cards immediately on setup layout loads
   const visualDisplayList = useMemo(() => {
     if (sortedProfiles.length > 0) return sortedProfiles;
-    
-    // Maps your explicit profile definitions to baseline structures to prevent window layout collapse
     return STRATEGY_PROFILES.map(profile => ({
       profile,
       metrics: {
@@ -66,7 +63,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     }));
   }, [sortedProfiles]);
 
-  // Safely extract global top metrics card frame summary values
   const globalSummary = useMemo(() => {
     if (sortedProfiles.length === 0) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
@@ -128,6 +124,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                 <div className="card-expanded-drawer">
                   <p className="desc">{item.profile.description}</p>
                   
+                  {/* FIXED: Wrapped into distinct flexbox row wrappers with proper gap parameters */}
                   <div className="live-metrics-data-row">
                     <div className="data-cell">
                       <div className="lbl">LIVE MARKET</div>
