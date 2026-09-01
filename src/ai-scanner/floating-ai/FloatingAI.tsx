@@ -66,9 +66,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     }));
   }, [sortedProfiles]);
 
-  // Global headers accurately reflect the highest configuration value at array position
+  // FIXED: Implemented array safety checks to prevent layout runtime crashes
   const globalSummary = useMemo(() => {
-    if (sortedProfiles.length === 0 || !sortedProfiles[0]) {
+    if (sortedProfiles.length === 0 || !sortedProfiles[0] || !sortedProfiles[0].metrics) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
     return sortedProfiles[0].metrics;
@@ -107,7 +107,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
-          // FIXED: Extracted live dynamic override variable mapping safely
+          // Extracted live dynamic override variable mapping safely
           const currentTier = item.metrics.tierOverride || item.profile.tier;
           
           return (
@@ -121,7 +121,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                   <h4>{item.profile.name}</h4>
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
-                {/* FIXED: Uses dynamic tier string evaluations to toggle badge style structures cleanly */}
+                {/* Uses dynamic tier string evaluations to toggle badge style structures cleanly */}
                 <span className={`tier-badge ${currentTier.toLowerCase()}`}>
                   {currentTier}
                 </span>
