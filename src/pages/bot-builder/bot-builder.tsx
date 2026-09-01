@@ -203,10 +203,11 @@ const BotBuilder = observer(() => {
                         }}
                     />
                     <div style={{ width: '100%', maxWidth: '450px' }}>
-                        {/* FIXED: Passing global environment connections seamlessly to bypass Web Application Firewall drops */}
+                        {/* FIXED: Passing dynamic onCloseScanner close handler hooks down through component props seamlessly */}
                         <FloatingAI 
                             derivContext={{ websocketInstance: window.Blockly?.derivWorkspace?.socket || window.ws || app }} 
                             selectedMarket='1HZ100V' 
+                            onCloseScanner={() => setIsAiScannerOpen(false)}
                         />
                     </div>
                 </div>
