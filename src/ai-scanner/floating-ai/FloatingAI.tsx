@@ -127,13 +127,12 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
   const globalSummary = useMemo(() => {
-    const sourceList = activeTab ? frozenDisplayList : liveSortedProfiles;
-    if (!sourceList || sourceList.length === 0) {
-      return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
+    // FAIL-SAFE OVERRIDE: Link header states explicitly to the visual list's actual #1 position element
+    if (visualDisplayList && visualDisplayList.length > 0 && visualDisplayList[0].metrics) {
+      return visualDisplayList[0].metrics;
     }
-    // FIXED CRITICAL ARRAYS FORMAT ACCESS: Dip explicitly into index 0 first, then extract internal metrics object block parameters
-    return sourceList[0].metrics; 
-  }, [liveSortedProfiles, frozenDisplayList, activeTab]);
+    return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
+  }, [visualDisplayList]);
 
   const handleLoadBot = (targetDirection: string) => {
     networkBridge.injectDataToBlockly({
