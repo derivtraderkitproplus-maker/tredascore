@@ -1,4 +1,4 @@
-/* FloatingAI.css */
+/* FloatingAI.css (Part 1 of 2) */
 
 .ai-strategy-scanner {
   background: #0b0d17 !important;
@@ -109,6 +109,7 @@
   border-radius: 4px !important;
 }
 
+/* 🔄 HIGH PERFORMANCE TRANSITION & SWAPPING MATRIX RULES */
 .strategy-card-node {
   background: #131622 !important;
   border: 1px solid #1d2134 !important;
@@ -117,7 +118,31 @@
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
+  
+  /* Smooth hardware-accelerated animations for position switches */
+  transition: all 0.38s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  will-change: transform, opacity, background-color, border-color !important;
 }
+
+/* 🥇 VISUAL ANCHOR ACCENT FOR THE #1 RUNNING STRATEGY */
+.strategy-card-node:first-child {
+  border-color: #5078ff !important;
+  background: linear-gradient(135deg, #131622 0%, #171b30 100%) !important;
+  box-shadow: 0 4px 20px rgba(80, 120, 255, 0.08) !important;
+  position: relative !important;
+}
+
+.strategy-card-node:first-child::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 12px !important;
+  bottom: 12px !important;
+  width: 4px !important;
+  background: #5078ff !important;
+  border-radius: 0 4px 4px 0 !important;
+}
+/* FloatingAI.css (Part 2 of 2) */
 
 .card-summary {
   display: flex !important;
@@ -139,6 +164,12 @@
   justify-content: center !important;
   border-radius: 6px !important;
   flex-shrink: 0 !important;
+}
+
+/* Highlight rank #1 badge distinctly */
+.strategy-card-node:first-child .rank-badge {
+  background: #5078ff !important;
+  color: #ffffff !important;
 }
 
 .meta-details { 
@@ -166,6 +197,7 @@
   border-radius: 4px !important;
   margin-right: 8px !important;
   flex-shrink: 0 !important;
+  text-transform: uppercase !important;
 }
 .tier-badge.high { background: rgba(255, 74, 98, 0.15) !important; color: #ff4a62 !important; }
 .tier-badge.medium { background: rgba(245, 166, 35, 0.15) !important; color: #f5a623 !important; }
@@ -175,6 +207,12 @@
   color: #555975 !important; 
   font-size: 11px !important; 
   flex-shrink: 0 !important;
+  transition: transform 0.2s ease !important;
+}
+
+.card-node--frozen {
+  border-color: #7c5dfa !important;
+  box-shadow: 0 4px 25px rgba(124, 93, 250, 0.12) !important;
 }
 
 .card-expanded-drawer {
@@ -300,7 +338,7 @@
   line-height: 1.2 !important;
   flex-shrink: 0 !important; /* FIXED: Strong layout enforcement prevents elements from folding or collapsing */
   box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.3) !important;
-  box-sizing: border-box !important;
+  box-shadow: border-box !important;
 }
 
 .scan-again-btn:hover {
