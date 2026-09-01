@@ -1,4 +1,5 @@
 /* FloatingAI.css */
+
 .ai-strategy-scanner {
   background: #0b0d17;
   color: #ffffff;
@@ -6,17 +7,28 @@
   border-radius: 12px;
   max-width: 100%;
   box-sizing: border-box;
+  
+  /* FIXED: Formats module into an explicit vertical containment card layout */
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh; /* Prevents stretching out of mobile screen viewing frames */
+  position: relative;
+  border: 1px solid #1c2035;
 }
+
 .scanner-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0; /* FIXED: Keeps header firmly in place */
 }
+
 .scanner-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: bold;
 }
+
 .profile-counter {
   background: #1c1836;
   color: #7c5dfa;
@@ -25,66 +37,97 @@
   font-size: 13px;
   font-weight: bold;
 }
+
 .scanner-subheader-text {
   font-size: 12px;
   color: #72768d;
   margin-top: 4px;
+  flex-shrink: 0; /* FIXED: Keeps subheader locked */
 }
+
 .metrics-banner-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-top: 16px;
+  flex-shrink: 0; /* FIXED: Keeps overview row from collapsing */
 }
+
 .metric-box {
   background: #141724;
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #1e2235;
 }
+
 .metric-box label {
   font-size: 9px;
   color: #6a6e85;
   display: block;
 }
+
 .metric-box .val {
   font-size: 13px;
   font-weight: bold;
   margin-top: 4px;
 }
+
 .highlight-yellow {
   color: #f5a623 !important;
 }
+
 .highlight-purple {
   color: #9064ff !important;
 }
+
 .notice-subtext {
   font-size: 11px;
   color: #d1a153;
   background: rgba(209, 161, 83, 0.08);
   padding: 10px;
   border-radius: 6px;
-  margin: 16px 0;
+  margin: 12px 0;
   line-height: 1.4;
+  flex-shrink: 0; /* FIXED: Prevents reminder banner clipping */
 }
+
 .strategy-scroll-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 500px;
-  overflow-y: auto;
+  
+  /* FIXED: Isolates scrolling solely within this interior list module wrapper */
+  flex-grow: 1;
+  overflow-y: auto; 
+  padding-right: 4px;
+  margin-bottom: 12px;
 }
+
+/* Custom Webkit scrollbar definitions to ensure clean navigation look on mobile */
+.strategy-scroll-list::-webkit-scrollbar {
+  width: 4px;
+}
+.strategy-scroll-list::-webkit-scrollbar-track {
+  background: rgba(28, 32, 53, 0.3);
+}
+.strategy-scroll-list::-webkit-scrollbar-thumb {
+  background: #21263c;
+  border-radius: 2px;
+}
+
 .strategy-card-node {
   background: #131622;
   border: 1px solid #1d2134;
   border-radius: 10px;
 }
+
 .card-summary {
   display: flex;
   align-items: center;
   padding: 14px;
   cursor: pointer;
 }
+
 .rank-badge {
   color: #5078ff;
   font-weight: bold;
@@ -98,19 +141,23 @@
   justify-content: center;
   border-radius: 6px;
 }
+
 .meta-details {
   flex: 1;
 }
+
 .meta-details h4 {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
 }
+
 .meta-details p {
   margin: 4px 0 0 0;
   font-size: 11px;
   color: #6c718c;
 }
+
 .tier-badge {
   font-size: 10px;
   font-weight: bold;
@@ -118,24 +165,30 @@
   border-radius: 4px;
   margin-right: 12px;
 }
+
 .tier-badge.high { background: rgba(255, 74, 98, 0.15); color: #ff4a62; }
 .tier-badge.medium { background: rgba(245, 166, 35, 0.15); color: #f5a623; }
 .tier-badge.low { background: rgba(46, 212, 121, 0.15); color: #2ed479; }
+
 .arrow-toggle {
   color: #555975;
   font-size: 11px;
+  margin-left: auto;
 }
+
 .card-expanded-drawer {
   padding: 0 14px 14px 14px;
   border-top: 1px solid #1a1e30;
   background: #0f121d;
   border-radius: 0 0 10px 10px;
 }
+
 .card-expanded-drawer .desc {
   font-size: 12px;
   color: #7b7f99;
   margin: 12px 0;
 }
+
 .live-metrics-data-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -144,22 +197,27 @@
   padding: 8px;
   border-radius: 6px;
 }
+
 .spec-margin {
   margin-top: 8px;
 }
+
 .data-cell .lbl {
   font-size: 8px;
   color: #595d75;
 }
+
 .data-cell .txt-bold {
   font-size: 11px;
   font-weight: bold;
   margin-top: 2px;
   color: #e2e4eb;
 }
+
 .progress-bar-container {
   margin-top: 14px;
 }
+
 .bar-labels {
   display: flex;
   justify-content: space-between;
@@ -167,29 +225,37 @@
   color: #6c718c;
   margin-bottom: 6px;
 }
+
 .base-track {
   background: #1c2035;
   height: 6px;
   border-radius: 3px;
   overflow: hidden;
 }
+
 .base-track .fill {
   background: #5078ff;
   height: 100%;
   border-radius: 3px;
 }
+
 .scan-again-btn {
   width: 100%;
-  background: transparent;
-  border: 1px solid #21263c;
-  color: #a3a7bd;
-  padding: 12px;
+  background: #21263c; /* FIXED: Elevated default background for better interaction feedback */
+  border: 1px solid #2d3350;
+  color: #ffffff;
+  padding: 14px;
   border-radius: 8px;
-  margin-top: 16px;
   cursor: pointer;
   font-weight: 600;
   font-size: 13px;
+  
+  /* FIXED: Locks button block position structural layout anchors cleanly below scrolling content */
+  flex-shrink: 0;
+  margin-top: auto;
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.3);
 }
+
 .scan-again-btn:hover {
-  background: #141724;
+  background: #2b314d;
 }
