@@ -57,7 +57,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     setRawPipelineData(initialFrame);
 
     const liveSimulationInterval = setInterval(() => {
-      // FIXED ENGINE INJECTION FLOW: Feed ticker buffers continuously in the background
+      // Feed ticker buffers continuously in the background
       const noise = (Math.random() - 0.5) * 0.60;
       mockPrice += noise;
       logicEngine.injectTick(targetSymbol, mockPrice);
@@ -131,7 +131,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     if (!sourceList || sourceList.length === 0) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    // Pull explicitly from the top index item in our list layer array
+    // FIXED CRITICAL ARRAYS FORMAT ACCESS: Dip explicitly into index 0 first, then extract internal metrics object block parameters
     return sourceList[0].metrics; 
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
