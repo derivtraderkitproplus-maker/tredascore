@@ -51,23 +51,19 @@ export class DerivScannerBridge {
     }
   }
 
-  // CORE DATA WORKSPACE BROKER CODE TRANSFERS MATRICES DIRECTLY TO BLOCKLY WORKFLOWS
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
     const workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
     if (!workspace) {
-      console.warn("AI Loader Bridge: Active Blockly Workspace Canvas object layer could not be mapped.");
+      console.warn("AI Loader Bridge: Workspace could not be found.");
       return;
     }
-
-    console.log("🤖 AI Loader: Transferring parameter fields straight to canvas block matrices...", params);
 
     try {
       const allBlocks = workspace.getAllBlocks(false);
 
       allBlocks.forEach((block: any) => {
-        // A. Inject Entry Staking Choice Parameters (CALL / PUT)
         if (block.type === 'purchase') {
           const purchaseField = block.getField('PURCHASE_LIST');
           if (purchaseField) {
@@ -75,14 +71,12 @@ export class DerivScannerBridge {
           }
         }
 
-        // B. Update Variable Block Assignment Text Nodes
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
             const variableName = fieldVar.getText();
-            
-            // Search inside block nodes for standard child value text nodes
             const valueInput = block.getInput('VALUE');
+            
             if (valueInput && valueInput.connection && valueInput.connection.targetBlock()) {
               const targetBlock = valueInput.connection.targetBlock();
               const numField = targetBlock.getField('NUM');
@@ -103,12 +97,9 @@ export class DerivScannerBridge {
         }
       });
 
-      // Flashes visual feedback notifications on your platform trading dashboard
-      if (globalWin.Blockly?.WidgetManager) {
-        alert("🎉 Strategy parameters successfully loaded to blocks! Click 'Run' to activate the execution sequence.");
-      }
+      alert("🎉 Strategy parameters successfully loaded to blocks! Click 'Run' to activate the execution sequence.");
     } catch (err) {
-      console.error("AI Loader Matrix Exception Error:", err);
+      console.error("AI Loader Matrix Error:", err);
     }
   }
 
