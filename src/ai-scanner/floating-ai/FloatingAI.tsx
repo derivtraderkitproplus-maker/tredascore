@@ -14,7 +14,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   const [rawPipelineData, setRawPipelineData] = useState<EvaluationFrame[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  // USER INPUT PARAMETERS CONTROL STATE MATRICES
+  // USER INPUT PARAMETERS
   const [stake, setStake] = useState<string>('1000');
   const [stopLoss, setStopLoss] = useState<string>('500');
   const [takeProfit, setTakeProfit] = useState<string>('1500');
@@ -47,14 +47,17 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     };
   }, [selectedMarket, logicEngine, networkBridge]);
 
+  // LIVE CONTEXT SORTING CONSTRAINTS
   const sortedProfiles = useMemo(() => {
     if (rawPipelineData.length === 0) return [];
     return [...rawPipelineData].sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence);
   }, [rawPipelineData]);
 
+  // FIXED: Dynamic display array mapping ensures live stream ticks populate instantly on screen
   const visualDisplayList = useMemo(() => {
     if (sortedProfiles.length > 0) return sortedProfiles;
     
+    // Map data placeholders strictly until the simulation streams register their first frames
     return STRATEGY_PROFILES.map(profile => ({
       profile,
       metrics: {
@@ -71,13 +74,12 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   }, [sortedProfiles]);
 
   const globalSummary = useMemo(() => {
-    if (sortedProfiles.length === 0 || !sortedProfiles) {
+    if (sortedProfiles.length === 0 || !sortedProfiles[0]) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    return sortedProfiles.metrics;
+    return sortedProfiles[0].metrics;
   }, [sortedProfiles]);
 
-  // ACTION TRIGGER: Pushes active target configuration data metrics down into the workspace block layer
   const handleLoadBot = (targetDirection: string) => {
     networkBridge.injectDataToBlockly({
       direction: targetDirection,
@@ -143,7 +145,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                 <div className="card-expanded-drawer">
                   <p className="desc">{item.profile.description}</p>
                   
-                  {/* EDITABLE COMPONENT INITIALIZATION INPUT FIELDS */}
                   <div className="ai-input-parameter-grid">
                     <div className="input-cell">
                       <label>STAKE (USD)</label>
@@ -159,10 +160,10 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                     </div>
                   </div>
 
-                  <div className="live-metrics-data-row spec-margin">
+                  <div className="live-metrics-data-row">
                     <div className="data-cell">
-                      <div className="lbl">LIVE TICKS</div>
-                      <div className="txt-bold">{item.metrics.ticksLoaded}/100</div>
+                      <div className="lbl">LIVE MARKET</div>
+                      <div className="txt-bold">{item.metrics.marketState}</div>
                     </div>
                     <div className="data-cell">
                       <div className="lbl">DIRECTION</div>
@@ -176,7 +177,23 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                     </div>
                   </div>
 
-                  {/* FIXED PLACE OUT: Integrated the primary load action link button right inside the parameters drawer block view */}
+                  <div className="live-metrics-data-row spec-margin">
+                    <div className="data-cell">
+                      <div className="lbl">LIVE TICKS</div>
+                      <div className="txt-bold">{item.metrics.ticksLoaded}/100</div>
+                    </div>
+                    <div className="data-cell">
+                      <div className="lbl">REQUIRED</div>
+                      <div className="txt-bold">{item.profile.confidenceGate}%</div>
+                    </div>
+                    <div className="data-cell">
+                      <div className="lbl">CONFIDENCE GATE</div>
+                      <div className="txt-bold highlight-purple">
+                        {item.metrics.ticksLoaded >= 100 ? 'RUN' : 'WAIT'}
+                      </div>
+                    </div>
+                  </div>
+
                   <button 
                     className="inner-drawer-load-btn"
                     onClick={() => handleLoadBot(item.metrics.direction)}
@@ -190,7 +207,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
         })}
       </div>
       
-      {/* ORIGINAL UNBLOCKED RUN CONTROLLER FOOTER KEYS */}
+      {/* FIXED ACTION LAYOUT KEY TRIGGER FOOTER */}
       <button className="scan-again-btn" onClick={() => setRawPipelineData([])}>
         ↺ Scan Again / Refresh Ticks
       </button>
