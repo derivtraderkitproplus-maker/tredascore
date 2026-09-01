@@ -14,6 +14,11 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   const [rawPipelineData, setRawPipelineData] = useState<EvaluationFrame[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
+  // USER INPUT PARAMETERS CONTROL MATRIX STATE
+  const [stake, setStake] = useState<string>('1000');
+  const [stopLoss, setStopLoss] = useState<string>('500');
+  const [takeProfit, setTakeProfit] = useState<string>('1500');
+
   const logicEngine = useMemo(() => new ScannerLogicEngine(), []);
   const networkBridge = useMemo(() => new DerivScannerBridge(derivContext), [derivContext]);
 
@@ -47,7 +52,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     return [...rawPipelineData].sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence);
   }, [rawPipelineData]);
 
-  // Fallback array initialization populates cards immediately on setup layout loads
   const visualDisplayList = useMemo(() => {
     if (sortedProfiles.length > 0) return sortedProfiles;
     
@@ -61,18 +65,30 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
         scannerScore: 0,
         marketCompatibility: 0,
         finalConfidence: 0,
-        tierOverride: profile.tier // Clean baseline assignment
+        tierOverride: profile.tier
       }
     }));
   }, [sortedProfiles]);
 
-  // FIXED: Implemented array safety checks to prevent layout runtime crashes
   const globalSummary = useMemo(() => {
-    if (sortedProfiles.length === 0 || !sortedProfiles[0] || !sortedProfiles[0].metrics) {
+    if (sortedProfiles.length === 0 || !sortedProfiles) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    return sortedProfiles[0].metrics;
+    return sortedProfiles.metrics;
   }, [sortedProfiles]);
+
+  // ACTION TRIGGER: Broadcasts parameter properties straight into workspace block layers
+  const handleLoadBot = () => {
+    if (sortedProfiles.length === 0) return;
+    
+    const topStrategy = sortedProfiles;
+    networkBridge.injectDataToBlockly({
+      direction: topStrategy.metrics.direction,
+      stake: parseFloat(stake),
+      stopLoss: parseFloat(stopLoss),
+      takeProfit: parseFloat(takeProfit)
+    });
+  };
 
   return (
     <div className="ai-strategy-scanner">
@@ -82,7 +98,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       </div>
 
       <div className="scanner-subheader-text">
-        30 profiles ranked via real-time WebSocket ticks.
+        High-confidence profiles rank on top. Modify parameter matrices below.
       </div>
 
       <div className="metrics-banner-grid">
@@ -101,13 +117,12 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       </div>
 
       <p className="notice-subtext">
-        Waiting for enough ticks. Keep the scanner open to let historical lookback snapshots fill.
+        Tap a strategy to edit trade options, parameters, and structural execution bounds.
       </p>
 
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
-          // Extracted live dynamic override variable mapping safely
           const currentTier = item.metrics.tierOverride || item.profile.tier;
           
           return (
@@ -121,7 +136,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                   <h4>{item.profile.name}</h4>
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
-                {/* Uses dynamic tier string evaluations to toggle badge style structures cleanly */}
                 <span className={`tier-badge ${currentTier.toLowerCase()}`}>
                   {currentTier}
                 </span>
@@ -132,18 +146,19 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                 <div className="card-expanded-drawer">
                   <p className="desc">{item.profile.description}</p>
                   
-                  <div className="live-metrics-data-row">
-                    <div className="data-cell">
-                      <div className="lbl">LIVE MARKET</div>
-                      <div className="txt-bold">{item.metrics.marketState}</div>
+                  {/* EDITABLE COMPONENT INITIALIZATION INPUT FIELDS */}
+                  <div className="ai-input-parameter-grid">
+                    <div className="input-cell">
+                      <label>STAKE (USD)</label>
+                      <input type="number" value={stake} onChange={(e) => setStake(e.target.value)} />
                     </div>
-                    <div className="data-cell">
-                      <div className="lbl">DIRECTION</div>
-                      <div className="txt-bold highlight-yellow">{item.metrics.direction}</div>
+                    <div className="input-cell">
+                      <label>STOP LOSS</label>
+                      <input type="number" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} />
                     </div>
-                    <div className="data-cell">
-                      <div className="lbl">CONFIDENCE</div>
-                      <div className="txt-bold">{item.metrics.finalConfidence}%</div>
+                    <div className="input-cell">
+                      <label>TAKE PROFIT</label>
+                      <input type="number" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} />
                     </div>
                   </div>
 
@@ -153,34 +168,14 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                       <div className="txt-bold">{item.metrics.ticksLoaded}/100</div>
                     </div>
                     <div className="data-cell">
-                      <div className="lbl">REQUIRED</div>
-                      <div className="txt-bold">{item.profile.confidenceGate}%</div>
+                      <div className="lbl">DIRECTION</div>
+                      <div className="txt-bold highlight-yellow">{item.metrics.direction}</div>
                     </div>
                     <div className="data-cell">
-                      <div className="lbl">CONFIDENCE GATE</div>
+                      <div className="lbl">STATUS</div>
                       <div className="txt-bold highlight-purple">
-                        {item.metrics.ticksLoaded >= 100 ? 'RUN' : 'WAIT'}
+                        {item.metrics.ticksLoaded >= 100 ? 'READY' : 'WAIT'}
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="progress-bar-container">
-                    <div className="bar-labels">
-                      <span>Scanner Score</span>
-                      <span>{item.metrics.scannerScore}%</span>
-                    </div>
-                    <div className="base-track">
-                      <div className="fill" style={{ width: `${item.metrics.scannerScore}%` }}></div>
-                    </div>
-                  </div>
-
-                  <div className="progress-bar-container">
-                    <div className="bar-labels">
-                      <span>Market Compatibility</span>
-                      <span>{item.metrics.marketCompatibility}%</span>
-                    </div>
-                    <div className="base-track">
-                      <div className="fill" style={{ width: `${item.metrics.marketCompatibility}%` }}></div>
                     </div>
                   </div>
                 </div>
@@ -190,8 +185,13 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
         })}
       </div>
       
-      <button className="scan-again-btn" onClick={() => setRawPipelineData([])}>
-        ↺ Scan Again
+      {/* ACTION LAUNCH TRIGGER LINK BUTTON KEYS */}
+      <button 
+        className="scan-again-btn load-bot-theme-btn" 
+        onClick={handleLoadBot}
+        disabled={sortedProfiles.length === 0}
+      >
+        📥 Load Bot to Workspace
       </button>
     </div>
   );
