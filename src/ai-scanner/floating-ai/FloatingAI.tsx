@@ -1,4 +1,4 @@
-// FloatingAI.tsx
+// FloatingAI.tsx (Part 1 of 2)
 import React, { useEffect, useState, useMemo } from 'react';
 import { DerivScannerBridge } from './scannerBridge';
 import { ScannerLogicEngine, EvaluationFrame } from './scannerLogic';
@@ -8,7 +8,7 @@ import './FloatingAI.css';
 interface FloatingAIProps {
   derivContext?: any;
   selectedMarket?: string;
-  onCloseScanner?: () => void; // FIXED: Added interface handler mapping property
+  onCloseScanner?: () => void;
 }
 
 export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selectedMarket = '1HZ100V', onCloseScanner }) => {
@@ -20,11 +20,20 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   const [stopLoss, setStopLoss] = useState<string>('500');
   const [takeProfit, setTakeProfit] = useState<string>('1500');
 
+  // INPUT FOCUS TRACKER - Freezes data streaming calculation frames mid-keystroke
+  const [isTypingFocused, setIsTypingFocused] = useState<boolean>(false);
+
   const logicEngine = useMemo(() => new ScannerLogicEngine(), []);
   const networkBridge = useMemo(() => new DerivScannerBridge(derivContext), [derivContext]);
 
   // Persistent ranking memory caches configuration layout trees
   const [frozenDisplayList, setFrozenDisplayList] = useState<EvaluationFrame[]>([]);
+
+  // Synchronize dynamic input focus states directly into the logic processor instance
+  useEffect(() => {
+    const shouldFreezeBackend = activeTab !== null || isTypingFocused;
+    logicEngine.setEditingState(shouldFreezeBackend);
+  }, [activeTab, isTypingFocused, logicEngine]);
 
   useEffect(() => {
     if (!selectedMarket) return;
@@ -45,8 +54,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     setRawPipelineData(initialFrame);
 
     const liveSimulationInterval = setInterval(() => {
-      // FIXED RULE: Freeze all interior calculation data logic blocks completely if a user opens a card drawer
-      if (activeTab) return;
+      // Freeze all interior calculation data blocks completely if a user opens a card drawer or focuses an input
+      if (activeTab || isTypingFocused) return;
 
       const noise = (Math.random() - 0.5) * 0.60;
       mockPrice += noise;
@@ -57,7 +66,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     }, 1000);
 
     networkBridge.initPipeline([selectedMarket], (symbol, price) => {
-      if (activeTab) return; // Disables network state pollution inside opened editor fields
+      if (activeTab || isTypingFocused) return; // Disables network state pollution inside opened editor fields
       logicEngine.injectTick(symbol, price);
       const frameAnalysis = logicEngine.runScannerPipeline();
       setRawPipelineData(frameAnalysis);
@@ -67,12 +76,20 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       clearInterval(liveSimulationInterval);
       networkBridge.closePipeline();
     };
-  }, [selectedMarket, logicEngine, networkBridge, activeTab]);
+  }, [selectedMarket, logicEngine, networkBridge, activeTab, isTypingFocused]);
 
-  // Handle baseline sorting actions
+  // Handle baseline sorting actions linking directly to the isolated status markers
   const liveSortedProfiles = useMemo(() => {
     if (rawPipelineData.length === 0) return [];
-    return [...rawPipelineData].sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence);
+    return [...rawPipelineData].sort((a, b) => {
+      // Priority 1: Force isolated "HIGH" value configuration profile to top indexing spot
+      const rankWeightA = a.metrics.status === 'HIGH' ? 2 : (a.metrics.status === 'MEDIUM' ? 1 : 0);
+      const rankWeightB = b.metrics.status === 'HIGH' ? 2 : (b.metrics.status === 'MEDIUM' ? 1 : 0);
+      
+      if (rankWeightB !== rankWeightA) return rankWeightB - rankWeightA;
+      // Priority 2: Secondary tiebreaker tracking based on underlying final confidence variance
+      return b.metrics.finalConfidence - a.metrics.finalConfidence;
+    });
   }, [rawPipelineData]);
 
   // Cache configuration layers before drawers expand
@@ -101,6 +118,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
         scannerScore: 0,
         marketCompatibility: 0,
         finalConfidence: 0,
+        status: 'LOW',
         tierOverride: profile.tier
       }
     }));
@@ -168,11 +186,13 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
-
+// FloatingAI.tsx (Part 2 of 2)
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
-          const currentTier = item.metrics.tierOverride || item.profile.tier;
+          
+          // Read the globally isolated status identifier mapped out by our engine pipeline
+          const currentStatus = item.metrics.status || item.profile.tier || 'LOW';
           
           return (
             <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
@@ -185,8 +205,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                   <h4>{item.profile.name}</h4>
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
-                <span className={`tier-badge ${currentTier.toLowerCase()}`}>
-                  {currentTier}
+                <span className={`tier-badge ${currentStatus.toLowerCase()}`}>
+                  {currentStatus}
                 </span>
                 <span className="arrow-toggle">{isExpanded ? '▲' : '▼'}</span>
               </div>
@@ -198,15 +218,33 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                   <div className="ai-input-parameter-grid">
                     <div className="input-cell">
                       <label>STAKE (USD)</label>
-                      <input type="number" value={stake} onChange={(e) => setStake(e.target.value)} />
+                      <input 
+                        type="number" 
+                        value={stake} 
+                        onChange={(e) => setStake(e.target.value)}
+                        onFocus={() => setIsTypingFocused(true)}  // Locks ticker frames during parameter changes
+                        onBlur={() => setIsTypingFocused(false)}   // Re-enables ticker streams on blur
+                      />
                     </div>
                     <div className="input-cell">
                       <label>STOP LOSS</label>
-                      <input type="number" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} />
+                      <input 
+                        type="number" 
+                        value={stopLoss} 
+                        onChange={(e) => setStopLoss(e.target.value)}
+                        onFocus={() => setIsTypingFocused(true)}  // Protects user selection fields
+                        onBlur={() => setIsTypingFocused(false)}   
+                      />
                     </div>
                     <div className="input-cell">
                       <label>TAKE PROFIT</label>
-                      <input type="number" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} />
+                      <input 
+                        type="number" 
+                        value={takeProfit} 
+                        onChange={(e) => setTakeProfit(e.target.value)}
+                        onFocus={() => setIsTypingFocused(true)}  // Halts tracking modifications mid-keystroke
+                        onBlur={() => setIsTypingFocused(false)}   
+                      />
                     </div>
                   </div>
 
@@ -235,7 +273,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
               )}
             </div>
           );
-          
         })}
       </div>
       
