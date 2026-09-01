@@ -22,7 +22,7 @@ export class DerivScannerBridge {
   private extractSystemSocket(): void {
     const globalWin = window as any;
     if (this.appCtx) {
-      this.ws = this.appCtx.websocketInstance || this.appCtx.ws || this.appCtx.socket || this.appCtx.api?.api?.ws;
+      this.ws = this.appCtx.websocketInstance || this.appCtx.ws || this.appCtx.socket;
     }
     if (!this.ws) {
       this.ws = globalWin.derivWebSocket || globalWin.ws || globalWin.socket || globalWin.Blockly?.derivWorkspace?.socket;
@@ -56,14 +56,17 @@ export class DerivScannerBridge {
     const workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
     if (!workspace) {
-      console.warn("AI Loader Bridge: Workspace could not be found.");
+      alert("⚠️ Blockly canvas loading. Please make sure the Bot Builder tab is fully active.");
       return;
     }
 
     try {
       const allBlocks = workspace.getAllBlocks(false);
+      let stakeLoaded = false;
+      let maxStakeLoaded = false;
 
       allBlocks.forEach((block: any) => {
+        // A. Inject Entry Conditions directly into Purchase Choice drop-down block field
         if (block.type === 'purchase') {
           const purchaseField = block.getField('PURCHASE_LIST');
           if (purchaseField) {
@@ -71,6 +74,16 @@ export class DerivScannerBridge {
           }
         }
 
+        // B. Target the native block inline trade options Stake token block element field
+        if (block.type === 'trade_definition_tradeoptions') {
+          const stakeField = block.getField('AMOUNT');
+          if (stakeField) {
+            stakeField.setValue(params.stake.toString());
+            stakeLoaded = true;
+          }
+        }
+
+        // C. Update the variable block inputs matching 'maxStake' text structures seen on your canvas layout
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -82,13 +95,15 @@ export class DerivScannerBridge {
               const numField = targetBlock.getField('NUM');
               
               if (numField) {
-                if (variableName.toLowerCase().includes('stake')) {
+                if (variableName === 'maxStake') {
                   numField.setValue(params.stake.toString());
+                  maxStakeLoaded = true;
                 }
-                if (variableName.toLowerCase().includes('loss')) {
+                // Adaptive variable matching checks for target loss threshold conditions
+                if (variableName.toLowerCase().includes('loss') || variableName.toLowerCase().includes('threshold')) {
                   numField.setValue(params.stopLoss.toString());
                 }
-                if (variableName.toLowerCase().includes('profit')) {
+                if (variableName.toLowerCase().includes('profit') || variableName.toLowerCase().includes('target')) {
                   numField.setValue(params.takeProfit.toString());
                 }
               }
@@ -97,9 +112,23 @@ export class DerivScannerBridge {
         }
       });
 
-      alert("🎉 Strategy parameters successfully loaded to blocks! Click 'Run' to activate the execution sequence.");
+      // D. Fallback block parser: Updates any disconnected custom block fields
+      if (!stakeLoaded || !maxStakeLoaded) {
+        allBlocks.forEach((b: any) => {
+          if (b.getField('NUM') && b.getParent()?.type === 'trade_definition_tradeoptions') {
+            b.getField('NUM').setValue(params.stake.toString());
+          }
+        });
+      }
+
+      // Re-render block alignments across your active canvas layout workspace safely
+      if (typeof workspace.render === 'function') {
+        workspace.render();
+      }
+
+      alert(`📥 Strategy Parameters Loaded Successfully!\n\n• Direction: ${params.direction === 'UP' ? 'RISE (CALL)' : 'FALL (PUT)'}\n• Stake: $${params.stake}\n• Stop Loss: $${params.stopLoss}\n• Take Profit: $${params.takeProfit}\n\nClick the pink 'Run' button on your lower panel to activate.`);
     } catch (err) {
-      console.error("AI Loader Matrix Error:", err);
+      console.error("Blockly Input Sync Failure:", err);
     }
   }
 
