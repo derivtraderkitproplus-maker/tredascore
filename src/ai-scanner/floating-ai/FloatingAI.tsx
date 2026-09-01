@@ -14,7 +14,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   const [rawPipelineData, setRawPipelineData] = useState<EvaluationFrame[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  // USER INPUT PARAMETERS CONTROL MATRIX STATE
+  // USER INPUT PARAMETERS CONTROL STATE MATRICES
   const [stake, setStake] = useState<string>('1000');
   const [stopLoss, setStopLoss] = useState<string>('500');
   const [takeProfit, setTakeProfit] = useState<string>('1500');
@@ -77,16 +77,13 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     return sortedProfiles.metrics;
   }, [sortedProfiles]);
 
-  // ACTION TRIGGER: Broadcasts parameter properties straight into workspace block layers
-  const handleLoadBot = () => {
-    if (sortedProfiles.length === 0) return;
-    
-    const topStrategy = sortedProfiles;
+  // ACTION TRIGGER: Pushes active target configuration data metrics down into the workspace block layer
+  const handleLoadBot = (targetDirection: string) => {
     networkBridge.injectDataToBlockly({
-      direction: topStrategy.metrics.direction,
-      stake: parseFloat(stake),
-      stopLoss: parseFloat(stopLoss),
-      takeProfit: parseFloat(takeProfit)
+      direction: targetDirection,
+      stake: parseFloat(stake) || 0,
+      stopLoss: parseFloat(stopLoss) || 0,
+      takeProfit: parseFloat(takeProfit) || 0
     });
   };
 
@@ -178,6 +175,14 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                       </div>
                     </div>
                   </div>
+
+                  {/* FIXED PLACE OUT: Integrated the primary load action link button right inside the parameters drawer block view */}
+                  <button 
+                    className="inner-drawer-load-btn"
+                    onClick={() => handleLoadBot(item.metrics.direction)}
+                  >
+                    📥 Load Strategy Parameters
+                  </button>
                 </div>
               )}
             </div>
@@ -185,13 +190,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
         })}
       </div>
       
-      {/* ACTION LAUNCH TRIGGER LINK BUTTON KEYS */}
-      <button 
-        className="scan-again-btn load-bot-theme-btn" 
-        onClick={handleLoadBot}
-        disabled={sortedProfiles.length === 0}
-      >
-        📥 Load Bot to Workspace
+      {/* ORIGINAL UNBLOCKED RUN CONTROLLER FOOTER KEYS */}
+      <button className="scan-again-btn" onClick={() => setRawPipelineData([])}>
+        ↺ Scan Again / Refresh Ticks
       </button>
     </div>
   );
