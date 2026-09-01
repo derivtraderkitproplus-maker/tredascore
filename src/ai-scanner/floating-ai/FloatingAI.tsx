@@ -63,8 +63,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     }));
   }, [sortedProfiles]);
 
+  // FIXED: Explicit boundary check to target index 0 of your live sorted results array safely
   const globalSummary = useMemo(() => {
-    if (sortedProfiles.length === 0) {
+    if (sortedProfiles.length === 0 || !sortedProfiles[0]) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
     return sortedProfiles[0].metrics;
@@ -124,7 +125,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                 <div className="card-expanded-drawer">
                   <p className="desc">{item.profile.description}</p>
                   
-                  {/* FIXED: Wrapped into distinct flexbox row wrappers with proper gap parameters */}
                   <div className="live-metrics-data-row">
                     <div className="data-cell">
                       <div className="lbl">LIVE MARKET</div>
