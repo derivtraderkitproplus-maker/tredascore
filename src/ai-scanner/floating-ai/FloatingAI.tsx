@@ -1,17 +1,56 @@
-// FloatingAI.tsx (Updated Sorting & Display Logic Segment)
+// FloatingAI.tsx
+import React, { useEffect, useState, useMemo } from 'react';
+import { DerivScannerBridge } from './scannerBridge';
+import { ScannerLogicEngine, EvaluationFrame } from './scannerLogic';
+import { STRATEGY_PROFILES } from './strategies';
+import './FloatingAI.css';
 
-  // 1. Live real-time sorting matrix calculation
+interface FloatingAIProps {
+  derivContext?: any;
+  selectedMarket?: string;
+}
+
+export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selectedMarket = '1HZ100V' }) => {
+  const [rawPipelineData, setRawPipelineData] = useState<EvaluationFrame[]>([]);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
+
+  const logicEngine = useMemo(() => new ScannerLogicEngine(), []);
+  const networkBridge = useMemo(() => new DerivScannerBridge(derivContext), [derivContext]);
+
+  useEffect(() => {
+    if (!selectedMarket) return;
+    logicEngine.setMarket(selectedMarket);
+    setRawPipelineData([]);
+
+    let throttleTimeout: any = null;
+
+    networkBridge.initPipeline([selectedMarket], (symbol, price) => {
+      logicEngine.injectTick(symbol, price);
+      
+      if (!throttleTimeout) {
+        throttleTimeout = setTimeout(() => {
+          const frameAnalysis = logicEngine.runScannerPipeline();
+          setRawPipelineData(frameAnalysis);
+          throttleTimeout = null;
+        }, 100);
+      }
+    });
+
+    return () => {
+      if (throttleTimeout) clearTimeout(throttleTimeout);
+      networkBridge.closePipeline();
+    };
+  }, [selectedMarket, logicEngine, networkBridge]);
+
   const sortedProfiles = useMemo(() => {
     if (rawPipelineData.length === 0) return [];
-    // Enforces descending rank sorting by subtracting final confidence values
     return [...rawPipelineData].sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence);
   }, [rawPipelineData]);
 
-  // 2. FIXED: Fallback array prioritizes live sorted profiles first, only using placeholders if data length is zero
+  // Fallback array initialization populates cards immediately on setup layout loads
   const visualDisplayList = useMemo(() => {
     if (sortedProfiles.length > 0) return sortedProfiles;
     
-    // Default fallback placeholder map when application first mounts or loops load
     return STRATEGY_PROFILES.map(profile => ({
       profile,
       metrics: {
@@ -26,12 +65,11 @@
     }));
   }, [sortedProfiles]);
 
-  // 3. FIXED: Global headers accurately reflect the highest configuration value at array position [0]
+  // Global headers accurately reflect the highest configuration value at array position
   const globalSummary = useMemo(() => {
-    if (sortedProfiles.length === 0) {
+    if (sortedProfiles.length === 0 || !sortedProfiles[0]) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    // Grabs index 0 which is guaranteed to be the highest confidence after sorting executes
     return sortedProfiles[0].metrics;
   }, [sortedProfiles]);
 
@@ -74,7 +112,6 @@
                 className="card-summary" 
                 onClick={() => setActiveTab(isExpanded ? null : item.profile.id)}
               >
-                {/* FIXED: Dynamic card positioning indicator tracking active layout rankings */}
                 <div className="rank-badge">#{index + 1}</div>
                 <div className="meta-details">
                   <h4>{item.profile.name}</h4>
