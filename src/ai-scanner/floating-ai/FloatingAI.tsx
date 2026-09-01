@@ -129,7 +129,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     if (!sourceList || sourceList.length === 0) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    // FIXED CRITICAL INDEX BUG: Targeting explicit top slot item within structural matrix arrays
+    // FIXED: Accessing the first array item explicitly to avoid undefined reference crashes
     return sourceList[0].metrics; 
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
@@ -186,7 +186,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
-
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
