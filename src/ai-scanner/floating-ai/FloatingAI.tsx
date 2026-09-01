@@ -187,6 +187,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
+      
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
@@ -203,6 +204,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                 <div className="rank-badge">#{index + 1}</div>
                 <div className="meta-details">
                   <h4>{item.profile.name}</h4>
+                  {/* ✅ FIXED: Changed from globalSummary to item.metrics to show unique scores per strategy */}
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
                 <span className={`tier-badge ${currentStatus.toLowerCase()}`}>
