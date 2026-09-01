@@ -13,11 +13,9 @@ export class ScannerLogicEngine {
   // --- STABILITY & SINGLE-WINNER LOCK STATE ---
   private currentTopStrategyId: string | null = null;
   private lastLockTime: number = 0;
-  private lockDurationMs: number = 2700;       
-  private isEditingPaused: boolean = false;    
+  private lockDurationMs: number = 2700;       // Explicit 2.7-second transition cycle
+  private isEditingPaused: boolean = false;    // Pauses tick pipeline loops while typing
   private lastEvaluatedFrames: EvaluationFrame[] = [];
-
-  // 🛡️ WATCHDOG COMPONENT: Tracks network tick arrival times
   private lastTickReceivedTimestamp: number = 0;
 
   public injectTick(symbol: string, price: number): void {
@@ -26,8 +24,6 @@ export class ScannerLogicEngine {
     }
     
     this.tickRegistry[symbol].push(price);
-    
-    // Update our network arrival tracking clock on every incoming tick packet
     this.lastTickReceivedTimestamp = Date.now();
 
     if (this.tickRegistry[symbol].length > 120) {
@@ -44,7 +40,7 @@ export class ScannerLogicEngine {
   }
 
   public runScannerPipeline(): EvaluationFrame[] {
-    // 1. If user interaction lock is active, immediately return cached frames
+    // 1. Return cached frame buffers instantly if user interaction lock is engaged
     if (this.isEditingPaused && this.lastEvaluatedFrames.length > 0) {
       return this.lastEvaluatedFrames;
     }
@@ -52,32 +48,30 @@ export class ScannerLogicEngine {
     const currentTicks = this.tickRegistry[this.activeSymbol] || [];
     const currentTime = Date.now();
 
-    // 2. NETWORK SAFETY AUDIT CHECK (WATCHDOG DETECTOR)
-    // If it has been more than 3.5 seconds since the last tick dropped, force a data freeze protection state
+    // 2. NETWORK WATCHDOG OVERRIDE
     const timeSinceLastTick = currentTime - this.lastTickReceivedTimestamp;
-    
     if (this.lastTickReceivedTimestamp > 0 && timeSinceLastTick > 3500) {
       return this.lastEvaluatedFrames.map(frame => ({
         ...frame,
         metrics: {
           ...frame.metrics,
-          marketState: 'STALE_DATA', // Flags clear visual error on header
+          marketState: 'STALE_DATA',
           direction: 'FLAT',
           scannerScore: 0,
           marketCompatibility: 0,
-          finalConfidence: 0,        // Drops confidence to 0% to deny bot loading actions
+          finalConfidence: 0,
           status: 'LOW'
         }
       }));
     }
     
-    // 3. Compute raw metrics across all 30 algorithmic strategies using updated real TA functions
+    // 3. Compute clean raw mathematical metrics across all strategy patterns
     const freshFrames: EvaluationFrame[] = STRATEGY_PROFILES.map(profile => {
       const metrics = evaluateStrategy(profile, currentTicks);
       return { profile, metrics };
     });
 
-    // 4. Multi-factor global ranking optimization layer
+    // 4. MULTI-FACTOR SORTING LAYER: Rank raw profiles by mathematical performance first
     const mathematicallySorted = [...freshFrames].sort((a, b) => {
       const weightA = a.metrics.scannerScore + a.metrics.finalConfidence;
       const weightB = b.metrics.scannerScore + b.metrics.finalConfidence;
@@ -86,9 +80,8 @@ export class ScannerLogicEngine {
 
     const candidateWinner = mathematicallySorted[0];
 
-    // 5. Cooldown Lock Lifecycle Evaluation
+    // 5. Manage Single-Winner Stability Lock Cooldowns
     const isLockExpired = (currentTime - this.lastLockTime) > this.lockDurationMs;
-    
     const currentWinnerStillViable = freshFrames.some(
       f => f.profile.id === this.currentTopStrategyId && f.metrics.finalConfidence >= 72
     );
@@ -102,7 +95,7 @@ export class ScannerLogicEngine {
       }
     }
 
-    // 6. Enforce explicit status value isolation logic
+    // 6. Explicitly assign status values relative to our isolated single-winner anchor ID
     const finalizedFrames = freshFrames.map(frame => {
       const isIsolatedWinner = this.currentTopStrategyId && (frame.profile.id === this.currentTopStrategyId);
 
@@ -110,12 +103,21 @@ export class ScannerLogicEngine {
         ...frame,
         metrics: {
           ...frame.metrics,
+          // Assign clean status overrides without cross-contaminating other item objects
           status: isIsolatedWinner ? 'HIGH' : (frame.metrics.finalConfidence >= 62 ? 'MEDIUM' : 'LOW')
         }
       };
     });
 
-    this.lastEvaluatedFrames = finalizedFrames;
-    return finalizedFrames;
+    // 7. FIXED STRUCTURAL HOOK: Enforce final rank sort before caching data out to React
+    const rankedOutput = finalizedFrames.sort((a, b) => {
+      const scoreA = a.metrics.status === 'HIGH' ? 2 : (a.metrics.status === 'MEDIUM' ? 1 : 0);
+      const scoreB = b.metrics.status === 'HIGH' ? 2 : (b.metrics.status === 'MEDIUM' ? 1 : 0);
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return b.metrics.finalConfidence - a.metrics.finalConfidence;
+    });
+
+    this.lastEvaluatedFrames = rankedOutput;
+    return rankedOutput;
   }
 }
