@@ -105,14 +105,16 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       }
     }));
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
-
+// FloatingAI.tsx - PART 2
   const globalSummary = useMemo(() => {
     const sourceList = activeTab ? frozenDisplayList : liveSortedProfiles;
-    if (sourceList.length === 0) {
+    if (sourceList.length === 0 || !sourceList) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    return sourceList[0].metrics;
-  }, [liveSortedProfiles, frozenDisplayList, activeTab]);
+    const topItem = sourceList[0];
+    const liveUpdate = rawPipelineData.find(r => r.profile.id === topItem.profile.id);
+    return liveUpdate ? liveUpdate.metrics : topItem.metrics;
+  }, [liveSortedProfiles, frozenDisplayList, activeTab, rawPipelineData]);
 
   const handleLoadBot = (targetDirection: string) => {
     networkBridge.injectDataToBlockly({
@@ -122,7 +124,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       takeProfit: parseFloat(takeProfit) || 0
     });
 
-    // FIXED: Closes panel modal window instantly after workspace synchronization processes
     if (typeof onCloseScanner === 'function') {
       onCloseScanner();
     }
@@ -133,7 +134,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     setRawPipelineData([]);
     setFrozenDisplayList([]);
     let basePrice = 845.20;
-    const targetSymbol = selectedMarket === 'R_100' ? '1HZ100V' : selectedMarket;
+    const targetSymbol = (currentMarket === 'R_100' || currentMarket === 'Volatility 100 (1s) Index') ? '1HZ100V' : currentMarket;
     for (let i = 0; i < 115; i++) {
       const noise = (Math.random() - 0.5) * 0.45;
       basePrice += noise;
@@ -147,7 +148,31 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     <div className="ai-strategy-scanner">
       <div className="scanner-header">
         <h3>AI Strategy Scanner</h3>
-        <span className="profile-counter">30/30</span>
+        
+        <select 
+          className="market-selector-dropdown"
+          value={currentMarket}
+          onChange={(e) => setCurrentMarket(e.target.value)}
+          style={{
+            background: '#141724',
+            color: '#ffffff',
+            border: '1px solid #1e2235',
+            padding: '4px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            outline: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          <option value="1HZ100V">Volatility 100 (1s)</option>
+          <option value="1HZ75V">Volatility 75 (1s)</option>
+          <option value="1HZ50V">Volatility 50 (1s)</option>
+          <option value="1HZ25V">Volatility 25 (1s)</option>
+          <option value="1HZ10V">Volatility 10 (1s)</option>
+          <option value="BOOM1000">Boom 1000 Index</option>
+          <option value="CRASH1000">Crash 1000 Index</option>
+        </select>
       </div>
 
       <div className="scanner-subheader-text">
@@ -178,7 +203,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
             <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
               <div 
                 className="card-summary" 
-                onClick={() => setActiveTab(isExpanded ? null : item.profile.id)}
+                onClick={() => handleToggleTab(item.profile.id)}
               >
                 <div className="rank-badge">#{index + 1}</div>
                 <div className="meta-details">
@@ -235,7 +260,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
               )}
             </div>
           );
-          
         })}
       </div>
       
