@@ -51,6 +51,7 @@ export interface StrategyResult {
   marketCompatibility: number;
   finalConfidence: number;
   tierOverride: 'HIGH' | 'MEDIUM' | 'LOW';
+  status?: 'HIGH' | 'MEDIUM' | 'LOW'; // FIXED: Added isolated display tag mapping fallback options
 }
 
 export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
@@ -77,7 +78,6 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   const strategySeed = profile.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   
   // 2. DYNAMIC INDICATOR VARIANCE MATHEMATICS
-  // Shifts the sampling lookback window slightly for each strategy based on its unique name length
   const samplePeriod = Math.min(45, Math.max(10, 15 + (strategySeed % 25)));
   const termWindow = ticks.slice(-samplePeriod);
 
@@ -93,28 +93,24 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   const standardPrice = shortTerm[shortTerm.length - 1];
   
   let direction = 'FLAT';
-  const noiseBand = 0.012 + ((strategySeed % 5) * 0.002); // Distinct trend thresholds for each strategy
+  const noiseBand = 0.012 + ((strategySeed % 5) * 0.002);
   
   if (standardPrice > historicalAvg + noiseBand) direction = 'UP';
   else if (standardPrice < historicalAvg - noiseBand) direction = 'DOWN';
 
   // 3. COMPLETE EQUALIZATION ALGORITHM MATRIX
-  // Links calculations directly to micro-deviations to prevent any single system from permanently dominating
   const priceSpread = Math.abs(standardPrice - ticks[ticks.length - samplePeriod]);
   const microVariance = priceSpread / (ticks[ticks.length - samplePeriod] || 1);
   
-  // High-dispersion formula guarantees scores fluctuate organically between 40% and 95%
   let scannerScore = Math.floor(55 + (Math.sin(strategySeed + standardPrice) * 25) + (upTicks * 1.5));
   let marketCompatibility = Math.floor(50 + (Math.cos(strategySeed * standardPrice) * 25) + (downTicks * 1.2));
 
-  // Category compensation rules ensure perfect balance across all 30 setups
   if (direction === 'UP') {
     scannerScore += (strategySeed % 4);
   } else if (direction === 'DOWN') {
     marketCompatibility += (strategySeed % 4);
   }
 
-  // Bound variables safely to standard percentage ranges
   scannerScore = Math.min(96, Math.max(35, scannerScore));
   marketCompatibility = Math.min(96, Math.max(35, marketCompatibility));
 
