@@ -2,12 +2,18 @@
 
 export type TickCallback = (symbol: string, tick: number) => void;
 
+export interface BotParameters {
+  direction: string;
+  stake: number;
+  stopLoss: number;
+  takeProfit: number;
+}
+
 export class DerivScannerBridge {
   private ws: WebSocket | null = null;
   private onTickCallback: TickCallback | null = null;
   private activeSymbols: string[] = [];
   private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
-  private simulationInterval: any = null;
 
   constructor(private appCtx: any) {
     this.extractSystemSocket();
@@ -16,34 +22,19 @@ export class DerivScannerBridge {
   private extractSystemSocket(): void {
     const globalWin = window as any;
     if (this.appCtx) {
-      this.ws = 
-        this.appCtx.websocketInstance || 
-        this.appCtx.ws || 
-        this.appCtx.socket || 
-        this.appCtx.api?.api?.ws ||
-        this.appCtx.api?.ws;
+      this.ws = this.appCtx.websocketInstance || this.appCtx.ws || this.appCtx.socket || this.appCtx.api?.api?.ws;
     }
     if (!this.ws) {
-      this.ws = 
-        globalWin.derivWebSocket || 
-        globalWin.ws || 
-        globalWin.socket || 
-        globalWin.g_wallet_socket ||
-        globalWin.Blockly?.derivWorkspace?.socket ||
-        globalWin.Blockly?.derivWorkspace?.connection_?.websocket_ ||
-        globalWin.Blockly?.mainWorkspace?.connection_?.websocket_;
+      this.ws = globalWin.derivWebSocket || globalWin.ws || globalWin.socket || globalWin.Blockly?.derivWorkspace?.socket;
     }
   }
 
   public initPipeline(symbols: string[], onTick: TickCallback): void {
     this.onTickCallback = onTick;
-    this.activeSymbols = symbols.map(s => 
-      (s === 'R_100' || s === 'Volatility 100 (1s) Index' || s === '1HZ100V') ? '1HZ100V' : s
-    );
+    this.activeSymbols = symbols.map(s => (s === 'R_100' || s === 'Volatility 100 (1s) Index' || s === '1HZ100V') ? '1HZ100V' : s);
 
     this.extractSystemSocket();
 
-    // If socket is open and ready, listen to live messages
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.boundMessageHandler = (event: MessageEvent) => {
         try {
@@ -58,41 +49,70 @@ export class DerivScannerBridge {
       };
       this.ws.addEventListener('message', this.boundMessageHandler);
     }
-
-    // ACTIVATE AUTOMATED SIMULATOR: Runs immediately to guarantee the counts move past 0/100
-    this.startLiveSimulation();
   }
 
-  private startLiveSimulation(): void {
-    if (this.simulationInterval) clearInterval(this.simulationInterval);
-
-    console.log("AI Scanner Pipeline: Activating dynamic lookback generation arrays...");
-
-    // 1. INSTANT COLD-START FILLER: Pre-populates 95 records in 1 millisecond so users don't wait
-    const targetSymbol = this.activeSymbols[0] || '1HZ100V';
-    let basePrice = 845.20; // Simulated baseline price indicator node
+  // CORE DATA WORKSPACE BROKER CODE TRANSFERS MATRICES DIRECTLY TO BLOCKLY WORKFLOWS
+  public injectDataToBlockly(params: BotParameters): void {
+    const globalWin = window as any;
+    const workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
-    for (let i = 0; i < 95; i++) {
-      const noise = (Math.random() - 0.5) * 0.45;
-      basePrice += noise;
-      this.onTickCallback?.(targetSymbol, basePrice);
+    if (!workspace) {
+      console.warn("AI Loader Bridge: Active Blockly Workspace Canvas object layer could not be mapped.");
+      return;
     }
 
-    // 2. CONTINUOUS LIVE PULSE: Appends 1 new tracking quote coordinate every single second
-    this.simulationInterval = setInterval(() => {
-      const target = this.activeSymbols[0] || '1HZ100V';
-      const noise = (Math.random() - 0.5) * 0.60;
-      basePrice += noise;
-      
-      // Emit tick value seamlessly back to your local strategy logic scripts
-      this.onTickCallback?.(target, basePrice);
-    }, 1000);
+    console.log("🤖 AI Loader: Transferring parameter fields straight to canvas block matrices...", params);
+
+    try {
+      const allBlocks = workspace.getAllBlocks(false);
+
+      allBlocks.forEach((block: any) => {
+        // A. Inject Entry Staking Choice Parameters (CALL / PUT)
+        if (block.type === 'purchase') {
+          const purchaseField = block.getField('PURCHASE_LIST');
+          if (purchaseField) {
+            purchaseField.setValue(params.direction === 'UP' ? 'CALL' : 'PUT');
+          }
+        }
+
+        // B. Update Variable Block Assignment Text Nodes
+        if (block.type === 'variables_set') {
+          const fieldVar = block.getField('VAR');
+          if (fieldVar) {
+            const variableName = fieldVar.getText();
+            
+            // Search inside block nodes for standard child value text nodes
+            const valueInput = block.getInput('VALUE');
+            if (valueInput && valueInput.connection && valueInput.connection.targetBlock()) {
+              const targetBlock = valueInput.connection.targetBlock();
+              const numField = targetBlock.getField('NUM');
+              
+              if (numField) {
+                if (variableName.toLowerCase().includes('stake')) {
+                  numField.setValue(params.stake.toString());
+                }
+                if (variableName.toLowerCase().includes('loss')) {
+                  numField.setValue(params.stopLoss.toString());
+                }
+                if (variableName.toLowerCase().includes('profit')) {
+                  numField.setValue(params.takeProfit.toString());
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Flashes visual feedback notifications on your platform trading dashboard
+      if (globalWin.Blockly?.WidgetManager) {
+        alert("🎉 Strategy parameters successfully loaded to blocks! Click 'Run' to activate the execution sequence.");
+      }
+    } catch (err) {
+      console.error("AI Loader Matrix Exception Error:", err);
+    }
   }
 
   public closePipeline(): void {
-    if (this.simulationInterval) {
-      clearInterval(this.simulationInterval);
-    }
     if (this.ws && this.boundMessageHandler) {
       this.ws.removeEventListener('message', this.boundMessageHandler);
     }
