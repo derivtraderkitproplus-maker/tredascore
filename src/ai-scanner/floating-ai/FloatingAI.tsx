@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { DerivScannerBridge } from './scannerBridge';
 import { ScannerLogicEngine, EvaluationFrame } from './scannerLogic';
+import { STRATEGY_PROFILES } from './strategies';
 import './FloatingAI.css';
 
 interface FloatingAIProps {
@@ -17,15 +18,26 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   const networkBridge = useMemo(() => new DerivScannerBridge(derivContext), [derivContext]);
 
   useEffect(() => {
+    if (!selectedMarket) return;
     logicEngine.setMarket(selectedMarket);
+    setRawPipelineData([]); // Clean container view metrics during asset transitions
+
+    let throttleTimeout: any = null;
 
     networkBridge.initPipeline([selectedMarket], (symbol, price) => {
       logicEngine.injectTick(symbol, price);
-      const frameAnalysis = logicEngine.runScannerPipeline();
-      setRawPipelineData(frameAnalysis);
+      
+      if (!throttleTimeout) {
+        throttleTimeout = setTimeout(() => {
+          const frameAnalysis = logicEngine.runScannerPipeline();
+          setRawPipelineData(frameAnalysis);
+          throttleTimeout = null;
+        }, 100); // Batches calculations into safe rendering frame blocks
+      }
     });
 
     return () => {
+      if (throttleTimeout) clearTimeout(throttleTimeout);
       networkBridge.closePipeline();
     };
   }, [selectedMarket, logicEngine, networkBridge]);
@@ -34,6 +46,25 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     if (rawPipelineData.length === 0) return [];
     return [...rawPipelineData].sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence);
   }, [rawPipelineData]);
+
+  // FIXED: Fallback array initialization populates cards immediately on setup layout loads
+  const visualDisplayList = useMemo(() => {
+    if (sortedProfiles.length > 0) return sortedProfiles;
+    
+    // Maps your explicit profile definitions to baseline structures to prevent window layout collapse
+    return STRATEGY_PROFILES.map(profile => ({
+      profile,
+      metrics: {
+        profileId: profile.id,
+        ticksLoaded: 0,
+        marketState: 'INSUFFICIENT_DATA',
+        direction: 'FLAT',
+        scannerScore: 0,
+        marketCompatibility: 0,
+        finalConfidence: 0
+      }
+    }));
+  }, [sortedProfiles]);
 
   // Safely extract global top metrics card frame summary values
   const globalSummary = useMemo(() => {
@@ -74,7 +105,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       </p>
 
       <div className="strategy-scroll-list">
-        {sortedProfiles.map((item, index) => {
+        {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
           return (
             <div key={item.profile.id} className="strategy-card-node">
@@ -161,4 +192,5 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     </div>
   );
 };
+
 export default FloatingAI;
