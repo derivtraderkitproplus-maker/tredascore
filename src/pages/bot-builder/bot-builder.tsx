@@ -17,7 +17,7 @@ import WorkspaceWrapper from './workspace-wrapper';
 
 const BotBuilder = observer(() => {
     const { dashboard, app, run_panel, toolbar, quick_strategy, blockly_store } = useStore();
-    const { active_tab, active_tour, is_preview_on_popup } = dashboard;
+    const { active_tab, active_tour, is_preview_on_popup, setActiveTab } = dashboard;
     const { is_open } = quick_strategy;
     const { is_running } = run_panel;
     const { is_loading } = blockly_store;
@@ -26,6 +26,9 @@ const BotBuilder = observer(() => {
     const { isDesktop } = useDevice();
     const { onMount, onUnmount } = app;
     const el_ref = React.useRef<HTMLInputElement | null>(null);
+
+    // State controlling local UI modal presentation overlay layer
+    const [isAiScannerOpen, setIsAiScannerOpen] = React.useState(false);
 
     let deleted_block_id: null | string = null;
 
@@ -139,7 +142,72 @@ const BotBuilder = observer(() => {
             <SaveModal />
             {is_open && <QuickStrategy1 />}
 
-            {active_tab === 1 && !is_preview_on_popup && <FloatingAI />}
+            {/* Floating Quick Action Launcher Button - Visible only inside Bot Builder view tab context */}
+            {active_tab === 1 && !is_preview_on_popup && (
+                <button 
+                    className='ai-scanner-launcher-btn'
+                    onClick={() => setIsAiScannerOpen(!isAiScannerOpen)}
+                    style={{
+                        position: 'fixed',
+                        bottom: '85px',
+                        right: '20px',
+                        background: 'linear-gradient(135deg, #7c5dfa 0%, #5078ff 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '12px 18px',
+                        borderRadius: '30px',
+                        fontWeight: 'bold',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        zIndex: 999,
+                        boxShadow: '0 4px 15px rgba(124, 93, 250, 0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                    }}
+                >
+                    <span>✨</span> {isAiScannerOpen ? localize('Close Scanner') : localize('AI Scanner')}
+                </button>
+            )}
+
+            {/* Centered Modal Backdrop Layer Overlay containing the 30 profile engine modules */}
+            {active_tab === 1 && !is_preview_on_popup && isAiScannerOpen && (
+                <div 
+                    className='ai-scanner-floating-overlay-container'
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100vw',
+                        height: '100vh',
+                        zIndex: 1000,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        background: 'rgba(5, 7, 13, 0.6)',
+                        backdropFilter: 'blur(4px)',
+                        padding: '20px',
+                        boxSizing: 'border-box'
+                    }}
+                >
+                    <div 
+                        className='close-overlay-hitbox' 
+                        onClick={() => setIsAiScannerOpen(false)}
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            zIndex: -1
+                        }}
+                    />
+                    <div style={{ width: '100%', maxWidth: '450px' }}>
+                        {/* Passes downstream the central connection handle context from active global workspace instance */}
+                        <FloatingAI derivContext={app} selectedMarket='R_100' />
+                    </div>
+                </div>
+            )}
         </>
     );
 });
