@@ -126,7 +126,9 @@ export class DerivScannerBridge {
         workspace.render();
       }
 
-      alert(`📥 Strategy Parameters Loaded Successfully!\n\n• Direction: ${params.direction === 'UP' ? 'RISE (CALL)' : 'FALL (PUT)'}\n• Stake: $${params.stake}\n• Stop Loss: $${params.stopLoss}\n• Take Profit: $${params.takeProfit}\n\nClick the pink 'Run' button on your lower panel to activate.`);
+      // FIXED NOTIFICATION STRING LOGIC BLOCK TEXT NODES
+      alert("you have successfully imported a bot, click run");
+
     } catch (err) {
       console.error("Blockly Input Sync Failure:", err);
     }
