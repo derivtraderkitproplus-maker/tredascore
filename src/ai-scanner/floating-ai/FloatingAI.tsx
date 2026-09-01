@@ -127,7 +127,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
   const globalSummary = useMemo(() => {
-    // FAIL-SAFE OVERRIDE: Link header states explicitly to the visual list's actual #1 position element
     if (visualDisplayList && visualDisplayList.length > 0 && visualDisplayList[0].metrics) {
       return visualDisplayList[0].metrics;
     }
@@ -139,7 +138,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       direction: targetDirection,
       stake: parseFloat(stake) || 0,
       stopLoss: parseFloat(stopLoss) || 0,
-      takeProfit: parseFloat(takeProfit) || 0
+      takeProfit: parseFloat(takeProfit) || 0,
+      // ✅ MAX RUN LIMIT IMPLEMENTATION: Sets limit to exactly 6 runs before thread cutoff
+      maxRuns: 6 
     });
 
     if (typeof onCloseScanner === 'function') {
@@ -187,7 +188,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
-      
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
@@ -204,7 +204,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                 <div className="rank-badge">#{index + 1}</div>
                 <div className="meta-details">
                   <h4>{item.profile.name}</h4>
-                  {/* ✅ FIXED: Changed from globalSummary to item.metrics to show unique scores per strategy */}
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
                 <span className={`tier-badge ${currentStatus.toLowerCase()}`}>
@@ -224,8 +223,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                         type="number" 
                         value={stake} 
                         onChange={(e) => setStake(e.target.value)}
-                        onFocus={() => setIsTypingFocused(true)}  // Locks ticker frames during parameter changes
-                        onBlur={() => setIsTypingFocused(false)}   // Re-enables ticker streams on blur
+                        onFocus={() => setIsTypingFocused(true)}
+                        onBlur={() => setIsTypingFocused(false)}
                       />
                     </div>
                     <div className="input-cell">
@@ -234,8 +233,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                         type="number" 
                         value={stopLoss} 
                         onChange={(e) => setStopLoss(e.target.value)}
-                        onFocus={() => setIsTypingFocused(true)}  // Protects user selection fields
-                        onBlur={() => setIsTypingFocused(false)}   
+                        onFocus={() => setIsTypingFocused(true)}
+                        onBlur={() => setIsTypingFocused(false)}
                       />
                     </div>
                     <div className="input-cell">
@@ -244,8 +243,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                         type="number" 
                         value={takeProfit} 
                         onChange={(e) => setTakeProfit(e.target.value)}
-                        onFocus={() => setIsTypingFocused(true)}  // Halts tracking modifications mid-keystroke
-                        onBlur={() => setIsTypingFocused(false)}   
+                        onFocus={() => setIsTypingFocused(true)}
+                        onBlur={() => setIsTypingFocused(false)}
                       />
                     </div>
                   </div>
