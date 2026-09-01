@@ -13,12 +13,12 @@ export class ScannerLogicEngine {
   // --- STABILITY & SINGLE-WINNER LOCK STATE ---
   private currentTopStrategyId: string | null = null;
   private lastLockTime: number = 0;
-  
-  // FIXED LOCK TIMING: Set to exactly 2.7 seconds to accelerate strategic rotation cycles
   private lockDurationMs: number = 2700;       
-  
-  private isEditingPaused: boolean = false;    // Freezes incoming stream frames if true
+  private isEditingPaused: boolean = false;    
   private lastEvaluatedFrames: EvaluationFrame[] = [];
+
+  // 🛡️ WATCHDOG COMPONENT: Tracks network tick arrival times
+  private lastTickReceivedTimestamp: number = 0;
 
   public injectTick(symbol: string, price: number): void {
     if (!this.tickRegistry[symbol]) {
@@ -26,6 +26,9 @@ export class ScannerLogicEngine {
     }
     
     this.tickRegistry[symbol].push(price);
+    
+    // Update our network arrival tracking clock on every incoming tick packet
+    this.lastTickReceivedTimestamp = Date.now();
 
     if (this.tickRegistry[symbol].length > 120) {
       this.tickRegistry[symbol].shift();
@@ -36,10 +39,6 @@ export class ScannerLogicEngine {
     this.activeSymbol = symbol;
   }
 
-  /**
-   * Externally pauses the data pipeline processing layout 
-   * to guarantee zero text field jumping mid-keystroke.
-   */
   public setEditingState(isEditing: boolean): void {
     this.isEditingPaused = isEditing;
   }
@@ -52,14 +51,33 @@ export class ScannerLogicEngine {
 
     const currentTicks = this.tickRegistry[this.activeSymbol] || [];
     const currentTime = Date.now();
+
+    // 2. NETWORK SAFETY AUDIT CHECK (WATCHDOG DETECTOR)
+    // If it has been more than 3.5 seconds since the last tick dropped, force a data freeze protection state
+    const timeSinceLastTick = currentTime - this.lastTickReceivedTimestamp;
     
-    // 2. Compute raw metrics across all 30 algorithmic strategies
+    if (this.lastTickReceivedTimestamp > 0 && timeSinceLastTick > 3500) {
+      return this.lastEvaluatedFrames.map(frame => ({
+        ...frame,
+        metrics: {
+          ...frame.metrics,
+          marketState: 'STALE_DATA', // Flags clear visual error on header
+          direction: 'FLAT',
+          scannerScore: 0,
+          marketCompatibility: 0,
+          finalConfidence: 0,        // Drops confidence to 0% to deny bot loading actions
+          status: 'LOW'
+        }
+      }));
+    }
+    
+    // 3. Compute raw metrics across all 30 algorithmic strategies using updated real TA functions
     const freshFrames: EvaluationFrame[] = STRATEGY_PROFILES.map(profile => {
       const metrics = evaluateStrategy(profile, currentTicks);
       return { profile, metrics };
     });
 
-    // 3. Multi-factor global ranking optimization layer
+    // 4. Multi-factor global ranking optimization layer
     const mathematicallySorted = [...freshFrames].sort((a, b) => {
       const weightA = a.metrics.scannerScore + a.metrics.finalConfidence;
       const weightB = b.metrics.scannerScore + b.metrics.finalConfidence;
@@ -68,25 +86,23 @@ export class ScannerLogicEngine {
 
     const candidateWinner = mathematicallySorted[0];
 
-    // 4. Cooldown Lock Lifecycle Evaluation
+    // 5. Cooldown Lock Lifecycle Evaluation
     const isLockExpired = (currentTime - this.lastLockTime) > this.lockDurationMs;
     
-    // Verify if our locked strategy is still trade-viable (Confidence >= 72%)
     const currentWinnerStillViable = freshFrames.some(
       f => f.profile.id === this.currentTopStrategyId && f.metrics.finalConfidence >= 72
     );
 
-    // If lock has run out, or nothing is locked, or the current choice tanked, select a new anchor
     if (isLockExpired || !this.currentTopStrategyId || !currentWinnerStillViable) {
       if (candidateWinner && candidateWinner.metrics.finalConfidence >= 75) {
         this.currentTopStrategyId = candidateWinner.profile.id;
         this.lastLockTime = currentTime;
       } else {
-        this.currentTopStrategyId = null; // Clears target if no framework matches threshold criteria
+        this.currentTopStrategyId = null; 
       }
     }
 
-    // 5. Explicitly isolate status values so only ONE is flagged high globally
+    // 6. Enforce explicit status value isolation logic
     const finalizedFrames = freshFrames.map(frame => {
       const isIsolatedWinner = this.currentTopStrategyId && (frame.profile.id === this.currentTopStrategyId);
 
@@ -94,13 +110,11 @@ export class ScannerLogicEngine {
         ...frame,
         metrics: {
           ...frame.metrics,
-          // Explicitly map out local statuses relative to our global single-winner state
           status: isIsolatedWinner ? 'HIGH' : (frame.metrics.finalConfidence >= 62 ? 'MEDIUM' : 'LOW')
         }
       };
     });
 
-    // Store history cache reference before exiting calculation layer
     this.lastEvaluatedFrames = finalizedFrames;
     return finalizedFrames;
   }
