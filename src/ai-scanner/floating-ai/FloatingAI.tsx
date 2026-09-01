@@ -105,16 +105,14 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       }
     }));
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
-// FloatingAI.tsx - PART 2
+
   const globalSummary = useMemo(() => {
     const sourceList = activeTab ? frozenDisplayList : liveSortedProfiles;
-    if (sourceList.length === 0 || !sourceList) {
+    if (sourceList.length === 0) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    const topItem = sourceList[0];
-    const liveUpdate = rawPipelineData.find(r => r.profile.id === topItem.profile.id);
-    return liveUpdate ? liveUpdate.metrics : topItem.metrics;
-  }, [liveSortedProfiles, frozenDisplayList, activeTab, rawPipelineData]);
+    return sourceList[0].metrics;
+  }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
   const handleLoadBot = (targetDirection: string) => {
     networkBridge.injectDataToBlockly({
@@ -124,6 +122,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       takeProfit: parseFloat(takeProfit) || 0
     });
 
+    // FIXED: Closes panel modal window instantly after workspace synchronization processes
     if (typeof onCloseScanner === 'function') {
       onCloseScanner();
     }
@@ -134,7 +133,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     setRawPipelineData([]);
     setFrozenDisplayList([]);
     let basePrice = 845.20;
-    const targetSymbol = (currentMarket === 'R_100' || currentMarket === 'Volatility 100 (1s) Index') ? '1HZ100V' : currentMarket;
+    const targetSymbol = selectedMarket === 'R_100' ? '1HZ100V' : selectedMarket;
     for (let i = 0; i < 115; i++) {
       const noise = (Math.random() - 0.5) * 0.45;
       basePrice += noise;
@@ -148,31 +147,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     <div className="ai-strategy-scanner">
       <div className="scanner-header">
         <h3>AI Strategy Scanner</h3>
-        
-        <select 
-          className="market-selector-dropdown"
-          value={currentMarket}
-          onChange={(e) => setCurrentMarket(e.target.value)}
-          style={{
-            background: '#141724',
-            color: '#ffffff',
-            border: '1px solid #1e2235',
-            padding: '4px 8px',
-            borderRadius: '6px',
-            fontSize: '11px',
-            fontWeight: 'bold',
-            outline: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          <option value="1HZ100V">Volatility 100 (1s)</option>
-          <option value="1HZ75V">Volatility 75 (1s)</option>
-          <option value="1HZ50V">Volatility 50 (1s)</option>
-          <option value="1HZ25V">Volatility 25 (1s)</option>
-          <option value="1HZ10V">Volatility 10 (1s)</option>
-          <option value="BOOM1000">Boom 1000 Index</option>
-          <option value="CRASH1000">Crash 1000 Index</option>
-        </select>
+        <span className="profile-counter">30/30</span>
       </div>
 
       <div className="scanner-subheader-text">
@@ -203,7 +178,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
             <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
               <div 
                 className="card-summary" 
-                onClick={() => handleToggleTab(item.profile.id)}
+                onClick={() => setActiveTab(isExpanded ? null : item.profile.id)}
               >
                 <div className="rank-badge">#{index + 1}</div>
                 <div className="meta-details">
@@ -260,172 +235,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
               )}
             </div>
           );
-        })}
-      </div>
-      
-      <button className="scan-again-btn" onClick={handleResetMetrics}>
-        ↺ Unfreeze & Refresh Ticks
-      </button>
-    </div>
-  );
-};
-
-export default FloatingAI;
-// FloatingAI.tsx - PART 2
-  const globalSummary = useMemo(() => {
-    const sourceList = activeTab ? frozenDisplayList : liveSortedProfiles;
-    if (sourceList.length === 0 || !sourceList) {
-      return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
-    }
-    const topItem = sourceList[0];
-    const liveUpdate = rawPipelineData.find(r => r.profile.id === topItem.profile.id);
-    return liveUpdate ? liveUpdate.metrics : topItem.metrics;
-  }, [liveSortedProfiles, frozenDisplayList, activeTab, rawPipelineData]);
-
-  const handleLoadBot = (targetDirection: string) => {
-    networkBridge.injectDataToBlockly({
-      direction: targetDirection,
-      stake: parseFloat(stake) || 0,
-      stopLoss: parseFloat(stopLoss) || 0,
-      takeProfit: parseFloat(takeProfit) || 0
-    });
-
-    if (typeof onCloseScanner === 'function') {
-      onCloseScanner();
-    }
-  };
-
-  const handleResetMetrics = () => {
-    setActiveTab(null);
-    setRawPipelineData([]);
-    setFrozenDisplayList([]);
-    let basePrice = 845.20;
-    const targetSymbol = (currentMarket === 'R_100' || currentMarket === 'Volatility 100 (1s) Index') ? '1HZ100V' : currentMarket;
-    for (let i = 0; i < 115; i++) {
-      const noise = (Math.random() - 0.5) * 0.45;
-      basePrice += noise;
-      logicEngine.injectTick(targetSymbol, basePrice);
-    }
-    const resetFrame = logicEngine.runScannerPipeline();
-    setRawPipelineData(resetFrame);
-  };
-
-  return (
-    <div className="ai-strategy-scanner">
-      <div className="scanner-header">
-        <h3>AI Strategy Scanner</h3>
-        
-        <select 
-          className="market-selector-dropdown"
-          value={currentMarket}
-          onChange={(e) => setCurrentMarket(e.target.value)}
-          style={{
-            background: '#141724',
-            color: '#ffffff',
-            border: '1px solid #1e2235',
-            padding: '4px 8px',
-            borderRadius: '6px',
-            fontSize: '11px',
-            fontWeight: 'bold',
-            outline: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          <option value="1HZ100V">Volatility 100 (1s)</option>
-          <option value="1HZ75V">Volatility 75 (1s)</option>
-          <option value="1HZ50V">Volatility 50 (1s)</option>
-          <option value="1HZ25V">Volatility 25 (1s)</option>
-          <option value="1HZ10V">Volatility 10 (1s)</option>
-          <option value="BOOM1000">Boom 1000 Index</option>
-          <option value="CRASH1000">Crash 1000 Index</option>
-        </select>
-      </div>
-
-      <div className="scanner-subheader-text">
-        {activeTab ? "🔒 Metrics Locked for Editing Parameters" : "High-confidence profiles rank on top. Tap to lock & edit."}
-      </div>
-
-      <div className="metrics-banner-grid">
-        <div className="metric-box">
-          <label>MARKET STATE</label>
-          <div className="val">{globalSummary.marketState}</div>
-        </div>
-        <div className="metric-box">
-          <label>DIRECTION</label>
-          <div className="val highlight-yellow">{globalSummary.direction}</div>
-        </div>
-        <div className="metric-box">
-          <label>CONFIDENCE</label>
-          <div className="val">{globalSummary.finalConfidence}%</div>
-        </div>
-      </div>
-
-      <div className="strategy-scroll-list">
-        {visualDisplayList.map((item, index) => {
-          const isExpanded = activeTab === item.profile.id;
-          const currentTier = item.metrics.tierOverride || item.profile.tier;
           
-          return (
-            <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
-              <div 
-                className="card-summary" 
-                onClick={() => handleToggleTab(item.profile.id)}
-              >
-                <div className="rank-badge">#{index + 1}</div>
-                <div className="meta-details">
-                  <h4>{item.profile.name}</h4>
-                  <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
-                </div>
-                <span className={`tier-badge ${currentTier.toLowerCase()}`}>
-                  {currentTier}
-                </span>
-                <span className="arrow-toggle">{isExpanded ? '▲' : '▼'}</span>
-              </div>
-
-              {isExpanded && (
-                <div className="card-expanded-drawer">
-                  <p className="desc">{item.profile.description}</p>
-                  
-                  <div className="ai-input-parameter-grid">
-                    <div className="input-cell">
-                      <label>STAKE (USD)</label>
-                      <input type="number" value={stake} onChange={(e) => setStake(e.target.value)} />
-                    </div>
-                    <div className="input-cell">
-                      <label>STOP LOSS</label>
-                      <input type="number" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} />
-                    </div>
-                    <div className="input-cell">
-                      <label>TAKE PROFIT</label>
-                      <input type="number" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} />
-                    </div>
-                  </div>
-
-                  <div className="live-metrics-data-row">
-                    <div className="data-cell">
-                      <div className="lbl">LIVE MARKET</div>
-                      <div className="txt-bold">{item.metrics.marketState}</div>
-                    </div>
-                    <div className="data-cell">
-                      <div className="lbl">DIRECTION</div>
-                      <div className="txt-bold highlight-yellow">{item.metrics.direction}</div>
-                    </div>
-                    <div className="data-cell">
-                      <div className="lbl">STATUS</div>
-                      <div className="txt-bold highlight-purple">READY</div>
-                    </div>
-                  </div>
-
-                  <button 
-                    className="inner-drawer-load-btn"
-                    onClick={() => handleLoadBot(item.metrics.direction)}
-                  >
-                    📥 Load Strategy Parameters
-                  </button>
-                </div>
-              )}
-            </div>
-          );
         })}
       </div>
       
