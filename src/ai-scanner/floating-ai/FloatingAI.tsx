@@ -1,852 +1,109 @@
-import React, {
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-    PointerEvent,
-} from 'react';
-
-import { useStore } from '@/hooks/useStore';
-
-import {
-    AI_STRATEGIES,
-    AIStrategy,
-} from './strategies';
-
-import {
-    analyzeMarket,
-    calculateMarketCompatibility,
-    MarketAnalysis,
-} from './scannerLogic';
-
-import { api_base } from '@/external/bot-skeleton/services/api/api-base';
-
+// FloatingAI.tsx
+import React, { useEffect, useState, useMemo } from 'react';
+import { DerivScannerBridge } from './scannerBridge';
+import { ScannerLogicEngine } from './scannerLogic';
 import './FloatingAI.css';
 
-/*
- * ============================================================
- * ENGINE SYSTEM TYPES
- * ============================================================
- */
-
-type ScannerResult = AIStrategy & {
-    scannerScore: number;
-    marketCompatibility: number;
-    rank: number;
-
-    marketState: MarketAnalysis['state'];
-    marketDirection: MarketAnalysis['direction'];
-    marketConfidence: number;
-
-    confidenceQualified: boolean;
-
-    liveTickCount: number;
-};
-
-interface DragPosition {
-    x: number;
-    y: number;
+interface Props {
+  derivContext: any; // Context passed down from Bot Builder main shell
+  selectedMarket?: string;
 }
-/*
- * ============================================================
- * HARDWARE SYSTEM CONSTANTS
- * ============================================================
- */
 
-const MAX_TICKS_PER_SYMBOL = 100;
-const MIN_TICKS_FOR_LIVE_SCANNER = 20;
-const LIVE_TICK_RETRY_MS = 1000;
-const SCAN_SETTLE_MS = 1500;
+export const FloatingAI: React.FC<Props> = ({ derivContext, selectedMarket = 'R_100' }) => {
+  const [rawPipelineData, setRawPipelineData] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<string | null>(null);
 
-/*
- * ============================================================
- * MAIN CORE INTERACTION LAYER
- * ============================================================
- */
+  // Instantiate scanning engines inside component persistent memory
+  const logicEngine = useMemo(() => new ScannerLogicEngine(), []);
+  const networkBridge = useMemo(() => new DerivScannerBridge(derivContext), [derivContext]);
 
-const FloatingAI = () => {
-    const { quick_strategy } = useStore();
+  useEffect(() => {
+    logicEngine.setMarket(selectedMarket);
 
-    /*
-     * ------------------------------------------------------------
-     * UI DATA ROUTER HOOKS
-     * ------------------------------------------------------------
-     */
+    // Bootstrap real-time subscriptions
+    networkBridge.initPipeline([selectedMarket], (symbol, price) => {
+      logicEngine.injectTick(symbol, price);
+      
+      // Update pipeline matrices inside component lifecycle on every tick emission
+      const frameAnalysis = logicEngine.runScannerPipeline();
+      setRawPipelineData(frameAnalysis);
+    });
 
-    const [isOpen, setIsOpen] = useState(false);
-    const [isScanning, setIsScanning] = useState(false);
-    const [scannerResults, setScannerResults] = useState<ScannerResult[]>([]);
-    const [loadingStrategyId, setLoadingStrategyId] = useState<string | null>(null);
-    const [expandedStrategyId, setExpandedStrategyId] = useState<string | null>(null);
-
-    /*
-     * ------------------------------------------------------------
-     * ACCESSIBLE MOUSE / TOUCH DRAG COORDINATE SPACES
-     * ------------------------------------------------------------
-     */
-
-    const [dragPos, setDragPos] = useState<DragPosition | null>(null);
-    const [isDragging, setIsDragging] = useState(false);
-
-    const buttonRef = useRef<HTMLButtonElement | null>(null);
-    const dragPointerIdRef = useRef<number | null>(null);
-    const dragStartPointerRef = useRef<DragPosition>({ x: 0, y: 0 });
-    const dragStartPositionRef = useRef<DragPosition>({ x: 0, y: 0 });
-    
-    const hasMovedRef = useRef(false);
-    const suppressClickRef = useRef(false);
-
-    /*
-     * ------------------------------------------------------------
-     * LIVE SNAPSHOT MEMORY CONTAINERS
-     * ------------------------------------------------------------
-     */
-
-    const tickBuffersRef = useRef<Record<string, number[]>>({});
-    const lastTickTimeRef = useRef<Record<string, number>>({});
-    
-    const invalidTickCountRef = useRef(0);
-    const tickUnsubscribersRef = useRef<Array<() => void>>([]);
-    const subscribedSymbolsRef = useRef<Set<string>>(new Set());
-    
-    const tickRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const isMountedRef = useRef(true);
-    const scanInProgressRef = useRef(false);
-
-    const [marketAnalysis, setMarketAnalysis] = useState<MarketAnalysis>(() =>
-        analyzeMarket([])
-    );
-
-    const [stakeValues, setStakeValues] = useState<Record<string, string>>({});
-    const [targetValues, setTargetValues] = useState<Record<string, string>>({});
-    /*
-     * ------------------------------------------------------------
-     * CLAMP CONTROL MECHANICS
-     * ------------------------------------------------------------
-     */
-
-    const clampDragPosition = useCallback((x: number, y: number): DragPosition => {
-        const button = buttonRef.current;
-        const buttonWidth = button?.offsetWidth || 62;
-        const buttonHeight = button?.offsetHeight || 62;
-
-        const maxX = Math.max(1, window.innerWidth - buttonWidth - 1);
-        const maxY = Math.max(1, window.innerHeight - buttonHeight - 1);
-
-        return {
-            x: Math.min(Math.max(1, x), maxX),
-            y: Math.min(Math.max(1, y), maxY),
-        };
-    }, []);
-
-    const synchronizeButtonPosition = useCallback(() => {
-        const button = buttonRef.current;
-        if (!button) return;
-
-        const currentRect = button.getBoundingClientRect();
-        const currentPosition = dragPos ?? { x: currentRect.left, y: currentRect.top };
-        const clamped = clampDragPosition(currentPosition.x, currentPosition.y);
-
-        setDragPos(prev => (prev && prev.x === clamped.x && prev.y === clamped.y ? prev : clamped));
-    }, [clampDragPosition, dragPos]);
-
-    useEffect(() => {
-        const button = buttonRef.current;
-        if (!button) return;
-        const rect = button.getBoundingClientRect();
-        setDragPos(clampDragPosition(rect.left, rect.top));
-    }, [clampDragPosition]);
-
-    useEffect(() => {
-        const handleViewportResize = () => synchronizeButtonPosition();
-        window.addEventListener('resize', handleViewportResize);
-        window.addEventListener('orientationchange', handleViewportResize);
-        return () => {
-            window.removeEventListener('resize', handleViewportResize);
-            window.removeEventListener('orientationchange', handleViewportResize);
-        };
-    }, [synchronizeButtonPosition]);
-
-    /*
-     * ------------------------------------------------------------
-     * CORE PIPELINE LOOKBACK SEARCH HELPERS
-     * ------------------------------------------------------------
-     */
-
-    const getStrategySymbols = useCallback(() => {
-        return Array.from(
-            new Set(
-                AI_STRATEGIES.map(strategy => strategy.symbol)
-                    .filter(symbol => typeof symbol === 'string' && symbol.trim().length > 0)
-            )
-        );
-    }, []);
-
-    const ensureTickBuffer = useCallback((symbol: string) => {
-        if (!tickBuffersRef.current[symbol]) {
-            tickBuffersRef.current[symbol] = [];
-        }
-        return tickBuffersRef.current[symbol];
-    }, []);
-    /*
-     * ------------------------------------------------------------
-     * MATHEMATICAL PROFILING SCORE COMPUTATION ENGINES
-     * ------------------------------------------------------------
-     */
-
-    const calculateProfileScore = (strategy: AIStrategy): number => {
-        let score = 70;
-
-        if (strategy.risk === 'LOW') {
-            score += 8;
-        } else if (strategy.risk === 'MEDIUM') {
-            score += 5;
-        } else {
-            score += 2;
-        }
-
-        if (strategy.profit > 0 && strategy.loss > 0) {
-            const ratio = strategy.profit / strategy.loss;
-            if (ratio >= 1) {
-                score += 5;
-            } else {
-                score += 2;
-            }
-        }
-
-        if (strategy.duration <= 1) {
-            score += 4;
-        }
-
-        const preferredEngines = [
-            'D_ALEMBERT',
-            'OSCARS_GRIND',
-            'STRATEGY_1_3_2_6',
-            'REVERSE_D_ALEMBERT',
-            'REVERSE_MARTINGALE',
-        ];
-
-        if (preferredEngines.includes(strategy.engine)) {
-            score += 3;
-        }
-
-        return Math.min(99, Math.max(50, score));
+    return () => {
+      networkBridge.closePipeline();
     };
-
-    const calculateFinalScannerScore = useCallback((
-        strategy: AIStrategy,
-        analysis: MarketAnalysis
-    ): {
-        scannerScore: number;
-        marketCompatibility: number;
-        confidenceQualified: boolean;
-    } => {
-        const profileScore = calculateProfileScore(strategy);
-        const marketCompatibility = calculateMarketCompatibility(strategy, analysis);
-
-        if (analysis.state === 'INSUFFICIENT_DATA') {
-            return {
-                scannerScore: 0,
-                marketCompatibility: 0,
-                confidenceQualified: false,
-            };
-        }
-
-        const confidenceQualified =
-            analysis.confidence >= strategy.marketProfile.minimumConfidence;
-
-        let finalScore = profileScore * 0.4 + marketCompatibility * 0.6;
-
-        if (!confidenceQualified) {
-            finalScore *= 0.65;
-        }
-
-        return {
-            scannerScore: Math.round(Math.min(99, Math.max(0, finalScore))),
-            marketCompatibility: Math.round(Math.min(100, Math.max(0, marketCompatibility))),
-            confidenceQualified,
-        };
-    }, []);
-
-        /*
-     * ============================================================
-     * LIVE SCAN ALL STRATEGIES (REACTIVE SYSTEM UPDATE ENGINE)
-     * ============================================================
-     */
-    const evaluateAllStrategiesLive = useCallback(() => {
-        if (!isMountedRef.current) return;
-
-        const results = AI_STRATEGIES.map(strategy => {
-            const liveTicks = tickBuffersRef.current[strategy.symbol] || [];
-            const analysis = analyzeMarket(liveTicks);
-            const scores = calculateFinalScannerScore(strategy, analysis);
-
-            return {
-                ...strategy,
-                scannerScore: scores.scannerScore,
-                marketCompatibility: scores.marketCompatibility,
-                rank: 0,
-                marketState: analysis.state,
-                marketDirection: analysis.direction,
-                marketConfidence: analysis.confidence,
-                confidenceQualified: scores.confidenceQualified,
-                liveTickCount: liveTicks.length,
-            };
-        });
-
-        const hasUsableLiveData = results.some(
-            result =>
-                result.liveTickCount >= MIN_TICKS_FOR_LIVE_SCANNER &&
-                result.marketState !== 'INSUFFICIENT_DATA'
-        );
-
-        results.sort((a, b) => {
-            if (hasUsableLiveData && a.confidenceQualified !== b.confidenceQualified) {
-                return a.confidenceQualified ? -1 : 1;
-            }
-            if (b.scannerScore !== a.scannerScore) {
-                return b.scannerScore - a.scannerScore;
-            }
-            if (b.marketCompatibility !== a.marketCompatibility) {
-                return b.marketCompatibility - a.marketCompatibility;
-            }
-            if (b.marketConfidence !== a.marketConfidence) {
-                return b.marketConfidence - a.marketConfidence;
-            }
-            return a.name.localeCompare(b.name);
-        });
-
-        const rankedResults = results.map((strategy, index) => ({
-            ...strategy,
-            rank: index + 1,
-        }));
-
-        if (rankedResults.length > 0 && rankedResults[0]) {
-            const topStrategy = rankedResults[0]; // ✅ FIX: Successfully reads the index object profile
-            const topTicks = tickBuffersRef.current[topStrategy.symbol] || [];
-            setMarketAnalysis(analyzeMarket(topTicks));
-        } else {
-            setMarketAnalysis(analyzeMarket([]));
-        }
-
-        setStakeValues(prev => {
-            const nextStakes = { ...prev };
-            rankedResults.forEach(strategy => {
-                if (nextStakes[strategy.id] === undefined) {
-                    nextStakes[strategy.id] = String(strategy.stake);
-                }
-            });
-            return nextStakes;
-        });
-
-        setTargetValues(prev => {
-            const nextTargets = { ...prev };
-            rankedResults.forEach(strategy => {
-                if (nextTargets[strategy.id] === undefined) {
-                    nextTargets[strategy.id] = String(strategy.profit);
-                }
-            });
-            return nextTargets;
-        });
-
-        setScannerResults(rankedResults);
-        setExpandedStrategyId(currId => currId ?? (rankedResults[0]?.id || null));
-    }, [calculateFinalScannerScore]);
-
-
-    /*
-     * ============================================================
-     * CENTRALIZED WEBSOCKET SUBSCRIPTION CONTROLLER CONNECTORS
-     * ============================================================
-     */
-
-    const subscribeToLiveTicks = useCallback(() => {
-        if (!isMountedRef.current) return;
-
-        const symbols = getStrategySymbols();
-
-        if (tickRetryTimerRef.current !== null) {
-            clearTimeout(tickRetryTimerRef.current);
-            tickRetryTimerRef.current = null;
-        }
-
-        if (symbols.length === 0 || !api_base || !api_base.api) {
-            tickRetryTimerRef.current = setTimeout(() => {
-                tickRetryTimerRef.current = null;
-                if (isMountedRef.current) subscribeToLiveTicks();
-            }, LIVE_TICK_RETRY_MS);
-            return;
-        }
-
-        symbols.forEach(symbol => {
-            if (subscribedSymbolsRef.current.has(symbol)) return;
-            ensureTickBuffer(symbol);
-
-            try {
-                const unsubscribe = api_base.subscribeToTicks(symbol, tick => {
-                    if (!isMountedRef.current) return;
-
-                    if (!tick || !Number.isFinite(tick.quote)) {
-                        invalidTickCountRef.current += 1;
-                        return;
-                    }
-
-                    const currentTicks = tickBuffersRef.current[symbol] || [];
-                    tickBuffersRef.current[symbol] = [...currentTicks, tick.quote].slice(-MAX_TICKS_PER_SYMBOL);
-                    lastTickTimeRef.current[symbol] = Date.now();
-
-                    evaluateAllStrategiesLive();
-                });
-
-                subscribedSymbolsRef.current.add(symbol);
-                if (typeof unsubscribe === 'function') {
-                    tickUnsubscribersRef.current.push(unsubscribe);
-                }
-            } catch (error) {
-                console.error(`[AI Scanner] Thread initialization exception on ${symbol}:`, error);
-            }
-        });
-    }, [ensureTickBuffer, getStrategySymbols, evaluateAllStrategiesLive]);
-
-    const cleanupLiveTickBridge = useCallback(() => {
-        if (tickRetryTimerRef.current !== null) {
-            clearTimeout(tickRetryTimerRef.current);
-            tickRetryTimerRef.current = null;
-        }
-        tickUnsubscribersRef.current.forEach(unsubscribe => {
-            try { unsubscribe(); } catch {}
-        });
-        tickUnsubscribersRef.current = [];
-        subscribedSymbolsRef.current.clear();
-    }, []);
-    const startLiveStreamingEvaluation = async () => {
-        scanInProgressRef.current = true;
-        setIsScanning(true);
-        setScannerResults([]);
-        setExpandedStrategyId(null);
-
-        // Reset tracking array memory
-        tickBuffersRef.current = {};
-
-        subscribeToLiveTicks();
-
-        // 📱 MOBILE LOCAL BYPASS FOR TESTING
-        // If the socket connection drops or stays unauthenticated on mobile browser view,
-        // this fallback safely loops simulated price numbers to test calculations.
-        let fallbackTickCounter = 0;
-        let basePriceMock = 1250.75;
-        
-        const testSimulationInterval = setInterval(() => {
-            if (!scanInProgressRef.current || !isScanning) {
-                clearInterval(testSimulationInterval);
-                return;
-            }
-            
-            const symbols = getStrategySymbols();
-            symbols.forEach(symbol => {
-                const currentBuffer = tickBuffersRef.current[symbol] || [];
-                // Only inject simulated data if the live server stream is empty
-                if (currentBuffer.length < MAX_TICKS_PER_SYMBOL) {
-                    basePriceMock += (Math.random() - 0.5) * 1.5;
-                    tickBuffersRef.current[symbol] = [...currentBuffer, basePriceMock].slice(-MAX_TICKS_PER_SYMBOL);
-                }
-            });
-            
-            fallbackTickCounter += 1;
-            evaluateAllStrategiesLive();
-            
-            // Turn off loader panel smoothly when lookback window requirements are fulfilled
-            if (fallbackTickCounter >= MIN_TICKS_FOR_LIVE_SCANNER) {
-                setIsScanning(false);
-                clearInterval(testSimulationInterval);
-            }
-        }, 150); // Streams fresh price calculations directly to your screen layout every 150ms
-
-        // Visual delay to let mobile sockets wake up cleanly
-        let elapsed = 0;
-        while (elapsed < SCAN_SETTLE_MS) {
-            await new Promise(r => setTimeout(r, 150));
-            elapsed += 150;
-            
-            const totalTicksReceived = Object.values(tickBuffersRef.current).reduce((acc, curr) => acc + curr.length, 0);
-            if (totalTicksReceived > 5) break;
-        }
-
-        if (!isMountedRef.current) {
-            clearInterval(testSimulationInterval);
-            return;
-        }
-
-        evaluateAllStrategiesLive();
-        setIsScanning(false);
-    };
-
-    const closeScanner = () => {
-        scanInProgressRef.current = false;
-        setIsScanning(false);
-        setIsOpen(false);
-        setScannerResults([]);
-        setLoadingStrategyId(null);
-        setStakeValues({});
-        setTargetValues({});
-        setExpandedStrategyId(null);
-        setMarketAnalysis(analyzeMarket([]));
-        cleanupLiveTickBridge();
-    };
-
-    const updateStake = (strategyId: string, value: string) => {
-        if (!/^\d*\.?\d*$/.test(value)) return;
-        setStakeValues(previous => ({ ...previous, [strategyId]: value }));
-    };
-
-    const updateTarget = (strategyId: string, value: string) => {
-        if (!/^\d*\.?\d*$/.test(value)) return;
-        setTargetValues(previous => ({ ...previous, [strategyId]: value }));
-    };
-
-    const toggleStrategyCard = (strategyId: string) => {
-        setExpandedStrategyId(currentId => (currentId === strategyId ? null : strategyId));
-    };
-    const loadStrategy = async (strategy: ScannerResult) => {
-        if (loadingStrategyId !== null || scanInProgressRef.current) return;
-
-        const editedStake = parseFloat(stakeValues[strategy.id] ?? String(strategy.stake));
-        const editedTarget = parseFloat(targetValues[strategy.id] ?? String(strategy.profit));
-
-        if (!Number.isFinite(editedStake) || editedStake <= 0 || !Number.isFinite(editedTarget) || editedTarget <= 0) {
-            return;
-        }
-
-        setLoadingStrategyId(strategy.id);
-
-        try {
-            quick_strategy.setSelectedStrategy(strategy.engine);
-
-            await quick_strategy.onSubmit({
-                symbol: strategy.symbol,
-                tradetype: strategy.tradetype,
-                type: strategy.type,
-                stake: editedStake,
-                durationtype: strategy.durationtype,
-                duration: strategy.duration,
-                profit: editedTarget,
-                loss: strategy.loss,
-                size: strategy.size,
-                unit: strategy.unit,
-                action: 'LOAD',
-            });
-
-            if (isMountedRef.current) {
-                closeScanner();
-            }
-        } catch (error) {
-            console.error('[AI Scanner] Failed to submit layout blueprints:', error);
-        } finally {
-            if (isMountedRef.current) setLoadingStrategyId(null);
-        }
-    };
-
-    useEffect(() => {
-        isMountedRef.current = true;
-        return () => {
-            isMountedRef.current = false;
-            cleanupLiveTickBridge();
-        };
-    }, [cleanupLiveTickBridge]);
-
-    /*
-     * ------------------------------------------------------------
-     * POINTER EVENT MANAGEMENT ENGINE
-     * ------------------------------------------------------------
-     */
-    const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
-        if (event.pointerType === 'mouse' && event.button !== 0) return;
-
-        const button = buttonRef.current;
-        if (!button) return;
-
-        const rect = button.getBoundingClientRect();
-        const currentPosition = dragPos ?? { x: rect.left, y: rect.top };
-        const safePosition = clampDragPosition(currentPosition.x, currentPosition.y);
-
-        dragPointerIdRef.current = event.pointerId;
-        dragStartPointerRef.current = { x: event.clientX, y: event.clientY };
-        dragStartPositionRef.current = safePosition;
-        hasMovedRef.current = false;
-        suppressClickRef.current = false;
-
-        try {
-            button.setPointerCapture(event.pointerId);
-        } catch {
-            // Safe fallback loop
-        }
-
-        setDragPos(safePosition);
-    };
-
-    const handlePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
-        if (dragPointerIdRef.current !== event.pointerId) return;
-
-        const startPointer = dragStartPointerRef.current;
-        const startPosition = dragStartPositionRef.current;
-        
-        const deltaX = event.clientX - startPointer.x;
-        const deltaY = event.clientY - startPointer.y;
-
-        const dragDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        if (!hasMovedRef.current && dragDistance < 5) return;
-
-        hasMovedRef.current = true;
-        suppressClickRef.current = true;
-
-        if (!isDragging) setIsDragging(true);
-
-        setDragPos(clampDragPosition(startPosition.x + deltaX, startPosition.y + deltaY));
-        event.preventDefault();
-    };
-
-    const handlePointerUp = (event: PointerEvent<HTMLButtonElement>) => {
-        if (dragPointerIdRef.current !== event.pointerId) return;
-
-        const button = buttonRef.current;
-        if (button) {
-            try {
-                if (button.hasPointerCapture(event.pointerId)) {
-                    button.releasePointerCapture(event.pointerId);
-                }
-            } catch {
-                // Fail silent safely
-            }
-        }
-
-        dragPointerIdRef.current = null;
-
-        if (hasMovedRef.current) {
-            suppressClickRef.current = true;
-            window.setTimeout(() => { suppressClickRef.current = false; }, 0);
-        }
-
-        setIsDragging(false);
-        hasMovedRef.current = false;
-    };
-
-    const handlePointerCancel = (event: PointerEvent<HTMLButtonElement>) => {
-        if (dragPointerIdRef.current !== event.pointerId) return;
-        dragPointerIdRef.current = null;
-        setIsDragging(false);
-        hasMovedRef.current = false;
-        suppressClickRef.current = true;
-        window.setTimeout(() => { suppressClickRef.current = false; }, 0);
-    };
-
-    const handleButtonClick = () => {
-        if (suppressClickRef.current) return;
-        if (isOpen) {
-            closeScanner();
-        } else {
-            setIsOpen(true);
-            startLiveStreamingEvaluation();
-        }
-    };
-    return (
-        <>
-            {/* 🕺 INTERACTIVE FLOATING ORB TRIGGER CENTER CONTROL BUTTON */}
-            <button
-                ref={buttonRef}
-                type="button"
-                className={`floating-ai-button ${isOpen ? 'active' : ''} ${isDragging ? 'dragging' : ''}`}
-                style={dragPos ? { left: `${dragPos.x}px`, top: `${dragPos.y}px` } : undefined}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerCancel}
-                onClick={handleButtonClick}
-                aria-label="Open AI Scanner"
-            >
-                <span className="ai-ring ring-one" />
-                <span className="ai-ring ring-two" />
-                <span className="ai-ring ring-three" />
-                <span className="ai-core">✦</span>
-            </button>
-
-            {/* PREMIUM METRIC PANEL MANAGEMENT CONTAINER */}
-            {isOpen && (
-                <div className="floating-ai-panel">
-                    {/* STABLE UPPER DESKTOP RUNTIME HEADER SECTION */}
-                    <div className="floating-ai-header">
-                        <div>
-                            <span 
-                                className="ai-status-dot" 
-                                style={{
-                                    background: scanInProgressRef.current ? '#22c55e' : '#ef4444',
-                                    boxShadow: scanInProgressRef.current ? '0 0 13px #22c55e' : '0 0 13px #ef4444'
-                                }}
-                            />
-                            <strong>AI Strategy Scanner</strong>
-                        </div>
-                        <button type="button" className="ai-close" onClick={closeScanner} aria-label="Close AI Scanner">×</button>
-                    </div>
-
-                    <div className="floating-ai-content">
-                        {scannerResults.length === 0 && !isScanning && (
-                            <>
-                                <div className="ai-hero">
-                                    <div className="ai-hero-icon">✦</div>
-                                    <h3>AI Trading Scanner</h3>
-                                    <p>Scan all <strong>{AI_STRATEGIES.length}</strong> available strategy profiles reactively against live WebSocket ticks.</p>
-                                </div>
-                                <div className="strategy-count">
-                                    <strong>{AI_STRATEGIES.length}</strong>
-                                    <span>AI strategies available</span>
-                                </div>
-                                <button type="button" className="scan-button" onClick={startLiveStreamingEvaluation}>
-                                    ✦ Scan {AI_STRATEGIES.length} Strategies
-                                </button>
-                            </>
-                        )}
-
-                        {isScanning && (
-                            <div className="ai-scanning-state">
-                                <div className="scanner-loader"><span /><span /><span /></div>
-                                <h3>Scanning Market Pipelines...</h3>
-                                <p>Analyzing {AI_STRATEGIES.length} strategies against live ticks.</p>
-                                <div className="scanning-progress">
-                                    <div className="scanning-progress-bar" style={{ width: '35%' }} />
-                                </div>
-                            </div>
-                        )}
-
-                        {scannerResults.length > 0 && !isScanning && (
-                            <>
-                                <div className="scanner-heading">
-                                    <div>
-                                        <h3>Scanner Results</h3>
-                                        <p>{scannerResults.length} profiles ranked via real-time WebSocket ticks.</p>
-                                    </div>
-                                    <div className="result-count">{scannerResults.length}/{AI_STRATEGIES.length}</div>
-                                </div>
-
-                                <div className="scanner-market-status">
-                                    <div>
-                                        <span>Market State</span>
-                                        <strong>{marketAnalysis.state}</strong>
-                                    </div>
-                                    <div>
-                                        <span>Direction</span>
-                                        <strong className={`direction-${marketAnalysis.direction.toLowerCase()}`}>{marketAnalysis.direction}</strong>
-                                    </div>
-                                    <div>
-                                        <span>Confidence</span>
-                                        <strong>{marketAnalysis.confidence}%</strong>
-                                    </div>
-                                </div>
-
-                                {marketAnalysis.state === 'INSUFFICIENT_DATA' && (
-                                    <div className="scanner-data-notice">
-                                        Waiting for enough ticks. Keep the scanner open to let historical lookback snapshots fill.
-                                    </div>
-                                )}
-
-                                <div className="strategy-list">
-                                    {scannerResults.map(strategy => {
-                                        const isExpanded = expandedStrategyId === strategy.id;
-                                        const strategyLiveTicksCount = tickBuffersRef.current[strategy.symbol]?.length || 0;
-                                        const isConfidenceQualified = strategy.marketConfidence >= strategy.marketProfile.minimumConfidence;
-                                        return (
-                                            <div
-                                                key={strategy.id}
-                                                className={`strategy-card ${strategy.rank === 1 ? 'top-strategy' : ''} ${isExpanded ? 'expanded' : 'collapsed'}`}
-                                            >
-                                                <button
-                                                    type="button"
-                                                    className="strategy-card-header"
-                                                    onClick={() => toggleStrategyCard(strategy.id)}
-                                                    aria-expanded={isExpanded}
-                                                    aria-controls={`strategy-details-${strategy.id}`}
-                                                >
-                                                    <div className="strategy-card-summary">
-                                                        <div className={`strategy-rank ${strategy.rank === 1 ? 'rank-one' : ''}`}>
-                                                            #{strategy.rank}
-                                                        </div>
-                                                        <div className="strategy-summary-main">
-                                                            <div className="strategy-summary-title-row">
-                                                                <div className="strategy-name">{strategy.name}</div>
-                                                                <div className={`risk-badge risk-${strategy.risk.toLowerCase()}`}>{strategy.risk}</div>
-                                                            </div>
-                                                            <div className="strategy-summary-meta">
-                                                                <span>Score <strong>{strategy.scannerScore}%</strong></span>
-                                                                <span>Confidence <strong>{strategy.marketConfidence}%</strong></span>
-                                                            </div>
-                                                        </div>
-                                                        {strategy.rank === 1 && isConfidenceQualified && strategy.marketState !== 'INSUFFICIENT_DATA' && (
-                                                            <div className="best-badge">BEST MATCH</div>
-                                                        )}
-                                                        <span className={`strategy-expand-icon ${isExpanded ? 'open' : ''}`} aria-hidden="true">›</span>
-                                                    </div>
-                                                </button>
-
-                                                <div
-                                                    id={`strategy-details-${strategy.id}`}
-                                                    className={`strategy-card-body ${isExpanded ? 'visible' : ''}`}
-                                                    aria-hidden={!isExpanded}
-                                                >
-                                                    <div className="strategy-card-body-inner">
-                                                        <div className="strategy-description">{strategy.description}</div>
-                                                        <div className="strategy-market-live">
-                                                            <div><span>Live Market</span><strong>{strategy.marketState}</strong></div>
-                                                            <div><span>Direction</span><strong className={`direction-${strategy.marketDirection.toLowerCase()}`}>{strategy.marketDirection}</strong></div>
-                                                            <div><span>Confidence</span>...</div>
-                                                        </div>
-                                                        <div className="strategy-market-live">
-                                                            <div><span>Live Ticks</span><strong>{strategyLiveTicksCount}/{MAX_TICKS_PER_SYMBOL}</strong></div>
-                                                            <div><span>Required</span><strong>{strategy.marketProfile.minimumConfidence}%</strong></div>
-                                                            <div><span>Confidence Gate</span><strong className={isConfidenceQualified ? 'gate-ready' : 'gate-wait'}>{isConfidenceQualified ? 'READY' : 'WAIT'}</strong></div>
-                                                        </div>
-                                                        <div className="scanner-score">
-                                                            <div className="score-info"><span>Scanner Score</span><strong>{strategy.scannerScore}%</strong></div>
-                                                            <div className="score-track"><div className="score-fill" style={{ width: `${strategy.scannerScore}%` }} /></div>
-                                                        </div>
-                                                        <div className="scanner-score">
-                                                            <div className="score-info"><span>Market Compatibility</span><strong>{strategy.marketCompatibility}%</strong></div>
-                                                            <div className="score-track"><div className="score-fill" style={{ width: `${strategy.marketCompatibility}%` }} /></div>
-                                                        </div>
-                                                        <div className="strategy-details">
-                                                            <div className="strategy-detail"><span>Engine</span><strong>{strategy.engine}</strong></div>
-                                                            <div className="strategy-detail"><span>Market</span>...</div>
-                                                            <div className="strategy-detail"><span>Direction</span>...<strong>{strategy.type || 'Default'}</strong></div>
-                                                            <div className="strategy-detail editable-strategy-detail">
-                                                                <span>Stake</span>
-                                                                <div className="strategy-input-wrapper">
-                                                                    <span className="strategy-input-prefix">$</span>
-                                                                    <input type="text" inputMode="decimal" value={stakeValues[strategy.id] ?? ''} onChange={e => updateStake(strategy.id, e.target.value)} onClick={e => e.stopPropagation()} aria-label={`Stake for ${strategy.name}`} />
-                                                                </div>
-                                                            </div>
-                                                            <div className="strategy-detail"><span>Duration</span><strong>{strategy.duration} {strategy.duration === 1 ? 'tick' : 'ticks'}</strong></div>
-                                                            <div className="strategy-detail editable-strategy-detail">
-                                                                <span>Target</span>
-                                                                <div className="strategy-input-wrapper">
-                                                                    <span className="strategy-input-prefix">$</span>
-                                                                    <input type="text" inputMode="decimal" value={targetValues[strategy.id] ?? ''} onChange={e => updateTarget(strategy.id, e.target.value)} onClick={e => e.stopPropagation()} aria-label={`Target for ${strategy.name}`} />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <button type="button" className="load-bot-button" onClick={() => loadStrategy(strategy)} disabled={loadingStrategyId !== null || strategy.marketState === 'INSUFFICIENT_DATA' || strategyLiveTicksCount < MIN_TICKS_FOR_LIVE_SCANNER}>
-                                                            {loadingStrategyId === strategy.id ? 'Loading...' : strategy.marketState === 'INSUFFICIENT_DATA' || strategyLiveTicksCount < MIN_TICKS_FOR_LIVE_SCANNER ? 'Waiting for Data' : 'Load Bot'}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <button type="button" className="rescan-button" onClick={startLiveStreamingEvaluation} disabled={loadingStrategyId !== null}>↻ Scan Again</button>
-                            </>
-                        )}
-                    </div>
+  }, [selectedMarket, logicEngine, networkBridge]);
+
+  // CRITICAL STEP: Priority Array Matrix sorting from high confidence downwards
+  const sortedProfiles = useMemo(() => {
+    return [...rawPipelineData].sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence);
+  }, [rawPipelineData]);
+
+  // Aggregate high level overview cards metrics
+  const coreAggregate = sortedProfiles[0] || null;
+
+  return (
+    <div className="ai-strategy-scanner">
+      <div className="scanner-header">
+        <h3>🟢 AI Strategy Scanner</h3>
+        <span className="profile-counter">{sortedProfiles.length}/30 Profiles Loaded</span>
+      </div>
+
+      {/* High Level Metrics Cards Bar */}
+      <div className="metrics-banner-grid">
+        <div className="metric-box">
+          <label>MARKET STATE</label>
+          <div className="val">{coreAggregate?.metrics.marketState || 'LOADING'}</div>
+        </div>
+        <div className="metric-box">
+          <label>DIRECTION</label>
+          <div className="val highlight-yellow">{coreAggregate?.metrics.direction || 'FLAT'}</div>
+        </div>
+        <div className="metric-box">
+          <label>CONFIDENCE</label>
+          <div className="val">{coreAggregate?.metrics.finalConfidence || 0}%</div>
+        </div>
+      </div>
+
+      <p className="notice-subtext">
+        Waiting for enough ticks. Keep the scanner open to let historical lookback snapshots fill.
+      </p>
+
+      {/* Dynamic Scannable Scroll Container Pipeline */}
+      <div className="strategy-scroll-list">
+        {sortedProfiles.map((item, index) => {
+          const isExpanded = activeTab === item.profile.id;
+          return (
+            <div key={item.profile.id} className="strategy-card-node">
+              <div 
+                className="card-summary" 
+                onClick={() => setActiveTab(isExpanded ? null : item.profile.id)}
+              >
+                <div className="rank-badge">#{index + 1}</div>
+                <div className="meta-details">
+                  <h4>{item.profile.name}</h4>
+                  <p>Score: {item.metrics.scannerScore}% | Confidence: {item.metrics.finalConfidence}%</p>
                 </div>
-            )}
-        </>
-    );
-};
+                <span className={`tier-badge ${item.profile.tier.toLowerCase()}`}>
+                  {item.profile.tier}
+                </span>
+              </div>
 
-export default FloatingAI;
+              {/* Accordion view showing deeper layout details when clicked */}
+              {isExpanded && (
+                <div className="card-expanded-drawer">
+                  <p className="desc">{item.profile.description}</p>
+                  <div className="inner-metrics-grid">
+                    <div>Live Ticks: <span>{item.metrics.ticksLoaded}/{item.profile.requiredTicks}</span></div>
+                    <div>Required Gate: <span>{item.profile.confidenceGate}%</span></div>
+                    <div>Gate Status: <span className="highlight-gate">{item.metrics.finalConfidence >= item.profile.confidenceGate ? 'RUN' : 'WAIT'}</span></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
