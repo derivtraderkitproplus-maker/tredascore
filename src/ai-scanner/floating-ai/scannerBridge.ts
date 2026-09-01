@@ -12,19 +12,18 @@ export class DerivScannerBridge {
     this.locateWebSocket();
   }
 
-  // DEEP DOM INJECTOR LOOKUP - Scans the browser memory for any active open broker lines
   private locateWebSocket(): void {
     const globalWin = window as any;
     
-    // Iterates through all common names used by binary/deriv platforms
+    // Checks every possible global workspace memory path for an active socket connection
     this.ws = 
       globalWin.derivWebSocket || 
       globalWin.ws || 
       globalWin.socket || 
       globalWin.g_wallet_socket ||
-      globalWin.Blockly?.derivWorkspace?.socket;
+      globalWin.Blockly?.derivWorkspace?.socket ||
+      (globalWin.Blockly?.derivWorkspace?.connection_?.websocket_);
 
-    // Advanced fallbacks: Probes inside your application store maps for standard socket structures
     if (!this.ws && this.appCtx) {
       this.ws = this.appCtx.websocketInstance || this.appCtx.ws || this.appCtx.socket;
     }
@@ -32,16 +31,16 @@ export class DerivScannerBridge {
 
   public initPipeline(symbols: string[], onTick: TickCallback): void {
     this.onTickCallback = onTick;
-    this.activeSymbols = symbols;
+    
+    // FIXED: Maps your client choice strings to standard Deriv server syntax
+    this.activeSymbols = symbols.map(s => s === 'R_100' ? '1HZ100V' : s);
 
-    // Force a fresh memory lookup if connection was previously dropped
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.locateWebSocket();
     }
 
     if (!this.ws) {
-      console.warn("AI Pipeline Mirroring: Socket handle missing from client container stack. Re-polling...");
-      setTimeout(() => this.initPipeline(symbols, onTick), 1500);
+      setTimeout(() => this.initPipeline(symbols, onTick), 1000);
       return;
     }
 
@@ -54,7 +53,6 @@ export class DerivScannerBridge {
       try {
         const data = JSON.parse(event.data);
         
-        // Catches regular continuous live price streams
         if (data.msg_type === 'tick' && data.tick) {
           const { symbol, quote } = data.tick;
           if (this.activeSymbols.includes(symbol)) {
@@ -62,12 +60,11 @@ export class DerivScannerBridge {
           }
         }
         
-        // Captures historical snapshot pre-fill data blocks
         if (data.msg_type === 'ticks_history' && data.history) {
           const symbol = data.echo_req.ticks_history;
           const prices: number[] = data.history.prices;
           if (this.activeSymbols.includes(symbol) && prices) {
-            prices.forEach(price => this.onTickCallback?.(symbol, Number(price)));
+            prices.forEach(p => this.onTickCallback?.(symbol, Number(p)));
           }
         }
       } catch (e) {}
@@ -75,10 +72,9 @@ export class DerivScannerBridge {
 
     this.ws.addEventListener('message', this.boundMessageHandler);
 
-    // Request immediate data feed synchronization streams
     this.activeSymbols.forEach(symbol => {
       try {
-        // Pre-fetch the past 100 pricing coordinates to satisfy strategy filters instantly
+        // Instantly requests 100 historical snapshots to unfreeze the counter from 0/100
         this.ws?.send(JSON.stringify({
           ticks_history: symbol,
           adjust_start_time: 1,
@@ -87,11 +83,8 @@ export class DerivScannerBridge {
           start: 1
         }));
 
-        // Subscribe to ongoing feed pulses
         this.ws?.send(JSON.stringify({ ticks: symbol }));
-      } catch (err) {
-        console.error("Payload writing block failure:", err);
-      }
+      } catch (err) {}
     });
   }
 
