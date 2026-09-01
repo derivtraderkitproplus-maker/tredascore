@@ -7,25 +7,25 @@ export class DerivScannerBridge {
   private onTickCallback: TickCallback | null = null;
   private activeSymbols: string[] = [];
   private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
+  private isFallbackMode: boolean = false;
 
   constructor(private appCtx: any) {
-    this.interceptSystemSocket();
+    this.locateActiveSocket();
   }
 
-  private interceptSystemSocket(): void {
+  private locateActiveSocket(): void {
     const globalWin = window as any;
     
-    // Traverses every potential production block layout location where your active bot shell binds its connection handle
+    // Scan all runtime workspace memory instances for open connections
     this.ws = 
       globalWin.derivWebSocket || 
       globalWin.ws || 
       globalWin.socket || 
       globalWin.g_wallet_socket ||
       globalWin.Blockly?.derivWorkspace?.socket ||
-      (globalWin.Blockly?.derivWorkspace?.connection_?.websocket_) ||
-      (globalWin.Blockly?.mainWorkspace?.connection_?.websocket_);
+      globalWin.Blockly?.derivWorkspace?.connection_?.websocket_ ||
+      globalWin.Blockly?.mainWorkspace?.connection_?.websocket_;
 
-    // Look inside your context structure layers if window tracking variables are clean
     if (!this.ws && this.appCtx) {
       this.ws = this.appCtx.websocketInstance || this.appCtx.ws || this.appCtx.socket || this.appCtx.api?.api?.ws;
     }
@@ -34,46 +34,47 @@ export class DerivScannerBridge {
   public initPipeline(symbols: string[], onTick: TickCallback): void {
     this.onTickCallback = onTick;
     
-    // Normalize target token mappings directly to the broker's underlying symbol syntax mapping keys
-    this.activeSymbols = symbols.map(s => (s === 'R_100' || s === 'Volatility 100 (1s) Index') ? '1HZ100V' : s);
+    // Map human market strings straight to standard short symbols
+    this.activeSymbols = symbols.map(s => 
+      (s === 'R_100' || s === 'Volatility 100 (1s) Index' || s === '1HZ100V') ? '1HZ100V' : s
+    );
 
-    this.interceptSystemSocket();
+    this.locateActiveSocket();
 
+    // FALLBACK ENGINE ACTIVATION: Spin up an isolated background client stream if shell socket is dead
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      // Re-poll until active bot workspace shell establishes network state parameters
-      setTimeout(() => this.initPipeline(symbols, onTick), 1000);
-      return;
+      if (!this.isFallbackMode) {
+        console.warn("AI Scanner: Primary hook missing. Spinning up public endpoint channel...");
+        this.isFallbackMode = true;
+        this.ws = new WebSocket('wss://://derivws.com'); // Uses general public application layout id
+        
+        this.ws.onopen = () => {
+          this.executeSubscriptions();
+        };
+        this.ws.onmessage = (e) => this.handleIncomingPackets(e);
+        return;
+      }
     }
 
-    this.boundMessageHandler = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        // Match live stream ticker frames
-        if (data.msg_type === 'tick' && data.tick) {
-          const { symbol, quote } = data.tick;
-          if (this.activeSymbols.includes(symbol)) {
-            this.onTickCallback?.(symbol, parseFloat(quote));
-          }
-        }
-        
-        // Match history snap matrix streams
-        if (data.msg_type === 'history' && data.history) {
-          const symbol = data.echo_req.ticks_history;
-          const prices: number[] = data.history.prices;
-          if (this.activeSymbols.includes(symbol) && prices) {
-            prices.forEach(p => this.onTickCallback?.(symbol, Number(p)));
-          }
-        }
-      } catch (e) {}
-    };
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.executeSubscriptions();
+    } else {
+      setTimeout(() => this.initPipeline(symbols, onTick), 1200);
+    }
+  }
 
-    this.ws.addEventListener('message', this.boundMessageHandler);
+  private executeSubscriptions(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    // Request active feed data states over authorized channel handles
+    // Attach listener if not in custom callback mode
+    if (!this.isFallbackMode) {
+      this.boundMessageHandler = (e: MessageEvent) => this.handleIncomingPackets(e);
+      this.ws.addEventListener('message', this.boundMessageHandler);
+    }
+
     this.activeSymbols.forEach(symbol => {
       try {
-        // Send history query payload matching the exact protocol version structure expected by Deriv API servers
+        // Request historical snapshots
         this.ws?.send(JSON.stringify({
           ticks_history: symbol,
           adjust_start_time: 1,
@@ -83,14 +84,41 @@ export class DerivScannerBridge {
           style: 'ticks'
         }));
 
-        // Subscribe to live tick tracking stream updates
-        this.ws?.send(JSON.stringify({ ticks: symbol }));
-      } catch (err) {}
+        // Subscribe to real-time streams
+        this.ws?.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
+      } catch (err) {
+        console.error("Pipeline request transmission fault:", err);
+      }
     });
   }
 
+  private handleIncomingPackets(event: MessageEvent): void {
+    try {
+      const data = JSON.parse(event.data);
+      
+      // Route real-time tick streaming data packages
+      if (data.msg_type === 'tick' && data.tick) {
+        const { symbol, quote } = data.tick;
+        if (this.activeSymbols.includes(symbol)) {
+          this.onTickCallback?.(symbol, parseFloat(quote));
+        }
+      }
+      
+      // Route historical snapshot back-fill arrays
+      if ((data.msg_type === 'history' || data.msg_type === 'ticks_history') && data.history) {
+        const symbol = data.echo_req.ticks_history;
+        const prices: number[] = data.history.prices;
+        if (this.activeSymbols.includes(symbol) && prices) {
+          prices.forEach(p => this.onTickCallback?.(symbol, Number(p)));
+        }
+      }
+    } catch (err) {}
+  }
+
   public closePipeline(): void {
-    if (this.ws && this.boundMessageHandler) {
+    if (this.isFallbackMode && this.ws) {
+      this.ws.close();
+    } else if (this.ws && this.boundMessageHandler) {
       this.ws.removeEventListener('message', this.boundMessageHandler);
     }
     this.activeSymbols.forEach(symbol => {
