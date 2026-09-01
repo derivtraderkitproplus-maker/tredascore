@@ -9,7 +9,7 @@
   box-sizing: border-box !important;
   display: flex !important;
   flex-direction: column !important;
-  max-height: 75vh !important;
+  max-height: 75vh !important; /* FIXED: Enforces strict layout parameters to prevent mobile clipping */
   position: relative !important;
   border: 1px solid #1c2035 !important;
 }
@@ -89,7 +89,7 @@
   flex-direction: column !important;
   gap: 12px !important;
   flex-grow: 1 !important;
-  overflow-y: auto !important;
+  overflow-y: auto !important; /* FIXED: Constrains the 30 profiles list to clear interior spaces */
   padding-right: 4px !important;
   margin-bottom: 12px !important;
 }
@@ -98,7 +98,7 @@
   background: #131622 !important;
   border: 1px solid #1d2134 !important;
   border-radius: 10px !important;
-  padding: 12px !important; /* FIXED: Adds consistent structural container margins */
+  padding: 12px !important;
 }
 
 .card-summary {
@@ -153,7 +153,6 @@
   margin: 0 0 10px 0 !important;
 }
 
-/* FIXED: Changed from plain rows to isolated layout columns to prevent text compression */
 .live-metrics-data-row {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
@@ -179,20 +178,7 @@
 .base-track { background: #1c2035 !important; height: 6px !important; border-radius: 3px !important; overflow: hidden !important; }
 .base-track .fill { background: #5078ff !important; height: 100%; border-radius: 3px !important; }
 
-.scan-again-btn {
-  width: 100% !important;
-  background: #21263c !important;
-  border: 1px solid #2d3350 !important;
-  color: #ffffff !important;
-  padding: 14px !important;
-  border-radius: 8px !important;
-  cursor: pointer !important;
-  font-weight: 600 !important;
-  font-size: 13px !important;
-  flex-shrink: 0 !important;
-  margin-top: auto !important;
-}
-/* Custom Input Parameter Fields Styles Framework */
+/* Dynamic Input Parameter Fields Grid */
 .ai-input-parameter-grid {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
@@ -230,14 +216,43 @@
   outline: none !important;
 }
 
-.load-bot-theme-btn {
+/* FIXED INTEGRATION VIEW: Styles the specific strategy configuration link button cleanly inside your drawers */
+.inner-drawer-load-btn {
+  width: 100% !important;
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
   border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  padding: 10px 14px !important;
+  border-radius: 6px !important;
+  margin-top: 14px !important;
+  cursor: pointer !important;
+  font-weight: bold !important;
+  font-size: 12px !important;
   text-transform: uppercase !important;
   letter-spacing: 0.5px !important;
-  padding: 14px !important;
+  transition: opacity 0.2s ease !important;
 }
 
-.load-bot-theme-btn:hover {
-  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+.inner-drawer-load-btn:active {
+  opacity: 0.85 !important;
+}
+
+/* FIXED PLACEMENT BOTTOM ROW: Pins your central refresh trigger clearly beneath components */
+.scan-again-btn {
+  width: 100% !important;
+  background: #21263c !important;
+  border: 1px solid #2d3350 !important;
+  color: #ffffff !important;
+  padding: 14px !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  flex-shrink: 0 !important;
+  margin-top: auto !important;
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.3) !important;
+}
+
+.scan-again-btn:hover {
+  background: #2b314d !important;
 }
