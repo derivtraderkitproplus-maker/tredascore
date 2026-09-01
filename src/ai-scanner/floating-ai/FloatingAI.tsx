@@ -60,7 +60,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
         direction: 'FLAT',
         scannerScore: 0,
         marketCompatibility: 0,
-        finalConfidence: 0
+        finalConfidence: 0,
+        tierOverride: profile.tier // Clean baseline assignment
       }
     }));
   }, [sortedProfiles]);
@@ -106,6 +107,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
+          // FIXED: Extracted live dynamic override variable mapping safely
+          const currentTier = item.metrics.tierOverride || item.profile.tier;
+          
           return (
             <div key={item.profile.id} className="strategy-card-node">
               <div 
@@ -117,8 +121,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                   <h4>{item.profile.name}</h4>
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
-                <span className={`tier-badge ${item.profile.tier.toLowerCase()}`}>
-                  {item.profile.tier}
+                {/* FIXED: Uses dynamic tier string evaluations to toggle badge style structures cleanly */}
+                <span className={`tier-badge ${currentTier.toLowerCase()}`}>
+                  {currentTier}
                 </span>
                 <span className="arrow-toggle">{isExpanded ? '▲' : '▼'}</span>
               </div>
