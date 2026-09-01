@@ -161,3 +161,4 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     </div>
   );
 };
+export default FloatingAI;
