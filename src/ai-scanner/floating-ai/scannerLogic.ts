@@ -13,7 +13,10 @@ export class ScannerLogicEngine {
   // --- STABILITY & SINGLE-WINNER LOCK STATE ---
   private currentTopStrategyId: string | null = null;
   private lastLockTime: number = 0;
-  private lockDurationMs: number = 4000;       // Holds top selection stable for 4 seconds
+  
+  // FIXED LOCK TIMING: Set to exactly 2.7 seconds to accelerate strategic rotation cycles
+  private lockDurationMs: number = 2700;       
+  
   private isEditingPaused: boolean = false;    // Freezes incoming stream frames if true
   private lastEvaluatedFrames: EvaluationFrame[] = [];
 
