@@ -62,11 +62,9 @@ export class DerivScannerBridge {
 
     try {
       const allBlocks = workspace.getAllBlocks(false);
-      let stakeLoaded = false;
-      let maxStakeLoaded = false;
 
       allBlocks.forEach((block: any) => {
-        // A. Inject Entry Conditions directly into Purchase Choice drop-down block field
+        // A. Inject entry asset buy direction (CALL vs PUT)
         if (block.type === 'purchase') {
           const purchaseField = block.getField('PURCHASE_LIST');
           if (purchaseField) {
@@ -74,16 +72,26 @@ export class DerivScannerBridge {
           }
         }
 
-        // B. Target the native block inline trade options Stake token block element field
+        // B. FIXED: Safely targets separate child inputs within the blockly schema structure
         if (block.type === 'trade_definition_tradeoptions') {
-          const stakeField = block.getField('AMOUNT');
-          if (stakeField) {
-            stakeField.setValue(params.stake.toString());
-            stakeLoaded = true;
+          // Explicitly lock your option duration to a safe, valid 1 tick boundary limit
+          const durationField = block.getField('DURATION');
+          if (durationField) {
+            durationField.setValue("1"); 
+          }
+          
+          // Hunt inside structural inputs to map the proper Stake field values
+          const amountInput = block.getInput('AMOUNT');
+          if (amountInput && amountInput.connection && amountInput.connection.targetBlock()) {
+            const stakeBlock = amountInput.connection.targetBlock();
+            const numField = stakeBlock.getField('NUM');
+            if (numField) {
+              numField.setValue(params.stake.toString());
+            }
           }
         }
 
-        // C. Update the variable block inputs matching 'maxStake' text structures seen on your canvas layout
+        // C. Clean updates for user canvas variables (maxStake, etc.)
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -97,9 +105,7 @@ export class DerivScannerBridge {
               if (numField) {
                 if (variableName === 'maxStake') {
                   numField.setValue(params.stake.toString());
-                  maxStakeLoaded = true;
                 }
-                // Adaptive variable matching checks for target loss threshold conditions
                 if (variableName.toLowerCase().includes('loss') || variableName.toLowerCase().includes('threshold')) {
                   numField.setValue(params.stopLoss.toString());
                 }
@@ -112,25 +118,15 @@ export class DerivScannerBridge {
         }
       });
 
-      // D. Fallback block parser: Updates any disconnected custom block fields
-      if (!stakeLoaded || !maxStakeLoaded) {
-        allBlocks.forEach((b: any) => {
-          if (b.getField('NUM') && b.getParent()?.type === 'trade_definition_tradeoptions') {
-            b.getField('NUM').setValue(params.stake.toString());
-          }
-        });
-      }
-
-      // Re-render block alignments across your active canvas layout workspace safely
+      // Synchronize workspace adjustments
       if (typeof workspace.render === 'function') {
         workspace.render();
       }
 
-      // FIXED NOTIFICATION STRING LOGIC BLOCK TEXT NODES
       alert("you have successfully imported a bot, click run");
 
     } catch (err) {
-      console.error("Blockly Input Sync Failure:", err);
+      console.error("Blockly Input Mapping Failure:", err);
     }
   }
 
