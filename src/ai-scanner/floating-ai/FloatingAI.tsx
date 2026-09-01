@@ -126,10 +126,10 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
 
   const globalSummary = useMemo(() => {
     const sourceList = activeTab ? frozenDisplayList : liveSortedProfiles;
-    if (sourceList.length === 0) {
+    if (!sourceList || sourceList.length === 0) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    // FIXED: Safely fetch metrics direct from the top element inside the list node
+    // FIXED CRITICAL INDEX BUG: Targeting explicit top slot item within structural matrix arrays
     return sourceList[0].metrics; 
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
