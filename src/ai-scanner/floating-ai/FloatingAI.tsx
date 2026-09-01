@@ -186,7 +186,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
-// FloatingAI.tsx (Part 2 of 2)
+
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
