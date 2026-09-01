@@ -9,43 +9,39 @@ export class DerivScannerBridge {
   private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
 
   constructor(private appCtx: any) {
-    this.locateWebSocket();
+    this.interceptSystemSocket();
   }
 
-  private locateWebSocket(): void {
+  private interceptSystemSocket(): void {
     const globalWin = window as any;
     
-    // Checks every possible global workspace memory path for an active socket connection
+    // Traverses every potential production block layout location where your active bot shell binds its connection handle
     this.ws = 
       globalWin.derivWebSocket || 
       globalWin.ws || 
       globalWin.socket || 
       globalWin.g_wallet_socket ||
       globalWin.Blockly?.derivWorkspace?.socket ||
-      (globalWin.Blockly?.derivWorkspace?.connection_?.websocket_);
+      (globalWin.Blockly?.derivWorkspace?.connection_?.websocket_) ||
+      (globalWin.Blockly?.mainWorkspace?.connection_?.websocket_);
 
+    // Look inside your context structure layers if window tracking variables are clean
     if (!this.ws && this.appCtx) {
-      this.ws = this.appCtx.websocketInstance || this.appCtx.ws || this.appCtx.socket;
+      this.ws = this.appCtx.websocketInstance || this.appCtx.ws || this.appCtx.socket || this.appCtx.api?.api?.ws;
     }
   }
 
   public initPipeline(symbols: string[], onTick: TickCallback): void {
     this.onTickCallback = onTick;
     
-    // FIXED: Maps your client choice strings to standard Deriv server syntax
-    this.activeSymbols = symbols.map(s => s === 'R_100' ? '1HZ100V' : s);
+    // Normalize target token mappings directly to the broker's underlying symbol syntax mapping keys
+    this.activeSymbols = symbols.map(s => (s === 'R_100' || s === 'Volatility 100 (1s) Index') ? '1HZ100V' : s);
+
+    this.interceptSystemSocket();
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      this.locateWebSocket();
-    }
-
-    if (!this.ws) {
+      // Re-poll until active bot workspace shell establishes network state parameters
       setTimeout(() => this.initPipeline(symbols, onTick), 1000);
-      return;
-    }
-
-    if (this.ws.readyState === WebSocket.CONNECTING) {
-      this.ws.addEventListener('open', () => this.initPipeline(symbols, onTick), { once: true });
       return;
     }
 
@@ -53,6 +49,7 @@ export class DerivScannerBridge {
       try {
         const data = JSON.parse(event.data);
         
+        // Match live stream ticker frames
         if (data.msg_type === 'tick' && data.tick) {
           const { symbol, quote } = data.tick;
           if (this.activeSymbols.includes(symbol)) {
@@ -60,7 +57,8 @@ export class DerivScannerBridge {
           }
         }
         
-        if (data.msg_type === 'ticks_history' && data.history) {
+        // Match history snap matrix streams
+        if (data.msg_type === 'history' && data.history) {
           const symbol = data.echo_req.ticks_history;
           const prices: number[] = data.history.prices;
           if (this.activeSymbols.includes(symbol) && prices) {
@@ -72,17 +70,20 @@ export class DerivScannerBridge {
 
     this.ws.addEventListener('message', this.boundMessageHandler);
 
+    // Request active feed data states over authorized channel handles
     this.activeSymbols.forEach(symbol => {
       try {
-        // Instantly requests 100 historical snapshots to unfreeze the counter from 0/100
+        // Send history query payload matching the exact protocol version structure expected by Deriv API servers
         this.ws?.send(JSON.stringify({
           ticks_history: symbol,
           adjust_start_time: 1,
           count: 100,
-          end: "latest",
-          start: 1
+          end: 'latest',
+          start: 1,
+          style: 'ticks'
         }));
 
+        // Subscribe to live tick tracking stream updates
         this.ws?.send(JSON.stringify({ ticks: symbol }));
       } catch (err) {}
     });
