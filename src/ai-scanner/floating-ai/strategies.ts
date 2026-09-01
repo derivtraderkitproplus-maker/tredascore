@@ -39,7 +39,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'HYPER_SCALPER_V27', name: 'Hyper Scalper Engine v27', tier: 'HIGH', requiredTicks: 100, confidenceGate: 78, description: 'Aggressive rapid price velocity spike scanner.' },
   { id: 'TREND_SHIELD_V28', name: 'Trend Shield Pro v28', tier: 'HIGH', requiredTicks: 100, confidenceGate: 80, description: 'Counter-trend entry denial asset protector.' },
   { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.' },
-  { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways sideways-market phase identifier.' }
+  { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.' }
 ];
 
 export interface StrategyResult {
@@ -51,7 +51,42 @@ export interface StrategyResult {
   marketCompatibility: number;
   finalConfidence: number;
   tierOverride: 'HIGH' | 'MEDIUM' | 'LOW';
-  status?: 'HIGH' | 'MEDIUM' | 'LOW'; // FIXED: Added isolated display tag mapping fallback options
+  status?: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+// Helper: Calculate Exponential Moving Average (EMA)
+function calculateEMA(prices: number[], period: number): number {
+  if (prices.length === 0) return 0;
+  const k = 2 / (period + 1);
+  let ema = prices[0];
+  for (let i = 1; i < prices.length; i++) {
+    ema = prices[i] * k + ema * (1 - k);
+  }
+  return ema;
+}
+
+// Helper: Calculate Relative Strength Index (RSI)
+function calculateRSI(prices: number[], period: number = 14): number {
+  if (prices.length <= period) return 50;
+  let gains = 0;
+  let losses = 0;
+
+  for (let i = prices.length - period; i < prices.length; i++) {
+    const difference = prices[i] - prices[i - 1];
+    if (difference > 0) gains += difference;
+    else losses += Math.abs(difference);
+  }
+
+  if (losses === 0) return 100;
+  const rs = gains / losses;
+  return Math.floor(100 - 100 / (1 + rs));
+}
+
+// Helper: Calculate Historical Standard Deviation (Volatility Measure)
+function calculateVolatility(prices: number[]): number {
+  const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
+  const variance = prices.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / prices.length;
+  return Math.sqrt(variance);
 }
 
 export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
@@ -70,54 +105,52 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     };
   }
 
-  // 1. EXTRACT BALANCED LOOKBACK WINDOWS
-  const shortTerm = ticks.slice(-15);
-  const longTerm = ticks.slice(-100);
+  const currentPrice = ticks[ticks.length - 1];
 
-  // Calculate strategy offset values using a unique character code seed
-  const strategySeed = profile.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  
-  // 2. DYNAMIC INDICATOR VARIANCE MATHEMATICS
-  const samplePeriod = Math.min(45, Math.max(10, 15 + (strategySeed % 25)));
-  const termWindow = ticks.slice(-samplePeriod);
+  // 1. CALCULATE MATHEMATICAL TECHNICAL INDICATORS
+  const fastEma = calculateEMA(ticks, 12);
+  const slowEma = calculateEMA(ticks, 26);
+  const rsiValue = calculateRSI(ticks, 14);
+  const volatility = calculateVolatility(ticks.slice(-30));
 
-  let upTicks = 0;
-  let downTicks = 0;
-  for (let i = 1; i < termWindow.length; i++) {
-    if (termWindow[i] > termWindow[i - 1]) upTicks++;
-    else if (termWindow[i] < termWindow[i - 1]) downTicks++;
+  // Determine market trend baseline direction based on EMA cross
+  let marketDirection = 'FLAT';
+  if (fastEma > slowEma + 0.05) marketDirection = 'UP';
+  else if (fastEma < slowEma - 0.05) marketDirection = 'DOWN';
+
+  // 2. STRATEGY PROFILE SCORING MECHANISM
+  let scannerScore = 50;
+  let marketCompatibility = 50;
+
+  // Adapt strategy profile weights based on real market states
+  if (profile.id.includes('TREND') || profile.id.includes('MARTINGALE')) {
+    // Trend & Martingale systems like clean, high-momentum directions
+    scannerScore = marketDirection !== 'FLAT' ? 85 : 40;
+    marketCompatibility = rsiValue > 60 || rsiValue < 40 ? 80 : 45;
+  } else if (profile.id.includes('CHOP_ZONE') || profile.id.includes('DALEMBERT')) {
+    // Chop zone and equilibrium systems prefer flat, low-volatility tracking channels
+    scannerScore = marketDirection === 'FLAT' ? 90 : 35;
+    marketCompatibility = rsiValue >= 40 && rsiValue <= 60 ? 85 : 40;
+  } else {
+    // Neural / Adaptive components read overbought/oversold boundaries
+    scannerScore = Math.floor(rsiValue);
+    marketCompatibility = Math.floor(100 - rsiValue);
   }
 
-  // Determine market velocity
-  const historicalAvg = longTerm.slice(0, 40).reduce((acc, val) => acc + val, 0) / 40;
-  const standardPrice = shortTerm[shortTerm.length - 1];
-  
-  let direction = 'FLAT';
-  const noiseBand = 0.012 + ((strategySeed % 5) * 0.002);
-  
-  if (standardPrice > historicalAvg + noiseBand) direction = 'UP';
-  else if (standardPrice < historicalAvg - noiseBand) direction = 'DOWN';
-
-  // 3. COMPLETE EQUALIZATION ALGORITHM MATRIX
-  const priceSpread = Math.abs(standardPrice - ticks[ticks.length - samplePeriod]);
-  const microVariance = priceSpread / (ticks[ticks.length - samplePeriod] || 1);
-  
-  let scannerScore = Math.floor(55 + (Math.sin(strategySeed + standardPrice) * 25) + (upTicks * 1.5));
-  let marketCompatibility = Math.floor(50 + (Math.cos(strategySeed * standardPrice) * 25) + (downTicks * 1.2));
-
-  if (direction === 'UP') {
-    scannerScore += (strategySeed % 4);
-  } else if (direction === 'DOWN') {
-    marketCompatibility += (strategySeed % 4);
+  // Inject volatility compensation bounds
+  if (volatility > 1.5) {
+    scannerScore = Math.min(96, scannerScore + 5);
+  } else {
+    marketCompatibility = Math.min(96, marketCompatibility + 5);
   }
 
-  scannerScore = Math.min(96, Math.max(35, scannerScore));
-  marketCompatibility = Math.min(96, Math.max(35, marketCompatibility));
+  // Clamp baseline metrics cleanly between standard percentage limits
+  scannerScore = Math.min(98, Math.max(30, scannerScore));
+  marketCompatibility = Math.min(98, Math.max(30, marketCompatibility));
 
-  // Compute final system weights
+  // 3. AGGREGATE FINAL CONFIDENCE CALCULATION
   const finalConfidence = Math.floor((scannerScore + marketCompatibility) / 2);
 
-  // Dynamic Tier classifications update based on live confidence values
   let tierOverride: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
   if (finalConfidence >= 75) tierOverride = 'HIGH';
   else if (finalConfidence >= 62) tierOverride = 'MEDIUM';
@@ -126,7 +159,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     profileId: profile.id,
     ticksLoaded: currentCount,
     marketState: 'READY',
-    direction,
+    direction: marketDirection,
     scannerScore,
     marketCompatibility,
     finalConfidence,
