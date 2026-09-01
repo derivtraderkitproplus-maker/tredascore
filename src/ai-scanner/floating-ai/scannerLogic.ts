@@ -83,11 +83,11 @@ export class ScannerLogicEngine {
     // 5. Manage Single-Winner Stability Lock Cooldowns
     const isLockExpired = (currentTime - this.lastLockTime) > this.lockDurationMs;
     const currentWinnerStillViable = freshFrames.some(
-      f => f.profile.id === this.currentTopStrategyId && f.metrics.finalConfidence >= 72
+      f => f.profile.id === this.currentTopStrategyId && f.metrics.finalConfidence >= 55
     );
 
     if (isLockExpired || !this.currentTopStrategyId || !currentWinnerStillViable) {
-      if (candidateWinner && candidateWinner.metrics.finalConfidence >= 75) {
+      if (candidateWinner && candidateWinner.metrics.finalConfidence >= 55) {
         this.currentTopStrategyId = candidateWinner.profile.id;
         this.lastLockTime = currentTime;
       } else {
@@ -95,21 +95,22 @@ export class ScannerLogicEngine {
       }
     }
 
-    // 6. Explicitly assign status values relative to our isolated single-winner anchor ID
+    // 6. Explicitly assign status values relative to our isolated top position
     const finalizedFrames = freshFrames.map(frame => {
+      // FIXED ENGINE MAPPING: Identify if this strategy is the current active top rank winner
       const isIsolatedWinner = this.currentTopStrategyId && (frame.profile.id === this.currentTopStrategyId);
 
       return {
         ...frame,
         metrics: {
           ...frame.metrics,
-          // Assign clean status overrides without cross-contaminating other item objects
+          // Force the true isolated winner to remain "HIGH", others map secondary bounds cleanly
           status: isIsolatedWinner ? 'HIGH' : (frame.metrics.finalConfidence >= 62 ? 'MEDIUM' : 'LOW')
         }
       };
     });
 
-    // 7. FIXED STRUCTURAL HOOK: Enforce final rank sort before caching data out to React
+    // 7. ENFORCE FINAL RANK SORT: Put the isolated high status strategy exactly at index 0
     const rankedOutput = finalizedFrames.sort((a, b) => {
       const scoreA = a.metrics.status === 'HIGH' ? 2 : (a.metrics.status === 'MEDIUM' ? 1 : 0);
       const scoreB = b.metrics.status === 'HIGH' ? 2 : (b.metrics.status === 'MEDIUM' ? 1 : 0);
