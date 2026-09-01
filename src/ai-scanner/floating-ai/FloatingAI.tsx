@@ -8,9 +8,10 @@ import './FloatingAI.css';
 interface FloatingAIProps {
   derivContext?: any;
   selectedMarket?: string;
+  onCloseScanner?: () => void; // FIXED: Added interface handler mapping property
 }
 
-export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selectedMarket = '1HZ100V' }) => {
+export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selectedMarket = '1HZ100V', onCloseScanner }) => {
   const [rawPipelineData, setRawPipelineData] = useState<EvaluationFrame[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
@@ -22,7 +23,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   const logicEngine = useMemo(() => new ScannerLogicEngine(), []);
   const networkBridge = useMemo(() => new DerivScannerBridge(derivContext), [derivContext]);
 
-  // Persistent reference memory tracks sorting snapshot allocations
+  // Persistent ranking memory caches configuration layout trees
   const [frozenDisplayList, setFrozenDisplayList] = useState<EvaluationFrame[]>([]);
 
   useEffect(() => {
@@ -44,6 +45,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     setRawPipelineData(initialFrame);
 
     const liveSimulationInterval = setInterval(() => {
+      // FIXED RULE: Freeze all interior calculation data logic blocks completely if a user opens a card drawer
+      if (activeTab) return;
+
       const noise = (Math.random() - 0.5) * 0.60;
       mockPrice += noise;
       
@@ -53,6 +57,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     }, 1000);
 
     networkBridge.initPipeline([selectedMarket], (symbol, price) => {
+      if (activeTab) return; // Disables network state pollution inside opened editor fields
       logicEngine.injectTick(symbol, price);
       const frameAnalysis = logicEngine.runScannerPipeline();
       setRawPipelineData(frameAnalysis);
@@ -62,29 +67,26 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       clearInterval(liveSimulationInterval);
       networkBridge.closePipeline();
     };
-  }, [selectedMarket, logicEngine, networkBridge]);
+  }, [selectedMarket, logicEngine, networkBridge, activeTab]);
 
-  // Calculate live ranking
+  // Handle baseline sorting actions
   const liveSortedProfiles = useMemo(() => {
     if (rawPipelineData.length === 0) return [];
     return [...rawPipelineData].sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence);
   }, [rawPipelineData]);
 
-  // CONTROL GAP: Freezes list structure immediately when activeTab is opened
+  // Cache configuration layers before drawers expand
   useEffect(() => {
     if (!activeTab && liveSortedProfiles.length > 0) {
       setFrozenDisplayList(liveSortedProfiles);
     }
   }, [liveSortedProfiles, activeTab]);
 
-  // Master rendering list template assignment
+  // Isolated matrix display layer rules
   const visualDisplayList = useMemo(() => {
     if (activeTab && frozenDisplayList.length > 0) {
-      // ⚠️ LOCKED STATE: Maintain index locations while editing
-      return frozenDisplayList.map(frozenItem => {
-        const liveUpdate = rawPipelineData.find(r => r.profile.id === frozenItem.profile.id);
-        return liveUpdate || frozenItem;
-      });
+      // FIXED LOCK: Freezes both position AND text parameters (scores, metrics, confidence) entirely
+      return frozenDisplayList;
     }
     
     if (liveSortedProfiles.length > 0) return liveSortedProfiles;
@@ -102,17 +104,15 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
         tierOverride: profile.tier
       }
     }));
-  }, [liveSortedProfiles, frozenDisplayList, activeTab, rawPipelineData]);
+  }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
   const globalSummary = useMemo(() => {
     const sourceList = activeTab ? frozenDisplayList : liveSortedProfiles;
     if (sourceList.length === 0) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    // Reflect top item
-    const liveTop = rawPipelineData.find(r => r.profile.id === sourceList[0].profile.id);
-    return liveTop ? liveTop.metrics : sourceList[0].metrics;
-  }, [liveSortedProfiles, frozenDisplayList, activeTab, rawPipelineData]);
+    return sourceList[0].metrics;
+  }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
   const handleLoadBot = (targetDirection: string) => {
     networkBridge.injectDataToBlockly({
@@ -121,6 +121,11 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       stopLoss: parseFloat(stopLoss) || 0,
       takeProfit: parseFloat(takeProfit) || 0
     });
+
+    // FIXED: Closes panel modal window instantly after workspace synchronization processes
+    if (typeof onCloseScanner === 'function') {
+      onCloseScanner();
+    }
   };
 
   const handleResetMetrics = () => {
@@ -146,7 +151,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       </div>
 
       <div className="scanner-subheader-text">
-        {activeTab ? "⚠️ Sorting Frozen for Editing Parameters" : "High-confidence profiles rank on top. Tap to lock & edit."}
+        {activeTab ? "🔒 Metrics Locked for Editing Parameters" : "High-confidence profiles rank on top. Tap to lock & edit."}
       </div>
 
       <div className="metrics-banner-grid">
@@ -230,6 +235,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
               )}
             </div>
           );
+          
         })}
       </div>
       
