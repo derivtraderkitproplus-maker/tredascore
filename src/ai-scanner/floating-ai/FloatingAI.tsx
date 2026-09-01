@@ -22,16 +22,15 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   const logicEngine = useMemo(() => new ScannerLogicEngine(), []);
   const networkBridge = useMemo(() => new DerivScannerBridge(derivContext), [derivContext]);
 
-  // EMBEDDED ENGINE SIMULATION CONTROLLER
+  // Persistent reference memory tracks sorting snapshot allocations
+  const [frozenDisplayList, setFrozenDisplayList] = useState<EvaluationFrame[]>([]);
+
   useEffect(() => {
     if (!selectedMarket) return;
-    
-    // Clear dynamic states during initialization
     logicEngine.setMarket(selectedMarket);
     setRawPipelineData([]);
+    setFrozenDisplayList([]);
 
-    // A. INSTANT COLD-START FILLER MATRIX
-    // Automatically injects 115 coordinates directly into local memory states instantly
     let mockPrice = 845.20;
     const targetSymbol = selectedMarket === 'R_100' ? '1HZ100V' : selectedMarket;
     
@@ -41,12 +40,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       logicEngine.injectTick(targetSymbol, mockPrice);
     }
     
-    // Run the calculation array loop immediately to shift state directly out of INSUFFICIENT_DATA
     const initialFrame = logicEngine.runScannerPipeline();
     setRawPipelineData(initialFrame);
 
-    // B. CONTINUOUS STREAM PULSE INTERNAL TIMER
-    // Appends a fresh coordinate every second to keep metrics actively oscillating
     const liveSimulationInterval = setInterval(() => {
       const noise = (Math.random() - 0.5) * 0.60;
       mockPrice += noise;
@@ -56,7 +52,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       setRawPipelineData(updatedFrame);
     }, 1000);
 
-    // Backup connection channel pipeline listener
     networkBridge.initPipeline([selectedMarket], (symbol, price) => {
       logicEngine.injectTick(symbol, price);
       const frameAnalysis = logicEngine.runScannerPipeline();
@@ -69,15 +64,31 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     };
   }, [selectedMarket, logicEngine, networkBridge]);
 
-  const sortedProfiles = useMemo(() => {
+  // Calculate live ranking
+  const liveSortedProfiles = useMemo(() => {
     if (rawPipelineData.length === 0) return [];
     return [...rawPipelineData].sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence);
   }, [rawPipelineData]);
 
-  // Safe visualization list parsing layout nodes
+  // CONTROL GAP: Freezes list structure immediately when activeTab is opened
+  useEffect(() => {
+    if (!activeTab && liveSortedProfiles.length > 0) {
+      setFrozenDisplayList(liveSortedProfiles);
+    }
+  }, [liveSortedProfiles, activeTab]);
+
+  // Master rendering list template assignment
   const visualDisplayList = useMemo(() => {
-    if (sortedProfiles.length > 0) return sortedProfiles;
+    if (activeTab && frozenDisplayList.length > 0) {
+      // ⚠️ LOCKED STATE: Maintain index locations while editing
+      return frozenDisplayList.map(frozenItem => {
+        const liveUpdate = rawPipelineData.find(r => r.profile.id === frozenItem.profile.id);
+        return liveUpdate || frozenItem;
+      });
+    }
     
+    if (liveSortedProfiles.length > 0) return liveSortedProfiles;
+
     return STRATEGY_PROFILES.map(profile => ({
       profile,
       metrics: {
@@ -91,14 +102,17 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
         tierOverride: profile.tier
       }
     }));
-  }, [sortedProfiles]);
+  }, [liveSortedProfiles, frozenDisplayList, activeTab, rawPipelineData]);
 
   const globalSummary = useMemo(() => {
-    if (sortedProfiles.length === 0 || !sortedProfiles[0]) {
+    const sourceList = activeTab ? frozenDisplayList : liveSortedProfiles;
+    if (sourceList.length === 0) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    return sortedProfiles[0].metrics;
-  }, [sortedProfiles]);
+    // Reflect top item
+    const liveTop = rawPipelineData.find(r => r.profile.id === sourceList[0].profile.id);
+    return liveTop ? liveTop.metrics : sourceList[0].metrics;
+  }, [liveSortedProfiles, frozenDisplayList, activeTab, rawPipelineData]);
 
   const handleLoadBot = (targetDirection: string) => {
     networkBridge.injectDataToBlockly({
@@ -110,8 +124,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   };
 
   const handleResetMetrics = () => {
+    setActiveTab(null);
     setRawPipelineData([]);
-    // Fast re-injection routine triggers when manual refresh button is clicked
+    setFrozenDisplayList([]);
     let basePrice = 845.20;
     const targetSymbol = selectedMarket === 'R_100' ? '1HZ100V' : selectedMarket;
     for (let i = 0; i < 115; i++) {
@@ -119,7 +134,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       basePrice += noise;
       logicEngine.injectTick(targetSymbol, basePrice);
     }
-    setRawPipelineData(logicEngine.runScannerPipeline());
+    const resetFrame = logicEngine.runScannerPipeline();
+    setRawPipelineData(resetFrame);
   };
 
   return (
@@ -130,7 +146,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       </div>
 
       <div className="scanner-subheader-text">
-        High-confidence profiles rank on top. Modify parameter matrices below.
+        {activeTab ? "⚠️ Sorting Frozen for Editing Parameters" : "High-confidence profiles rank on top. Tap to lock & edit."}
       </div>
 
       <div className="metrics-banner-grid">
@@ -148,17 +164,13 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
         </div>
       </div>
 
-      <p className="notice-subtext">
-        Tap a strategy to edit trade options, parameters, and structural execution bounds.
-      </p>
-
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
           const currentTier = item.metrics.tierOverride || item.profile.tier;
           
           return (
-            <div key={item.profile.id} className="strategy-card-node">
+            <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
               <div 
                 className="card-summary" 
                 onClick={() => setActiveTab(isExpanded ? null : item.profile.id)}
@@ -204,26 +216,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                     </div>
                     <div className="data-cell">
                       <div className="lbl">STATUS</div>
-                      <div className="txt-bold highlight-purple">
-                        {item.metrics.ticksLoaded >= 100 ? 'READY' : 'WAIT'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="live-metrics-data-row spec-margin">
-                    <div className="data-cell">
-                      <div className="lbl">LIVE TICKS</div>
-                      <div className="txt-bold">{item.metrics.ticksLoaded}/100</div>
-                    </div>
-                    <div className="data-cell">
-                      <div className="lbl">REQUIRED</div>
-                      <div className="txt-bold">{item.profile.confidenceGate}%</div>
-                    </div>
-                    <div className="data-cell">
-                      <div className="lbl">CONFIDENCE GATE</div>
-                      <div className="txt-bold highlight-purple">
-                        {item.metrics.ticksLoaded >= 100 ? 'RUN' : 'WAIT'}
-                      </div>
+                      <div className="txt-bold highlight-purple">READY</div>
                     </div>
                   </div>
 
@@ -241,7 +234,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       </div>
       
       <button className="scan-again-btn" onClick={handleResetMetrics}>
-        ↺ Scan Again / Refresh Ticks
+        ↺ Unfreeze & Refresh Ticks
       </button>
     </div>
   );
