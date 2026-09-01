@@ -192,3 +192,52 @@
   flex-shrink: 0 !important;
   margin-top: auto !important;
 }
+/* Custom Input Parameter Fields Styles Framework */
+.ai-input-parameter-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 6px !important;
+  margin-bottom: 12px !important;
+}
+
+.input-cell {
+  display: flex !important;
+  flex-direction: column !important;
+  text-align: left !important;
+}
+
+.input-cell label {
+  font-size: 8px !important;
+  color: #6c718c !important;
+  font-weight: bold !important;
+  margin-bottom: 4px !important;
+}
+
+.input-cell input {
+  background: #141724 !important;
+  border: 1px solid #1e2235 !important;
+  color: #ffffff !important;
+  padding: 6px 8px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  font-weight: bold !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.input-cell input:focus {
+  border-color: #5078ff !important;
+  outline: none !important;
+}
+
+.load-bot-theme-btn {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  border: 1px solid #3b82f6 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  padding: 14px !important;
+}
+
+.load-bot-theme-btn:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+}
