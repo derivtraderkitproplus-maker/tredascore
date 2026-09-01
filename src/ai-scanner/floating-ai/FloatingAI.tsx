@@ -37,12 +37,15 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
 
   useEffect(() => {
     if (!selectedMarket) return;
-    logicEngine.setMarket(selectedMarket);
+    
+    // Always resolve the target asset symbol consistently to keep keys fully aligned
+    const targetSymbol = selectedMarket === 'R_100' ? '1HZ100V' : selectedMarket;
+    logicEngine.setMarket(targetSymbol);
+    
     setRawPipelineData([]);
     setFrozenDisplayList([]);
 
     let mockPrice = 845.20;
-    const targetSymbol = selectedMarket === 'R_100' ? '1HZ100V' : selectedMarket;
     
     for (let i = 0; i < 115; i++) {
       const noise = (Math.random() - 0.5) * 0.45;
@@ -54,20 +57,22 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     setRawPipelineData(initialFrame);
 
     const liveSimulationInterval = setInterval(() => {
-      // Freeze all interior calculation data blocks completely if a user opens a card drawer or focuses an input
-      if (activeTab || isTypingFocused) return;
-
+      // FIXED ENGINE INJECTION FLOW: Feed ticker buffers continuously in the background
       const noise = (Math.random() - 0.5) * 0.60;
       mockPrice += noise;
-      
       logicEngine.injectTick(targetSymbol, mockPrice);
+
+      // Only skip rendering state propagation if user is interacting with editor fields
+      if (activeTab || isTypingFocused) return;
+
       const updatedFrame = logicEngine.runScannerPipeline();
       setRawPipelineData(updatedFrame);
     }, 1000);
 
-    networkBridge.initPipeline([selectedMarket], (symbol, price) => {
-      if (activeTab || isTypingFocused) return; // Disables network state pollution inside opened editor fields
+    networkBridge.initPipeline([targetSymbol], (symbol, price) => {
       logicEngine.injectTick(symbol, price);
+      
+      if (activeTab || isTypingFocused) return; 
       const frameAnalysis = logicEngine.runScannerPipeline();
       setRawPipelineData(frameAnalysis);
     });
@@ -82,12 +87,10 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   const liveSortedProfiles = useMemo(() => {
     if (rawPipelineData.length === 0) return [];
     return [...rawPipelineData].sort((a, b) => {
-      // Priority 1: Force isolated "HIGH" value configuration profile to top indexing spot
       const rankWeightA = a.metrics.status === 'HIGH' ? 2 : (a.metrics.status === 'MEDIUM' ? 1 : 0);
       const rankWeightB = b.metrics.status === 'HIGH' ? 2 : (b.metrics.status === 'MEDIUM' ? 1 : 0);
       
       if (rankWeightB !== rankWeightA) return rankWeightB - rankWeightA;
-      // Priority 2: Secondary tiebreaker tracking based on underlying final confidence variance
       return b.metrics.finalConfidence - a.metrics.finalConfidence;
     });
   }, [rawPipelineData]);
@@ -102,7 +105,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   // Isolated matrix display layer rules
   const visualDisplayList = useMemo(() => {
     if (activeTab && frozenDisplayList.length > 0) {
-      // Freezes both position AND text parameters (scores, metrics, confidence) entirely
       return frozenDisplayList;
     }
     
@@ -129,7 +131,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     if (!sourceList || sourceList.length === 0) {
       return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
     }
-    // FIXED: Accessing the first array item explicitly to avoid undefined reference crashes
+    // Pull explicitly from the top index item in our list layer array
     return sourceList[0].metrics; 
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
