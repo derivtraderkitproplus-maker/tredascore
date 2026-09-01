@@ -27,7 +27,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'REVERSE_MARTINGALE', name: 'Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 76, description: 'Compounded profit maximizing pipeline.' }
 ];
 
-// Dynamically generate the remaining system items to cleanly hit exactly 30/30 profiles
+// Generate automated placeholder entries up to exactly 30 profiles cleanly
 for (let i = STRATEGY_PROFILES.length + 1; i <= 30; i++) {
   STRATEGY_PROFILES.push({
     id: `AUTO_GEN_STRATEGY_${i}`,
@@ -47,7 +47,7 @@ export interface StrategyResult {
   scannerScore: number;
   marketCompatibility: number;
   finalConfidence: number;
-  tierOverride: 'HIGH' | 'MEDIUM' | 'LOW'; // New dynamic classification layer parameter
+  tierOverride: 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
 export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
@@ -66,47 +66,94 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     };
   }
 
-  // Expanded tracking matrix window sample size
-  const recent = ticks.slice(-20);
-  let ups = 0;
-  let downs = 0;
+  // 1. EXTRACT EXPLICIT DATA COORDINATE WINDOWS
+  const shortTerm = ticks.slice(-10);
+  const mediumTerm = ticks.slice(-30);
+  const longTerm = ticks.slice(-100);
+
+  // 2. RUN DIRECTIONAL COUNTER ANALYSIS LOOPS
+  let shortUps = 0;
+  for (let i = 1; i < shortTerm.length; i++) {
+    if (shortTerm[i] > shortTerm[i - 1]) shortUps++;
+  }
+
+  let medUps = 0;
+  for (let i = 1; i < mediumTerm.length; i++) {
+    if (mediumTerm[i] > mediumTerm[i - 1]) medUps++;
+  }
+
+  // Calculate dynamic momentum vectors via lookback average spreads
+  const pastAvg = longTerm.slice(0, 30).reduce((a, b) => a + b, 0) / 30;
+  const recentAvg = longTerm.slice(-30).reduce((a, b) => a + b, 0) / 30;
   
-  for (let i = 1; i < recent.length; i++) {
-    if (recent[i] > recent[i - 1]) {
-      ups++;
-    } else if (recent[i] < recent[i - 1]) {
-      downs++;
+  let direction = 'FLAT';
+  const baselineThreshold = 0.015;
+  if (recentAvg > pastAvg + baselineThreshold) direction = 'UP';
+  else if (recentAvg < pastAvg - baselineThreshold) direction = 'DOWN';
+
+  // 3. CATEGORY SPECIFIC INTERFERENCE ALGORITHMS
+  let scannerScore = 50;
+  let marketCompatibility = 50;
+
+  const currentPrice = ticks[ticks.length - 1];
+  const initialPrice = ticks[0]; // FIXED: Accesses explicit primitive index position
+  const totalVariance = Math.abs(currentPrice - initialPrice) / (initialPrice || 1);
+
+  if (profile.id.startsWith('AI_')) {
+    // CATEGORY A: Neural Engine Indicators (Filters momentum waves and micro-trends)
+    const shortVelocity = shortUps / 9;
+    const mediumVelocity = medUps / 29;
+    
+    if (profile.id === 'AI_TREND_PRINTER') {
+      scannerScore = Math.floor(mediumVelocity * 100);
+      marketCompatibility = direction !== 'FLAT' ? 88 : 40;
+    } else if (profile.id === 'AI_ACC_FLOW') {
+      scannerScore = Math.floor((shortVelocity * 0.4 + mediumVelocity * 0.6) * 100);
+      marketCompatibility = Math.min(95, Math.floor(60 + (totalVariance * 4000)));
+    } else {
+      // Conservative/Balanced configurations
+      scannerScore = Math.floor(55 + (shortUps * 3));
+      marketCompatibility = Math.min(95, Math.max(20, Math.floor(65 - (totalVariance * 1000))));
+    }
+  } else if (profile.id.startsWith('ACC_')) {
+    // CATEGORY B: Accumulator Profiles (Evaluates boundary ranges and standard deviation channels)
+    const devList = mediumTerm.map(t => Math.pow(t - recentAvg, 2));
+    const standardDeviation = Math.sqrt(devList.reduce((a, b) => a + b, 0) / devList.length);
+    const channelWidth = standardDeviation / (recentAvg || 1);
+
+    if (profile.id === 'ACC_MARTINGALE' || profile.id === 'ACC_REVERSE_MARTINGALE') {
+      scannerScore = Math.min(98, Math.floor(40 + (channelWidth * 6000) + (shortUps * 2)));
+      marketCompatibility = direction === 'UP' ? 85 : 55;
+    } else {
+      // D'Alembert style systems
+      scannerScore = Math.min(95, Math.max(20, Math.floor(70 - (channelWidth * 3000))));
+      marketCompatibility = Math.floor(50 + (medUps * 1.2));
+    }
+  } else {
+    // CATEGORY C: Progressive Staking Systems (1-3-2-6 and Classic Martingale formulas)
+    // FIXED: Formulates trend tracking streaks using single array item indices safely
+    const consecutiveStreak = shortTerm[shortTerm.length - 1] > shortTerm[shortTerm.length - 2] && shortTerm[shortTerm.length - 2] > shortTerm[shortTerm.length - 3];
+    
+    if (profile.id === 'STRATEGY_1_3_2_6') {
+      scannerScore = consecutiveStreak ? 85 : 45;
+      marketCompatibility = Math.floor(50 + (shortUps * 4));
+    } else {
+      scannerScore = Math.floor(50 + (shortUps * 3) + (profile.name.length % 10));
+      marketCompatibility = Math.floor(40 + (medUps * 1.5));
     }
   }
 
-  // Moving crossover metric checks
-  const olderHalfAvg = recent.slice(0, 10).reduce((a, b) => a + b, 0) / 10;
-  const newerHalfAvg = recent.slice(-10).reduce((a, b) => a + b, 0) / 10;
-  
-  let direction = 'FLAT';
-  const baselineThreshold = 0.02;
-  
-  if (newerHalfAvg > olderHalfAvg + baselineThreshold) {
-    direction = 'UP';
-  } else if (newerHalfAvg < olderHalfAvg - baselineThreshold) {
-    direction = 'DOWN';
-  }
+  // Ensure calculations fit safely within clean percentage bounds
+  scannerScore = Math.min(99, Math.max(15, scannerScore));
+  marketCompatibility = Math.min(99, Math.max(15, marketCompatibility));
 
-  // Deterministic algorithmic scaling multipliers
-  const profileSeedValue = profile.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const rawVariance = Math.abs(ticks[ticks.length - 1] - ticks[0]) / (ticks[0] || 1);
-  
-  const scannerScore = Math.min(98, Math.max(30, Math.floor(45 + (rawVariance * 3500) + (ups * 2.5) + (profileSeedValue % 18))));
-  const marketCompatibility = Math.min(95, Math.max(25, Math.floor((ups / (ups + downs || 1)) * 100) + (profileSeedValue % 12)));
+  // Compute final system validation weights
   const finalConfidence = Math.floor((scannerScore + marketCompatibility) / 2);
 
-  // FIXED: Evaluates high confidence thresholds dynamically instead of printing static options
+  // Dynamic Tier classifications based on real-time live performance scores
   let tierOverride: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
-  if (finalConfidence >= 75) {
-    tierOverride = 'HIGH';
-  } else if (finalConfidence >= 60) {
-    tierOverride = 'MEDIUM';
-  }
+  if (finalConfidence >= 75) tierOverride = 'HIGH';
+  else if (finalConfidence >= 60) tierOverride = 'MEDIUM';
 
   return {
     profileId: profile.id,
