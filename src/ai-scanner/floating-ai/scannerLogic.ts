@@ -80,13 +80,29 @@ export class ScannerLogicEngine {
 
     const candidateWinner = mathematicallySorted[0];
 
-    // 5. Manage Single-Winner Stability Lock Cooldowns
+    // Find the currently active leader frame to extract its live performance metrics
+    const currentLeaderFrame = freshFrames.find(f => f.profile.id === this.currentTopStrategyId);
+    
+    // 5. Manage Single-Winner Stability Lock Cooldowns & Relative Dethroning
     const isLockExpired = (currentTime - this.lastLockTime) > this.lockDurationMs;
-    const currentWinnerStillViable = freshFrames.some(
-      f => f.profile.id === this.currentTopStrategyId && f.metrics.finalConfidence >= 55
-    );
+    
+    // Condition A: Verify if current top strategy is still baseline viable
+    const currentWinnerStillViable = currentLeaderFrame && currentLeaderFrame.metrics.finalConfidence >= 55;
+    
+    // Condition B: Hysteresis check. Dethrone if candidate beats the current leader by an obvious margin
+    let isCurrentWinnerDethronedByPerformance = false;
+    if (candidateWinner && currentLeaderFrame && candidateWinner.profile.id !== this.currentTopStrategyId) {
+      const leaderWeight = currentLeaderFrame.metrics.scannerScore + currentLeaderFrame.metrics.finalConfidence;
+      const candidateWeight = candidateWinner.metrics.scannerScore + candidateWinner.metrics.finalConfidence;
+      
+      // If a challenger beats the leader by a weight gap of 8 points, allow an early override swap
+      if (candidateWeight > (leaderWeight + 8)) {
+        isCurrentWinnerDethronedByPerformance = true;
+      }
+    }
 
-    if (isLockExpired || !this.currentTopStrategyId || !currentWinnerStillViable) {
+    // Process updates if structural timer expired, baseline failed, or a new candidate drastically crushed it
+    if (isLockExpired || !this.currentTopStrategyId || !currentWinnerStillViable || isCurrentWinnerDethronedByPerformance) {
       if (candidateWinner && candidateWinner.metrics.finalConfidence >= 55) {
         this.currentTopStrategyId = candidateWinner.profile.id;
         this.lastLockTime = currentTime;
@@ -97,7 +113,6 @@ export class ScannerLogicEngine {
 
     // 6. Explicitly assign status values relative to our isolated top position
     const finalizedFrames = freshFrames.map(frame => {
-      // FIXED ENGINE MAPPING: Identify if this strategy is the current active top rank winner
       const isIsolatedWinner = this.currentTopStrategyId && (frame.profile.id === this.currentTopStrategyId);
 
       return {
