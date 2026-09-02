@@ -6,8 +6,8 @@ export interface BotParameters {
   stake: number;
   stopLoss: number;
   takeProfit: number;
-  contractType: string;  
-  targetSymbol: string;  
+  contractType: string;  // Added configuration mapping to mirror engine properties
+  targetSymbol: string;  // Target index e.g., 'R_50'
 }
 
 export class DerivScannerBridge {
@@ -30,6 +30,7 @@ export class DerivScannerBridge {
     }
   }
 
+  // Normalizes varying API symbol keys into standard engine tokens
   private normalizeSymbolString(s: string): string {
     const term = s.toUpperCase();
     if (term.includes('1HZ10V') || term === 'R_10') return 'R_10';
@@ -40,6 +41,7 @@ export class DerivScannerBridge {
     return s;
   }
 
+  // Maps clean code arrays out to match system level tick events
   private checkSymbolMatch(incoming: string, registered: string): boolean {
     return this.normalizeSymbolString(incoming) === this.normalizeSymbolString(registered);
   }
@@ -72,7 +74,7 @@ export class DerivScannerBridge {
       this.ws.removeEventListener('message', this.boundMessageHandler);
     }
   }
-// scannerBridge.ts - PART 2: Blockly Workspace Canvas Injection Logic
+// scannerBridge.ts - PART 2: Stable Blockly Workspace Canvas Injection Logic
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
     const workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
@@ -85,7 +87,7 @@ export class DerivScannerBridge {
     try {
       const allBlocks = workspace.getAllBlocks(false);
 
-      // Explicitly enforce raw float data casting on input metrics
+      // Parse current numbers explicitly into verified floats
       const finalStake = parseFloat(params.stake.toString()) || 0;
       const finalLoss = parseFloat(params.stopLoss.toString()) || 0;
       const finalProfit = parseFloat(params.takeProfit.toString()) || 0;
@@ -142,15 +144,14 @@ export class DerivScannerBridge {
           const amountInput = block.getInput('AMOUNT');
           if (amountInput && amountInput.connection && amountInput.connection.targetBlock()) {
             const stakeBlock = amountInput.connection.targetBlock();
-            
-            // CRITICAL TYPE ENFORCEMENT: Force visual blocks to output NUMBER types, not text strings
-            if (stakeBlock.type === 'math_number' || stakeBlock.getField('NUM')) {
-              stakeBlock.getField('NUM').setValue(finalStake.toFixed(2));
+            const numField = stakeBlock.getField('NUM');
+            if (numField) {
+              numField.setValue(finalStake.toFixed(2));
             }
           }
         }
 
-        // 5. VARIABLES BINDING HOOKS WITH TYPE-MUTATOR ENFORCEMENT
+        // 5. VISUAL VARIABLE TILES SYNC LAYER (Safely updates input values)
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -162,22 +163,14 @@ export class DerivScannerBridge {
               const numField = targetBlock.getField('NUM');
               
               if (numField) {
-                let assignedTargetValue = finalStake;
+                if (variableName === 'maxStake' || variableName.toLowerCase().includes('stake')) {
+                  numField.setValue(finalStake.toFixed(2));
+                }
                 if (variableName.toLowerCase().includes('loss') || variableName.toLowerCase().includes('threshold')) {
-                  assignedTargetValue = finalLoss;
-                } else if (variableName.toLowerCase().includes('profit') || variableName.toLowerCase().includes('target')) {
-                  assignedTargetValue = finalProfit;
+                  numField.setValue(finalLoss.toFixed(2));
                 }
-                
-                // Enforce proper numeric display formatting text tokens inside visual components
-                numField.setValue(assignedTargetValue.toFixed(2));
-
-                // BLOCKLY IN-MEMORY TYPE INJECTION: If targetBlock supports variable type declarations, force it to 'Number'
-                if (typeof targetBlock.setoutput === 'function') {
-                  targetBlock.setOutput(true, 'Number');
-                }
-                if (targetBlock.outputConnection && typeof targetBlock.outputConnection.setCheck === 'function') {
-                  targetBlock.outputConnection.setCheck('Number');
+                if (variableName.toLowerCase().includes('profit') || variableName.toLowerCase().includes('target')) {
+                  numField.setValue(finalProfit.toFixed(2));
                 }
               }
             }
@@ -185,7 +178,9 @@ export class DerivScannerBridge {
         }
       });
 
-      // --- 🛡️ COMPREHENSIVE DUAL-SCOPE VARIABLE OVERRIDE MATRIX ---
+      // --- 🛡️ CRASH-SAFE RUNTIME VALUE OVERRIDES ---
+      // Safely binds values to global tracking keys to handle variations 
+      // in how the strategy templates are configured.
       const variableMap = workspace.getVariableMap ? workspace.getVariableMap() : null;
       if (variableMap) {
         const totalVariablesList = variableMap.getAllVariables();
@@ -196,22 +191,19 @@ export class DerivScannerBridge {
           if (vName === 'maxstake' || vName.includes('stake')) {
             globalWin[v.id_] = finalStake;
             globalWin[rawName] = finalStake;
-            v.type = 'Number'; // Force correct data type within internal Blockly lists
           }
           if (vName.includes('loss') || vName.includes('threshold')) {
             globalWin[v.id_] = finalLoss;
             globalWin[rawName] = finalLoss;
-            v.type = 'Number';
           }
           if (vName.includes('profit') || vName.includes('target')) {
             globalWin[v.id_] = finalProfit;
             globalWin[rawName] = finalProfit;
-            v.type = 'Number';
           }
         });
       }
 
-      // Overwrite global execution contexts completely to prevent parameter bleeding
+      // Explicit global system overrides for common bot configurations
       globalWin.maxStake = finalStake;
       globalWin.stake = finalStake;
       globalWin.takeProfit = finalProfit;
