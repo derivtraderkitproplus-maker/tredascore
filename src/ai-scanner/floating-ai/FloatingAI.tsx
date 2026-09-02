@@ -1,4 +1,4 @@
-// FloatingAI.tsx (Part 1 of 2)
+// FloatingAI.tsx (Part 1 of 2) - Component Architecture & Subscription Layer
 import React, { useEffect, useState, useMemo } from 'react';
 import { DerivScannerBridge } from './scannerBridge';
 import { ScannerLogicEngine, EvaluationFrame } from './scannerLogic';
@@ -7,11 +7,10 @@ import './FloatingAI.css';
 
 interface FloatingAIProps {
   derivContext?: any;
-  selectedMarket?: string;
   onCloseScanner?: () => void;
 }
 
-export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selectedMarket = '1HZ100V', onCloseScanner }) => {
+export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onCloseScanner }) => {
   const [rawPipelineData, setRawPipelineData] = useState<EvaluationFrame[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
@@ -29,6 +28,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   // Persistent ranking memory caches configuration layout trees
   const [frozenDisplayList, setFrozenDisplayList] = useState<EvaluationFrame[]>([]);
 
+  // Track the multi-volatility symbol array definitions cleanly
+  const trackingSymbols = useMemo(() => ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'], []);
+
   // Synchronize dynamic input focus states directly into the logic processor instance
   useEffect(() => {
     const shouldFreezeBackend = activeTab !== null || isTypingFocused;
@@ -36,31 +38,39 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   }, [activeTab, isTypingFocused, logicEngine]);
 
   useEffect(() => {
-    if (!selectedMarket) return;
-    
-    // Always resolve the target asset symbol consistently to keep keys fully aligned
-    const targetSymbol = selectedMarket === 'R_100' ? '1HZ100V' : selectedMarket;
-    logicEngine.setMarket(targetSymbol);
-    
     setRawPipelineData([]);
     setFrozenDisplayList([]);
 
-    let mockPrice = 845.20;
-    
-    for (let i = 0; i < 115; i++) {
-      const noise = (Math.random() - 0.5) * 0.45;
-      mockPrice += noise;
-      logicEngine.injectTick(targetSymbol, mockPrice);
-    }
+    // 1. DYNAMIC PRE-SEED GENERATION LAYER: Initialize synthetic micro ticks for all assets
+    trackingSymbols.forEach(symbol => {
+      let baseMockPrice = 845.20;
+      if (symbol === 'R_10') baseMockPrice = 45.10;
+      if (symbol === 'R_25') baseMockPrice = 192.40;
+      if (symbol === 'R_50') baseMockPrice = 310.85;
+      if (symbol === 'R_75') baseMockPrice = 525.60;
+      
+      for (let i = 0; i < 115; i++) {
+        const noise = (Math.random() - 0.5) * 0.45;
+        baseMockPrice += noise;
+        logicEngine.injectTick(symbol, baseMockPrice);
+      }
+    });
     
     const initialFrame = logicEngine.runScannerPipeline();
     setRawPipelineData(initialFrame);
 
+    // 2. BACKGROUND MULTI-ASSET GENERATOR TICK PIPELINE
     const liveSimulationInterval = setInterval(() => {
-      // Feed ticker buffers continuously in the background
-      const noise = (Math.random() - 0.5) * 0.60;
-      mockPrice += noise;
-      logicEngine.injectTick(targetSymbol, mockPrice);
+      trackingSymbols.forEach(symbol => {
+        let currentNoiseBase = 0.60;
+        const noise = (Math.random() - 0.5) * currentNoiseBase;
+        
+        // Simple tick fluctuation simulation block
+        const previousTicks = (logicEngine as any).tickRegistry[symbol] || [845.20];
+        const lastPrice = previousTicks[previousTicks.length - 1];
+        
+        logicEngine.injectTick(symbol, lastPrice + noise);
+      });
 
       // Only skip rendering state propagation if user is interacting with editor fields
       if (activeTab || isTypingFocused) return;
@@ -69,7 +79,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       setRawPipelineData(updatedFrame);
     }, 1000);
 
-    networkBridge.initPipeline([targetSymbol], (symbol, price) => {
+    // 3. MULTIPLEXING NETWORK LISTENER PIPELINE
+    networkBridge.initPipeline(trackingSymbols, (symbol, price) => {
       logicEngine.injectTick(symbol, price);
       
       if (activeTab || isTypingFocused) return; 
@@ -81,7 +92,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
       clearInterval(liveSimulationInterval);
       networkBridge.closePipeline();
     };
-  }, [selectedMarket, logicEngine, networkBridge, activeTab, isTypingFocused]);
+  }, [logicEngine, networkBridge, activeTab, isTypingFocused, trackingSymbols]);
 
   // Handle baseline sorting actions linking directly to the isolated status markers
   const liveSortedProfiles = useMemo(() => {
@@ -133,14 +144,14 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
   }, [visualDisplayList]);
 
-  const handleLoadBot = (targetDirection: string) => {
+  const handleLoadBot = (targetDirection: string, frame: EvaluationFrame) => {
     networkBridge.injectDataToBlockly({
       direction: targetDirection,
       stake: parseFloat(stake) || 0,
       stopLoss: parseFloat(stopLoss) || 0,
       takeProfit: parseFloat(takeProfit) || 0,
-      // ✅ MAX RUN LIMIT IMPLEMENTATION: Sets limit to exactly 6 runs before thread cutoff
-      maxRuns: 6 
+      contractType: frame.profile.contractType,   // Dynamic contract type mapping parameter injection
+      targetSymbol: frame.profile.targetSymbol    // Multi-volatility target selection parameter injection
     });
 
     if (typeof onCloseScanner === 'function') {
@@ -152,13 +163,16 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
     setActiveTab(null);
     setRawPipelineData([]);
     setFrozenDisplayList([]);
-    let basePrice = 845.20;
-    const targetSymbol = selectedMarket === 'R_100' ? '1HZ100V' : selectedMarket;
-    for (let i = 0; i < 115; i++) {
-      const noise = (Math.random() - 0.5) * 0.45;
-      basePrice += noise;
-      logicEngine.injectTick(targetSymbol, basePrice);
-    }
+    
+    trackingSymbols.forEach(symbol => {
+      let basePrice = 845.20;
+      for (let i = 0; i < 115; i++) {
+        const noise = (Math.random() - 0.5) * 0.45;
+        basePrice += noise;
+        logicEngine.injectTick(symbol, basePrice);
+      }
+    });
+
     const resetFrame = logicEngine.runScannerPipeline();
     setRawPipelineData(resetFrame);
   };
@@ -166,17 +180,17 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
   return (
     <div className="ai-strategy-scanner">
       <div className="scanner-header">
-        <h3>AI Strategy Scanner</h3>
+        <h3>AI Multi-Asset Scanner</h3>
         <span className="profile-counter">30/30</span>
       </div>
 
       <div className="scanner-subheader-text">
-        {activeTab ? "🔒 Metrics Locked for Editing Parameters" : "High-confidence profiles rank on top. Tap to lock & edit."}
+        {activeTab ? "🔒 Metrics Locked for Editing Parameters" : "Balanced strategies rank below. Tap to lock & edit parameters."}
       </div>
 
       <div className="metrics-banner-grid">
         <div className="metric-box">
-          <label>MARKET STATE</label>
+          <label>GLOBAL WINNER</label>
           <div className="val">{globalSummary.marketState}</div>
         </div>
         <div className="metric-box">
@@ -188,6 +202,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
+
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
@@ -195,6 +210,12 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
           // Read the globally isolated status identifier mapped out by our engine pipeline
           const currentStatus = item.metrics.status || item.profile.tier || 'LOW';
           
+          // Formats internal registry symbol codes into beautiful user dashboard labels
+          const assetDisplayLabel = item.profile.targetSymbol.replace('R_', 'Volatility ');
+          
+          // Normalizes technical contract enum strings into highly readable indicator badges
+          const contractDisplayLabel = item.profile.contractType.replace(/_/g, ' ');
+
           return (
             <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
               <div 
@@ -204,6 +225,20 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                 <div className="rank-badge">#{index + 1}</div>
                 <div className="meta-details">
                   <h4>{item.profile.name}</h4>
+                  
+                  {/* --- MULTI-VOLATILITY & ENGINE ARCHITECTURE META INFO TAGS --- */}
+                  <div className="strategy-tags-row" style={{ display: 'flex', gap: '6px', margin: '4px 0' }}>
+                    <span className={`asset-tag symbol-${item.profile.targetSymbol.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#2a3243', color: '#00e676', fontWeight: 'bold' }}>
+                      {assetDisplayLabel}
+                    </span>
+                    <span className="contract-tag" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#374151', color: '#e0e0e0' }}>
+                      {contractDisplayLabel}
+                    </span>
+                    <span className="engine-tag" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#1f2937', color: '#ffb300', fontStyle: 'italic' }}>
+                      {item.profile.coreEngine}
+                    </span>
+                  </div>
+
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
                 <span className={`tier-badge ${currentStatus.toLowerCase()}`}>
@@ -259,14 +294,15 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, selec
                       <div className="txt-bold highlight-yellow">{item.metrics.direction}</div>
                     </div>
                     <div className="data-cell">
-                      <div className="lbl">STATUS</div>
-                      <div className="txt-bold highlight-purple">READY</div>
+                      <div className="lbl">TARGET ASSET</div>
+                      <div className="txt-bold highlight-purple">{assetDisplayLabel}</div>
                     </div>
                   </div>
 
+                  {/* FIXED LOAD LOOP: Passes the specific strategy frame mapping to inject dynamic contracts */}
                   <button 
                     className="inner-drawer-load-btn"
-                    onClick={() => handleLoadBot(item.metrics.direction)}
+                    onClick={() => handleLoadBot(item.metrics.direction, item)}
                   >
                     📥 Load Strategy Parameters
                   </button>
