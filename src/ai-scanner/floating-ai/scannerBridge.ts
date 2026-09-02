@@ -6,8 +6,8 @@ export interface BotParameters {
   stake: number;
   stopLoss: number;
   takeProfit: number;
-  contractType: string;  
-  targetSymbol: string;  
+  contractType: string;  // Added configuration mapping to mirror engine properties
+  targetSymbol: string;  // Target index e.g., 'R_50'
 }
 
 export class DerivScannerBridge {
@@ -30,6 +30,7 @@ export class DerivScannerBridge {
     }
   }
 
+  // Normalizes varying API symbol keys into standard engine tokens
   private normalizeSymbolString(s: string): string {
     const term = s.toUpperCase();
     if (term.includes('1HZ10V') || term === 'R_10') return 'R_10';
@@ -40,6 +41,7 @@ export class DerivScannerBridge {
     return s;
   }
 
+  // Maps clean code arrays out to match system level tick events
   private checkSymbolMatch(incoming: string, registered: string): boolean {
     return this.normalizeSymbolString(incoming) === this.normalizeSymbolString(registered);
   }
@@ -56,8 +58,12 @@ export class DerivScannerBridge {
           const data = JSON.parse(event.data);
           if (data.msg_type === 'tick' && data.tick) {
             const { symbol, quote } = data.tick;
+            
+            // Search across active symbols array using standard matching checks
             const matchedSymbol = this.activeSymbols.find(s => this.checkSymbolMatch(symbol, s));
+            
             if (matchedSymbol) {
+              // Pass the normalized value directly to keep scanner calculation routines pure
               this.onTickCallback?.(this.normalizeSymbolString(matchedSymbol), parseFloat(quote));
             }
           }
@@ -72,16 +78,9 @@ export class DerivScannerBridge {
       this.ws.removeEventListener('message', this.boundMessageHandler);
     }
   }
-// scannerBridge.ts - PART 2: Safe Workspace Injection Logic
+// scannerBridge.ts - PART 2: Blockly Workspace Canvas Injection Logic
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
-    
-    // 1. CRASH-PROOF BOUNDARY CHECK: Ensure Blockly framework initialization completed
-    if (!globalWin.Blockly) {
-      alert("⚠️ Deriv Bot Builder engine is initializing. Please wait a moment and try again.");
-      return;
-    }
-
     const workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
     if (!workspace) {
@@ -92,13 +91,8 @@ export class DerivScannerBridge {
     try {
       const allBlocks = workspace.getAllBlocks(false);
 
-      // Explicitly clean and format values into raw numerical strings
-      const finalStake = parseFloat(params.stake.toString()) || 0;
-      const finalLoss = parseFloat(params.stopLoss.toString()) || 0;
-      const finalProfit = parseFloat(params.takeProfit.toString()) || 0;
-
       allBlocks.forEach((block: any) => {
-        // A. ASSET & MARKET TYPE INJECTION
+        // 1. DYNAMIC ASSET & MARKET TYPE INJECTION
         if (block.type === 'trade_definition_market') {
           const symbolField = block.getField('SYMBOL_LIST');
           if (symbolField) {
@@ -108,11 +102,12 @@ export class DerivScannerBridge {
             if (params.targetSymbol === 'R_50') systemSymbol = '1HZ50V';
             if (params.targetSymbol === 'R_75') systemSymbol = '1HZ75V';
             if (params.targetSymbol === 'R_100') systemSymbol = '1HZ100V';
+            
             symbolField.setValue(systemSymbol);
           }
         }
 
-        // B. CONTRACT TYPE MAPPING LAYER
+        // 2. DYNAMIC CONTRACT TYPE MAPPING LAYER
         if (block.type === 'trade_definition_contracttype') {
           const contractTypeField = block.getField('CONTRACT_TYPE_LIST');
           if (contractTypeField) {
@@ -121,11 +116,12 @@ export class DerivScannerBridge {
             if (params.contractType === 'OVER_UNDER') mappedValue = 'digits';
             if (params.contractType === 'TOUCH_NO_TOUCH') mappedValue = 'touchnotouch';
             if (params.contractType === 'ACCUMULATOR') mappedValue = 'accumulator';
+            
             contractTypeField.setValue(mappedValue);
           }
         }
 
-        // C. PURCHASE DIRECTION SIGNALS
+        // 3. PURCHASE CALL / PUT ORDER SIGNALS
         if (block.type === 'purchase') {
           const purchaseField = block.getField('PURCHASE_LIST');
           if (purchaseField) {
@@ -139,7 +135,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // D. TRANSACTION DURATION STAKE FIELDS
+        // 4. DURATIONS & FIXED INPUT CONTROLLER STAKE FIELDS
         if (block.type === 'trade_definition_tradeoptions') {
           const durationField = block.getField('DURATION');
           if (durationField) {
@@ -151,12 +147,13 @@ export class DerivScannerBridge {
             const stakeBlock = amountInput.connection.targetBlock();
             const numField = stakeBlock.getField('NUM');
             if (numField) {
-              numField.setValue(finalStake.toFixed(2));
+              const sanitizedStake = parseFloat(params.stake.toString()) || 0;
+              numField.setValue(sanitizedStake.toFixed(2));
             }
           }
         }
 
-        // E. SAFE VARIABLE TILES SYNC LAYER
+        // 5. FIXED ENGINE MAPPING: Forces variables injection to use real mathematical float values
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -169,13 +166,16 @@ export class DerivScannerBridge {
               
               if (numField) {
                 if (variableName === 'maxStake' || variableName.toLowerCase().includes('stake')) {
-                  numField.setValue(finalStake.toFixed(2));
+                  const verifiedStakeValue = parseFloat(params.stake.toString()) || 0;
+                  numField.setValue(verifiedStakeValue.toFixed(2));
                 }
-                if (variableName.toLowerCase().includes('loss' || variableName.toLowerCase().includes('threshold'))) {
-                  numField.setValue(finalLoss.toFixed(2));
+                if (variableName.toLowerCase().includes('loss') || variableName.toLowerCase().includes('threshold')) {
+                  const verifiedLossValue = parseFloat(params.stopLoss.toString()) || 0;
+                  numField.setValue(verifiedLossValue.toFixed(2));
                 }
                 if (variableName.toLowerCase().includes('profit') || variableName.toLowerCase().includes('target')) {
-                  numField.setValue(finalProfit.toFixed(2));
+                  const verifiedProfitValue = parseFloat(params.takeProfit.toString()) || 0;
+                  numField.setValue(verifiedProfitValue.toFixed(2));
                 }
               }
             }
@@ -183,7 +183,6 @@ export class DerivScannerBridge {
         }
       });
 
-      // Synchronize workspace components visually
       if (typeof workspace.render === 'function') {
         workspace.render();
       }
