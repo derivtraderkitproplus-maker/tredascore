@@ -1,4 +1,4 @@
-/* FloatingAI.css (Part 1 of 2) */
+/* FloatingAI.css (Part 1 of 2) - Fixed Core Structure & Card Node Alignments */
 
 .ai-strategy-scanner {
   background: #0b0d17 !important;
@@ -9,7 +9,7 @@
   box-sizing: border-box !important;
   display: flex !important;
   flex-direction: column !important;
-  max-height: 75vh !important; /* FIXED: Strict bounding height prevents viewport spilling and clipping */
+  max-height: 75vh !important; /* Strict bounding height prevents viewport spilling and clipping */
   position: relative !important;
   border: 1px solid #1c2035 !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
@@ -92,7 +92,7 @@
   flex-direction: column !important;
   gap: 12px !important;
   flex-grow: 1 !important;
-  overflow-y: auto !important; /* FIXED: Confines list container scrolling inside specified limits */
+  overflow-y: auto !important; /* Confines list container scrolling inside specified limits */
   padding-right: 4px !important;
   margin-bottom: 4px !important;
 }
@@ -109,22 +109,23 @@
   border-radius: 4px !important;
 }
 
-/* 🔄 HIGH PERFORMANCE TRANSITION & SWAPPING MATRIX RULES */
+/* HIGH PERFORMANCE TRANSITION & SWAPPING MATRIX RULES */
 .strategy-card-node {
   background: #131622 !important;
   border: 1px solid #1d2134 !important;
   border-radius: 10px !important;
-  padding: 12px !important;
+  padding: 0 !important; /* Changed to 0 so the padding is controlled explicitly by internal elements */
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
+  overflow: hidden !important; /* Prevents text overlays from breaking container bounds */
   
   /* Smooth hardware-accelerated animations for position switches */
   transition: all 0.38s cubic-bezier(0.4, 0, 0.2, 1) !important;
   will-change: transform, opacity, background-color, border-color !important;
 }
 
-/* 🥇 VISUAL ANCHOR ACCENT FOR THE #1 RUNNING STRATEGY */
+/* VISUAL ANCHOR ACCENT FOR THE #1 RUNNING STRATEGY */
 .strategy-card-node:first-child {
   border-color: #5078ff !important;
   background: linear-gradient(135deg, #131622 0%, #171b30 100%) !important;
@@ -136,19 +137,21 @@
   content: '' !important;
   position: absolute !important;
   left: 0 !important;
-  top: 12px !important;
-  bottom: 12px !important;
+  top: 0 !important;
+  bottom: 0 !important;
   width: 4px !important;
   background: #5078ff !important;
-  border-radius: 0 4px 4px 0 !important;
+  z-index: 10 !important; /* Ensures the first child indicator line scales above inner paddings */
 }
-/* FloatingAI.css (Part 2 of 2) */
+/* FloatingAI.css (Part 2 of 2) - Clean Layout Alignments & Variable Input Grids */
 
 .card-summary {
   display: flex !important;
   align-items: center !important;
   cursor: pointer !important;
   width: 100% !important;
+  padding: 12px !important; /* Added explicit padding within the card clickable region */
+  box-sizing: border-box !important;
 }
 
 .rank-badge {
@@ -175,6 +178,7 @@
 .meta-details { 
   flex: 1 !important; 
   text-align: left !important;
+  min-width: 0 !important; /* Forces inner long text elements to truncate gracefully if needed */
 }
 
 .meta-details h4 { 
@@ -182,6 +186,9 @@
   font-size: 14px !important; 
   font-weight: 600 !important; 
   color: #ffffff !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .meta-details p { 
@@ -190,23 +197,49 @@
   color: #6c718c !important; 
 }
 
+/* --- FIXED LAYER: RIGID BADGE ROW PACKING PREVENTS SQUEEZING TEXT --- */
+.badge-column {
+  margin-left: auto !important; /* Pushes the badge container row perfectly to the right side */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  min-width: 65px !important; /* Hard constraint layout prevents horizontal component shrinking */
+  flex-shrink: 0 !important;
+}
+
 .tier-badge {
   font-size: 10px !important;
   font-weight: bold !important;
-  padding: 2px 8px !important;
+  padding: 4px 8px !important; /* Balanced uniform cell spacing */
   border-radius: 4px !important;
-  margin-right: 8px !important;
-  flex-shrink: 0 !important;
   text-transform: uppercase !important;
+  white-space: nowrap !important; /* Stops strings from wrapping or collapsing into lines */
+  text-align: center !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
-.tier-badge.high { background: rgba(255, 74, 98, 0.15) !important; color: #ff4a62 !important; }
-.tier-badge.medium { background: rgba(245, 166, 35, 0.15) !important; color: #f5a623 !important; }
-.tier-badge.low { background: rgba(46, 212, 121, 0.15) !important; color: #2ed479 !important; }
+
+.tier-badge.high { 
+  background: rgba(255, 74, 98, 0.15) !important; 
+  color: #ff4a62 !important; 
+  border: 1px solid rgba(255, 74, 98, 0.3) !important;
+}
+.tier-badge.medium { 
+  background: rgba(245, 166, 35, 0.15) !important; 
+  color: #f5a623 !important; 
+  border: 1px solid rgba(245, 166, 35, 0.3) !important;
+}
+.tier-badge.low { 
+  background: rgba(46, 212, 121, 0.15) !important; 
+  color: #2ed479 !important; 
+  border: 1px solid rgba(46, 212, 121, 0.3) !important;
+}
 
 .arrow-toggle { 
   color: #555975 !important; 
   font-size: 11px !important; 
   flex-shrink: 0 !important;
+  margin-left: 8px !important;
   transition: transform 0.2s ease !important;
 }
 
@@ -218,8 +251,7 @@
 .card-expanded-drawer {
   border-top: 1px solid #1a1e30 !important;
   background: #0f121d !important;
-  margin-top: 8px !important;
-  padding-top: 10px !important;
+  padding: 12px !important; /* Added explicit inner-drawer padding standard uniformity */
   display: flex !important;
   flex-direction: column !important;
 }
@@ -227,12 +259,11 @@
 .card-expanded-drawer .desc {
   font-size: 12px !important;
   color: #7b7f99 !important;
-  margin: 0 0 10px 0 !important;
+  margin: 0 0 12px 0 !important;
   line-height: 1.4 !important;
   text-align: left !important;
 }
 
-/* Isolated layout columns configuration prevents text squishing and clipping */
 .live-metrics-data-row {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
@@ -244,8 +275,6 @@
   box-sizing: border-box !important;
 }
 
-.spec-margin { margin-top: 8px !important; }
-
 .data-cell {
   display: flex !important;
   flex-direction: column !important;
@@ -253,11 +282,6 @@
 }
 .data-cell .lbl { font-size: 9px !important; color: #595d75 !important; font-weight: bold !important; text-transform: uppercase !important; }
 .data-cell .txt-bold { font-size: 12px !important; font-weight: bold !important; margin-top: 4px !important; color: #e2e4eb !important; }
-
-.progress-bar-container { margin-top: 12px !important; }
-.bar-labels { display: flex !important; justify-content: space-between !important; font-size: 11px !important; color: #6c718c !important; margin-bottom: 4px !important; }
-.base-track { background: #1c2035 !important; height: 6px !important; border-radius: 3px !important; overflow: hidden !important; width: 100% !important; }
-.base-track .fill { background: #5078ff !important; height: 100%; border-radius: 3px !important; }
 
 /* Dynamic Input Parameter Fields Grid */
 .ai-input-parameter-grid {
@@ -299,7 +323,6 @@
   outline: none !important;
 }
 
-/* FIXED INTEGRATION VIEW: Customized parameters loader action button inside your drawers */
 .inner-drawer-load-btn {
   width: 100% !important;
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
@@ -322,7 +345,6 @@
   opacity: 0.85 !important;
 }
 
-/* FIXED PLACEMENT BOTTOM ROW: Keeps your centralized refresh trigger button accessible and entirely unblocked */
 .scan-again-btn {
   width: 100% !important;
   background: #21263c !important;
@@ -333,12 +355,12 @@
   cursor: pointer !important;
   font-weight: 600 !important;
   font-size: 13px !important;
-  margin-top: 14px !important; /* FIXED: Enforces clear component container layout separation margins */
+  margin-top: 14px !important; 
   height: auto !important;
   line-height: 1.2 !important;
-  flex-shrink: 0 !important; /* FIXED: Strong layout enforcement prevents elements from folding or collapsing */
+  flex-shrink: 0 !important; 
   box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.3) !important;
-  box-shadow: border-box !important;
+  box-sizing: border-box !important;
 }
 
 .scan-again-btn:hover {
