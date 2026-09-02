@@ -1,4 +1,4 @@
-// scannerLogic.ts - PART 1: Core Engine Structure & Categorized Filtering Array Loop
+// scannerLogic.ts
 import { STRATEGY_PROFILES, evaluateStrategy, StrategyResult, StrategyProfile } from './strategies';
 
 export interface EvaluationFrame {
@@ -8,6 +8,7 @@ export interface EvaluationFrame {
 
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
+  private activeSymbol: string = 'R_100';
 
   // --- STABILITY & SINGLE-WINNER LOCK STATE ---
   private currentTopStrategyId: string | null = null;
@@ -30,6 +31,10 @@ export class ScannerLogicEngine {
     }
   }
 
+  public setMarket(symbol: string): void {
+    this.activeSymbol = symbol;
+  }
+
   public setEditingState(isEditing: boolean): void {
     this.isEditingPaused = isEditing;
   }
@@ -40,6 +45,7 @@ export class ScannerLogicEngine {
       return this.lastEvaluatedFrames;
     }
 
+    const currentTicks = this.tickRegistry[this.activeSymbol] || [];
     const currentTime = Date.now();
 
     // 2. NETWORK WATCHDOG OVERRIDE
@@ -59,61 +65,20 @@ export class ScannerLogicEngine {
       }));
     }
     
-    // 3. Compute clean raw mathematical metrics across all strategy patterns dynamically based on their specific target asset volatility
+    // 3. Compute clean raw mathematical metrics across all strategy patterns
     const freshFrames: EvaluationFrame[] = STRATEGY_PROFILES.map(profile => {
-      // FIX HERE: Pull data using each strategy's independent asset index token
-      const currentTicks = this.tickRegistry[profile.targetSymbol] || [];
       const metrics = evaluateStrategy(profile, currentTicks);
       return { profile, metrics };
     });
 
-    // 4. BALANCED ENGINE ISOLATION FILTERING: Separate strategies into pools by Contract Type
-    const pools = {
-      RISE_FALL: freshFrames.filter(f => f.profile.contractType === 'RISE_FALL'),
-      OVER_UNDER: freshFrames.filter(f => f.profile.contractType === 'OVER_UNDER'),
-      TOUCH_NO_TOUCH: freshFrames.filter(f => f.profile.contractType === 'TOUCH_NO_TOUCH'),
-      ACCUMULATOR: freshFrames.filter(f => f.profile.contractType === 'ACCUMULATOR')
-    };
-
-    // Helper sorting routine to discover champions inside isolated categories
-    const getSortedPool = (arr: EvaluationFrame[]) => {
-      return [...arr].sort((a, b) => {
-        const weightA = a.metrics.scannerScore + a.metrics.finalConfidence;
-        const weightB = b.metrics.scannerScore + b.metrics.finalConfidence;
-        return weightB - weightA;
-      });
-    };
-
-    const sortedRiseFall = getSortedPool(pools.RISE_FALL);
-    const sortedOverUnder = getSortedPool(pools.OVER_UNDER);
-    const sortedTouch = getSortedPool(pools.TOUCH_NO_TOUCH);
-    const sortedAccum = getSortedPool(pools.ACCUMULATOR);
-    // scannerLogic.ts - PART 2: Winner Isolation Logic, Cooldowns, and Output Sorting
-    
-    // Merge the top sorted category assets evenly to produce an authentic diversified configuration matrix output
-    const balancedPoolWinnerList: EvaluationFrame[] = [];
-    
-    // Push top 2 performers of each class type to prevent single-asset dashboard monopoly
-    if (sortedRiseFall.length > 0) balancedPoolWinnerList.push(...sortedRiseFall.slice(0, 2));
-    if (sortedOverUnder.length > 0) balancedPoolWinnerList.push(...sortedOverUnder.slice(0, 2));
-    if (sortedTouch.length > 0) balancedPoolWinnerList.push(...sortedTouch.slice(0, 2));
-    if (sortedAccum.length > 0) balancedPoolWinnerList.push(...sortedAccum.slice(0, 2));
-
-    // Gather items not pushed yet to fill up the remaining layout rows cleanly
-    const existingIds = new Set(balancedPoolWinnerList.map(f => f.profile.id));
-    const remainderStrats = freshFrames.filter(f => !existingIds.has(f.profile.id));
-    
-    // Final composite output set consisting of champion variants first followed by baseline elements
-    const combinedBalancedOutput = [
-      ...balancedPoolWinnerList,
-      ...remainderStrats.sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence)
-    ];
-
-    // Find the current candidate winner from the top globally performing profile
-    const globalSortedChallengers = [...freshFrames].sort((a, b) => {
-      return (b.metrics.scannerScore + b.metrics.finalConfidence) - (a.metrics.scannerScore + a.metrics.finalConfidence);
+    // 4. MULTI-FACTOR SORTING LAYER: Rank raw profiles by mathematical performance first
+    const mathematicallySorted = [...freshFrames].sort((a, b) => {
+      const weightA = a.metrics.scannerScore + a.metrics.finalConfidence;
+      const weightB = b.metrics.scannerScore + b.metrics.finalConfidence;
+      return weightB - weightA;
     });
-    const candidateWinner = globalSortedChallengers[0];
+
+    const candidateWinner = mathematicallySorted[0];
 
     // Find the currently active leader frame to extract its live performance metrics
     const currentLeaderFrame = freshFrames.find(f => f.profile.id === this.currentTopStrategyId);
@@ -146,8 +111,8 @@ export class ScannerLogicEngine {
       }
     }
 
-    // 6. Explicitly assign status values relative to our isolated top position across the array structure
-    const finalizedFrames = combinedBalancedOutput.map(frame => {
+    // 6. Explicitly assign status values relative to our isolated top position
+    const finalizedFrames = freshFrames.map(frame => {
       const isIsolatedWinner = this.currentTopStrategyId && (frame.profile.id === this.currentTopStrategyId);
 
       return {
@@ -160,7 +125,7 @@ export class ScannerLogicEngine {
       };
     });
 
-    // 7. ENFORCE FINAL RANK SORT: Put the isolated high status strategy exactly at index 0, sorting the rest by confidence
+    // 7. ENFORCE FINAL RANK SORT: Put the isolated high status strategy exactly at index 0
     const rankedOutput = finalizedFrames.sort((a, b) => {
       const scoreA = a.metrics.status === 'HIGH' ? 2 : (a.metrics.status === 'MEDIUM' ? 1 : 0);
       const scoreB = b.metrics.status === 'HIGH' ? 2 : (b.metrics.status === 'MEDIUM' ? 1 : 0);
