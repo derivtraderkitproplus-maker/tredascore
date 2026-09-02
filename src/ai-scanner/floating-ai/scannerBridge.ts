@@ -74,7 +74,7 @@ export class DerivScannerBridge {
       this.ws.removeEventListener('message', this.boundMessageHandler);
     }
   }
-// scannerBridge.ts - PART 2: Stable Blockly Workspace Canvas Injection Logic
+// scannerBridge.ts - PART 2: Safe Workspace Injection Logic
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
     const workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
@@ -87,13 +87,13 @@ export class DerivScannerBridge {
     try {
       const allBlocks = workspace.getAllBlocks(false);
 
-      // Parse current numbers explicitly into verified floats
+      // Cast parameters purely into formatted float variables
       const finalStake = parseFloat(params.stake.toString()) || 0;
       const finalLoss = parseFloat(params.stopLoss.toString()) || 0;
       const finalProfit = parseFloat(params.takeProfit.toString()) || 0;
 
       allBlocks.forEach((block: any) => {
-        // 1. DYNAMIC ASSET & MARKET TYPE INJECTION
+        // 1. ASSET & MARKET TYPE INJECTION
         if (block.type === 'trade_definition_market') {
           const symbolField = block.getField('SYMBOL_LIST');
           if (symbolField) {
@@ -107,7 +107,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 2. DYNAMIC CONTRACT TYPE MAPPING LAYER
+        // 2. CONTRACT TYPE MAPPING LAYER
         if (block.type === 'trade_definition_contracttype') {
           const contractTypeField = block.getField('CONTRACT_TYPE_LIST');
           if (contractTypeField) {
@@ -120,7 +120,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 3. PURCHASE CALL / PUT ORDER SIGNALS
+        // 3. PURCHASE DIRECTION SIGNALS
         if (block.type === 'purchase') {
           const purchaseField = block.getField('PURCHASE_LIST');
           if (purchaseField) {
@@ -134,7 +134,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 4. DURATIONS & FIXED INPUT CONTROLLER STAKE FIELDS
+        // 4. TRANSACTION DURATION STAKE FIELDS
         if (block.type === 'trade_definition_tradeoptions') {
           const durationField = block.getField('DURATION');
           if (durationField) {
@@ -151,7 +151,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 5. VISUAL VARIABLE TILES SYNC LAYER (Safely updates input values)
+        // 5. SAFE VARIABLE TILES SYNC LAYER
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -178,39 +178,7 @@ export class DerivScannerBridge {
         }
       });
 
-      // --- 🛡️ CRASH-SAFE RUNTIME VALUE OVERRIDES ---
-      // Safely binds values to global tracking keys to handle variations 
-      // in how the strategy templates are configured.
-      const variableMap = workspace.getVariableMap ? workspace.getVariableMap() : null;
-      if (variableMap) {
-        const totalVariablesList = variableMap.getAllVariables();
-        totalVariablesList.forEach((v: any) => {
-          const rawName = v.name;
-          const vName = rawName.toLowerCase();
-          
-          if (vName === 'maxstake' || vName.includes('stake')) {
-            globalWin[v.id_] = finalStake;
-            globalWin[rawName] = finalStake;
-          }
-          if (vName.includes('loss') || vName.includes('threshold')) {
-            globalWin[v.id_] = finalLoss;
-            globalWin[rawName] = finalLoss;
-          }
-          if (vName.includes('profit') || vName.includes('target')) {
-            globalWin[v.id_] = finalProfit;
-            globalWin[rawName] = finalProfit;
-          }
-        });
-      }
-
-      // Explicit global system overrides for common bot configurations
-      globalWin.maxStake = finalStake;
-      globalWin.stake = finalStake;
-      globalWin.takeProfit = finalProfit;
-      globalWin.profitTarget = finalProfit;
-      globalWin.stopLoss = finalLoss;
-      globalWin.lossThreshold = finalLoss;
-
+      // Synchronize workspace adjustments visually without forcing invasive memory overrides
       if (typeof workspace.render === 'function') {
         workspace.render();
       }
