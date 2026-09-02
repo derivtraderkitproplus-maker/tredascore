@@ -1,10 +1,56 @@
-// scannerLogic.ts - PART 1: Core Engine Structure & Categorized Filtering Array Loop
+// scannerLogic.ts - PART 1: Imports, Interfaces, and Marketing Broadcaster Pipe
 import { STRATEGY_PROFILES, evaluateStrategy, StrategyResult, StrategyProfile } from './strategies';
 
 export interface EvaluationFrame {
   profile: StrategyProfile;
   metrics: StrategyResult;
 }
+
+interface HighConfidenceSignal {
+  strategyName: string;
+  assetName: string;
+  confidenceScore: number;
+  recommendedAction: string;
+}
+
+// --- TELEGRAM BOT CONFIGURATION CONSTANTS ---
+const TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_API_TOKEN"; 
+const TELEGRAM_CHANNEL_ID = "@your_public_channel_username"; // e.g., @EdascoreSignals
+
+/**
+ * Fires an automated marketing signal alert to your Telegram community 
+ * whenever a strategy breaks threshold criteria to drive inbound turnover volume.
+ */
+export async function broadcastSignalToTelegram(signal: HighConfidenceSignal) {
+  // Only broadcast high-tier probabilities to preserve channel conversion quality
+  if (signal.confidenceScore < 85) return;
+
+  const webAppURL = "https://vercel.app";
+  
+  // Format clean marketing string payload optimized for Telegram Markdown layout structures
+  const messageText = encodeURIComponent(
+    `🔥 *NEW HIGH-PROBABILITY SIGNAL DETECTED* 🔥\n\n` +
+    `🤖 *Strategy:* ${signal.strategyName}\n` +
+    `📊 *Asset Class:* ${signal.assetName}\n` +
+    `🎯 *AI Confidence Score:* ${signal.confidenceScore}%\n` +
+    `⚡ *Action Direction:* ${signal.recommendedAction === 'UP' ? 'CALL 🟢 (RISE)' : 'PUT 🔴 (FALL)'}\n\n` +
+    `👉 [Click Here to Deploy Auto-Trader on Your Account](${webAppURL})`
+  );
+
+  const telegramApiEndPoint = `https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${messageText}&parse_mode=Markdown`;
+
+  try {
+    const response = await fetch(telegramApiEndPoint);
+    if (response.ok) {
+      console.log(`✅ Automated Signal Broadcast dispatched successfully for: ${signal.strategyName}`);
+    } else {
+      console.error("❌ Telegram channel payload rejected:", response.statusText);
+    }
+  } catch (error) {
+    console.error("🚨 Asynchronous API transmission failed:", error);
+  }
+}
+// scannerLogic.ts - PART 2: Core Processing Engine and Selection Pipeline
 
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
@@ -17,16 +63,30 @@ export class ScannerLogicEngine {
   private lastEvaluatedFrames: EvaluationFrame[] = [];
   private lastTickReceivedTimestamp: number = 0;
 
+  // --- COMPREHENSIVE ASSET TOKEN NORMALIZER ---
+  private standardizeSymbol(s: string): string {
+    const term = s.toUpperCase().trim();
+    if (term.includes('1HZ10V') || term === 'R_10') return 'R_10';
+    if (term.includes('1HZ25V') || term === 'R_25') return 'R_25';
+    if (term.includes('1HZ50V') || term === 'R_50') return 'R_50';
+    if (term.includes('1HZ75V') || term === 'R_75') return 'R_75';
+    if (term.includes('1HZ100V') || term === 'R_100') return 'R_100';
+    return s;
+  }
+
   public injectTick(symbol: string, price: number): void {
-    if (!this.tickRegistry[symbol]) {
-      this.tickRegistry[symbol] = [];
+    // FIX 1: Harmonize asset codes on injection to align historical lookbacks cleanly
+    const normalizedSymbol = this.standardizeSymbol(symbol);
+
+    if (!this.tickRegistry[normalizedSymbol]) {
+      this.tickRegistry[normalizedSymbol] = [];
     }
     
-    this.tickRegistry[symbol].push(price);
+    this.tickRegistry[normalizedSymbol].push(price);
     this.lastTickReceivedTimestamp = Date.now();
 
-    if (this.tickRegistry[symbol].length > 120) {
-      this.tickRegistry[symbol].shift();
+    if (this.tickRegistry[normalizedSymbol].length > 120) {
+      this.tickRegistry[normalizedSymbol].shift();
     }
   }
 
@@ -59,10 +119,11 @@ export class ScannerLogicEngine {
       }));
     }
     
-    // 3. Compute clean raw mathematical metrics across all strategy patterns dynamically based on their specific target asset volatility
+    // 3. Compute clean raw mathematical metrics across all strategy patterns dynamically
     const freshFrames: EvaluationFrame[] = STRATEGY_PROFILES.map(profile => {
-      // FIX HERE: Pull data using each strategy's independent asset index token
-      const currentTicks = this.tickRegistry[profile.targetSymbol] || [];
+      // FIX 2: Safeguard lookup tracking by verifying indicators against identical token spaces
+      const targetToken = this.standardizeSymbol(profile.targetSymbol);
+      const currentTicks = this.tickRegistry[targetToken] || [];
       const metrics = evaluateStrategy(profile, currentTicks);
       return { profile, metrics };
     });
@@ -75,7 +136,6 @@ export class ScannerLogicEngine {
       ACCUMULATOR: freshFrames.filter(f => f.profile.contractType === 'ACCUMULATOR')
     };
 
-    // Helper sorting routine to discover champions inside isolated categories
     const getSortedPool = (arr: EvaluationFrame[]) => {
       return [...arr].sort((a, b) => {
         const weightA = a.metrics.scannerScore + a.metrics.finalConfidence;
@@ -88,55 +148,43 @@ export class ScannerLogicEngine {
     const sortedOverUnder = getSortedPool(pools.OVER_UNDER);
     const sortedTouch = getSortedPool(pools.TOUCH_NO_TOUCH);
     const sortedAccum = getSortedPool(pools.ACCUMULATOR);
-    // scannerLogic.ts - PART 2: Winner Isolation Logic, Cooldowns, and Output Sorting
     
-    // Merge the top sorted category assets evenly to produce an authentic diversified configuration matrix output
     const balancedPoolWinnerList: EvaluationFrame[] = [];
     
-    // Push top 2 performers of each class type to prevent single-asset dashboard monopoly
     if (sortedRiseFall.length > 0) balancedPoolWinnerList.push(...sortedRiseFall.slice(0, 2));
     if (sortedOverUnder.length > 0) balancedPoolWinnerList.push(...sortedOverUnder.slice(0, 2));
     if (sortedTouch.length > 0) balancedPoolWinnerList.push(...sortedTouch.slice(0, 2));
     if (sortedAccum.length > 0) balancedPoolWinnerList.push(...sortedAccum.slice(0, 2));
 
-    // Gather items not pushed yet to fill up the remaining layout rows cleanly
     const existingIds = new Set(balancedPoolWinnerList.map(f => f.profile.id));
     const remainderStrats = freshFrames.filter(f => !existingIds.has(f.profile.id));
     
-    // Final composite output set consisting of champion variants first followed by baseline elements
     const combinedBalancedOutput = [
       ...balancedPoolWinnerList,
       ...remainderStrats.sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence)
     ];
 
-    // Find the current candidate winner from the top globally performing profile
     const globalSortedChallengers = [...freshFrames].sort((a, b) => {
       return (b.metrics.scannerScore + b.metrics.finalConfidence) - (a.metrics.scannerScore + a.metrics.finalConfidence);
     });
     const candidateWinner = globalSortedChallengers[0];
 
-    // Find the currently active leader frame to extract its live performance metrics
     const currentLeaderFrame = freshFrames.find(f => f.profile.id === this.currentTopStrategyId);
     
     // 5. Manage Single-Winner Stability Lock Cooldowns & Relative Dethroning
     const isLockExpired = (currentTime - this.lastLockTime) > this.lockDurationMs;
-    
-    // Condition A: Verify if current top strategy is still baseline viable
     const currentWinnerStillViable = currentLeaderFrame && currentLeaderFrame.metrics.finalConfidence >= 55;
     
-    // Condition B: Hysteresis check. Dethrone if candidate beats the current leader by an obvious margin
     let isCurrentWinnerDethronedByPerformance = false;
     if (candidateWinner && currentLeaderFrame && candidateWinner.profile.id !== this.currentTopStrategyId) {
       const leaderWeight = currentLeaderFrame.metrics.scannerScore + currentLeaderFrame.metrics.finalConfidence;
       const candidateWeight = candidateWinner.metrics.scannerScore + candidateWinner.metrics.finalConfidence;
       
-      // If a challenger beats the leader by a weight gap of 8 points, allow an early override swap
       if (candidateWeight > (leaderWeight + 8)) {
         isCurrentWinnerDethronedByPerformance = true;
       }
     }
 
-    // Process updates if structural timer expired, baseline failed, or a new candidate drastically crushed it
     if (isLockExpired || !this.currentTopStrategyId || !currentWinnerStillViable || isCurrentWinnerDethronedByPerformance) {
       if (candidateWinner && candidateWinner.metrics.finalConfidence >= 55) {
         this.currentTopStrategyId = candidateWinner.profile.id;
@@ -146,7 +194,6 @@ export class ScannerLogicEngine {
       }
     }
 
-    // 6. Explicitly assign status values relative to our isolated top position across the array structure
     const finalizedFrames = combinedBalancedOutput.map(frame => {
       const isIsolatedWinner = this.currentTopStrategyId && (frame.profile.id === this.currentTopStrategyId);
 
@@ -154,19 +201,30 @@ export class ScannerLogicEngine {
         ...frame,
         metrics: {
           ...frame.metrics,
-          // Force the true isolated winner to remain "HIGH", others map secondary bounds cleanly
           status: isIsolatedWinner ? 'HIGH' : (frame.metrics.finalConfidence >= 62 ? 'MEDIUM' : 'LOW')
         }
       };
     });
 
-    // 7. ENFORCE FINAL RANK SORT: Put the isolated high status strategy exactly at index 0, sorting the rest by confidence
-    const rankedOutput = finalizedFrames.sort((a, b) => {
+    // 6. ENFORCE FINAL RANK SORT WITH IN-PLACE MUTATION FIX
+    // FIX 3: Force dynamic shallow copies using the spread operator [...] to stop flickering
+    const rankedOutput = [...finalizedFrames].sort((a, b) => {
       const scoreA = a.metrics.status === 'HIGH' ? 2 : (a.metrics.status === 'MEDIUM' ? 1 : 0);
       const scoreB = b.metrics.status === 'HIGH' ? 2 : (b.metrics.status === 'MEDIUM' ? 1 : 0);
       if (scoreB !== scoreA) return scoreB - scoreA;
       return b.metrics.finalConfidence - a.metrics.finalConfidence;
     });
+
+    // --- AUTOMATED TELEGRAM SIGNAL BROADCAST TRIGGER ENGINE ---
+    const activeWinner = rankedOutput.find(f => f.metrics.status === 'HIGH');
+    if (activeWinner && activeWinner.metrics.finalConfidence >= 85) {
+      broadcastSignalToTelegram({
+        strategyName: activeWinner.profile.name,
+        assetName: activeWinner.profile.targetSymbol.replace('R_', 'Volatility '),
+        confidenceScore: activeWinner.metrics.finalConfidence,
+        recommendedAction: activeWinner.metrics.direction // 'UP' or 'DOWN'
+      });
+    }
 
     this.lastEvaluatedFrames = rankedOutput;
     return rankedOutput;
