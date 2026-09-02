@@ -96,7 +96,6 @@ export class DerivScannerBridge {
         if (block.type === 'trade_definition_market') {
           const symbolField = block.getField('SYMBOL_LIST');
           if (symbolField) {
-            // Converts 'R_50' token back to system format if needed (e.g., '1HZ50V')
             let systemSymbol = params.targetSymbol;
             if (params.targetSymbol === 'R_10') systemSymbol = '1HZ10V';
             if (params.targetSymbol === 'R_25') systemSymbol = '1HZ25V';
@@ -112,7 +111,7 @@ export class DerivScannerBridge {
         if (block.type === 'trade_definition_contracttype') {
           const contractTypeField = block.getField('CONTRACT_TYPE_LIST');
           if (contractTypeField) {
-            let mappedValue = 'both'; // Default fallback
+            let mappedValue = 'both'; 
             if (params.contractType === 'RISE_FALL') mappedValue = 'risefall';
             if (params.contractType === 'OVER_UNDER') mappedValue = 'digits';
             if (params.contractType === 'TOUCH_NO_TOUCH') mappedValue = 'touchnotouch';
@@ -126,9 +125,8 @@ export class DerivScannerBridge {
         if (block.type === 'purchase') {
           const purchaseField = block.getField('PURCHASE_LIST');
           if (purchaseField) {
-            // Remaps direction dynamically based on contract expectations
             if (params.contractType === 'OVER_UNDER') {
-              purchaseField.setValue('DIGITUNDER'); // Over/Under defaults
+              purchaseField.setValue('DIGITUNDER'); 
             } else if (params.contractType === 'TOUCH_NO_TOUCH') {
               purchaseField.setValue('ONETOUCH');
             } else {
@@ -149,12 +147,13 @@ export class DerivScannerBridge {
             const stakeBlock = amountInput.connection.targetBlock();
             const numField = stakeBlock.getField('NUM');
             if (numField) {
-              numField.setValue(params.stake.toString());
+              const sanitizedStake = parseFloat(params.stake.toString()) || 0;
+              numField.setValue(sanitizedStake.toFixed(2));
             }
           }
         }
 
-        // 5. VARIABLES BINDING RECOVERY (Martingale / D'Alembert Limits)
+        // 5. FIXED ENGINE MAPPING: Forces variables injection to use real mathematical float values
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -167,13 +166,16 @@ export class DerivScannerBridge {
               
               if (numField) {
                 if (variableName === 'maxStake' || variableName.toLowerCase().includes('stake')) {
-                  numField.setValue(params.stake.toString());
+                  const verifiedStakeValue = parseFloat(params.stake.toString()) || 0;
+                  numField.setValue(verifiedStakeValue.toFixed(2));
                 }
                 if (variableName.toLowerCase().includes('loss') || variableName.toLowerCase().includes('threshold')) {
-                  numField.setValue(params.stopLoss.toString());
+                  const verifiedLossValue = parseFloat(params.stopLoss.toString()) || 0;
+                  numField.setValue(verifiedLossValue.toFixed(2));
                 }
                 if (variableName.toLowerCase().includes('profit') || variableName.toLowerCase().includes('target')) {
-                  numField.setValue(params.takeProfit.toString());
+                  const verifiedProfitValue = parseFloat(params.takeProfit.toString()) || 0;
+                  numField.setValue(verifiedProfitValue.toFixed(2));
                 }
               }
             }
