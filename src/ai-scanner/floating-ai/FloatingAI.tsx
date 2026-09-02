@@ -1,4 +1,4 @@
-// FloatingAI.tsx (Part 1 of 2) - Component Architecture & Subscription Layer
+// FloatingAI.tsx (Part 1 of 2) - Fixed Component Architecture & Top Metrics Hook
 import React, { useEffect, useState, useMemo } from 'react';
 import { DerivScannerBridge } from './scannerBridge';
 import { ScannerLogicEngine, EvaluationFrame } from './scannerLogic';
@@ -137,6 +137,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     }));
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
+  // FIXED: Pulls metrics strictly using index 0 path to eliminate structural array undefined errors
   const globalSummary = useMemo(() => {
     if (visualDisplayList && visualDisplayList.length > 0 && visualDisplayList[0].metrics) {
       return visualDisplayList[0].metrics;
@@ -150,16 +151,16 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       stake: parseFloat(stake) || 0,
       stopLoss: parseFloat(stopLoss) || 0,
       takeProfit: parseFloat(takeProfit) || 0,
-      contractType: frame.profile.contractType,   // Dynamic contract type mapping parameter injection
-      targetSymbol: frame.profile.targetSymbol    // Multi-volatility target selection parameter injection
+      contractType: frame.profile.contractType,   
+      targetSymbol: frame.profile.targetSymbol    
     });
 
     if (typeof onCloseScanner === 'function') {
       onCloseScanner();
     }
   };
-
-  const handleResetMetrics = () => {
+// FloatingAI.tsx (Part 2 of 2) - Fixed Responsive Layout Grid Split
+const handleResetMetrics = () => {
     setActiveTab(null);
     setRawPipelineData([]);
     setFrozenDisplayList([]);
@@ -218,16 +219,19 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
 
           return (
             <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
+              {/* FIXED STRATEGY INFRASTRUCTURE COLUMN CONTROLLER BLOCK */}
               <div 
                 className="card-summary" 
                 onClick={() => setActiveTab(isExpanded ? null : item.profile.id)}
               >
                 <div className="rank-badge">#{index + 1}</div>
+                
+                {/* Info Text Area Column */}
                 <div className="meta-details">
                   <h4>{item.profile.name}</h4>
                   
                   {/* --- MULTI-VOLATILITY & ENGINE ARCHITECTURE META INFO TAGS --- */}
-                  <div className="strategy-tags-row" style={{ display: 'flex', gap: '6px', margin: '4px 0' }}>
+                  <div className="strategy-tags-row" style={{ display: 'flex', gap: '6px', margin: '4px 0', flexWrap: 'wrap' }}>
                     <span className={`asset-tag symbol-${item.profile.targetSymbol.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#2a3243', color: '#00e676', fontWeight: 'bold' }}>
                       {assetDisplayLabel}
                     </span>
@@ -241,10 +245,17 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
 
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
-                <span className={`tier-badge ${currentStatus.toLowerCase()}`}>
-                  {currentStatus}
-                </span>
-                <span className="arrow-toggle">{isExpanded ? '▲' : '▼'}</span>
+
+                {/* Right Badge Column - Guarantees status indicators never clip or truncate */}
+                <div className="badge-column">
+                  <span className={`tier-badge ${currentStatus.toLowerCase()}`}>
+                    {currentStatus}
+                  </span>
+                </div>
+
+                <div className="arrow-toggle" style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(0deg)' }}>
+                  {isExpanded ? '▲' : '▼'}
+                </div>
               </div>
 
               {isExpanded && (
@@ -299,7 +310,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     </div>
                   </div>
 
-                  {/* FIXED LOAD LOOP: Passes the specific strategy frame mapping to inject dynamic contracts */}
                   <button 
                     className="inner-drawer-load-btn"
                     onClick={() => handleLoadBot(item.metrics.direction, item)}
