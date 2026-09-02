@@ -75,6 +75,13 @@ export class DerivScannerBridge {
 // scannerBridge.ts - PART 2: Safe Workspace Injection Logic
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
+    
+    // 1. CRASH-PROOF BOUNDARY CHECK: Ensure Blockly framework initialization completed
+    if (!globalWin.Blockly) {
+      alert("⚠️ Deriv Bot Builder engine is initializing. Please wait a moment and try again.");
+      return;
+    }
+
     const workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
     if (!workspace) {
@@ -85,12 +92,13 @@ export class DerivScannerBridge {
     try {
       const allBlocks = workspace.getAllBlocks(false);
 
+      // Explicitly clean and format values into raw numerical strings
       const finalStake = parseFloat(params.stake.toString()) || 0;
       const finalLoss = parseFloat(params.stopLoss.toString()) || 0;
       const finalProfit = parseFloat(params.takeProfit.toString()) || 0;
 
       allBlocks.forEach((block: any) => {
-        // 1. ASSET & MARKET TYPE INJECTION
+        // A. ASSET & MARKET TYPE INJECTION
         if (block.type === 'trade_definition_market') {
           const symbolField = block.getField('SYMBOL_LIST');
           if (symbolField) {
@@ -104,7 +112,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 2. CONTRACT TYPE MAPPING LAYER
+        // B. CONTRACT TYPE MAPPING LAYER
         if (block.type === 'trade_definition_contracttype') {
           const contractTypeField = block.getField('CONTRACT_TYPE_LIST');
           if (contractTypeField) {
@@ -117,7 +125,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 3. PURCHASE DIRECTION SIGNALS
+        // C. PURCHASE DIRECTION SIGNALS
         if (block.type === 'purchase') {
           const purchaseField = block.getField('PURCHASE_LIST');
           if (purchaseField) {
@@ -131,7 +139,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 4. TRANSACTION DURATION STAKE FIELDS
+        // D. TRANSACTION DURATION STAKE FIELDS
         if (block.type === 'trade_definition_tradeoptions') {
           const durationField = block.getField('DURATION');
           if (durationField) {
@@ -148,7 +156,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 5. VARIABLES TILES SYNC LAYER
+        // E. SAFE VARIABLE TILES SYNC LAYER
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -163,7 +171,7 @@ export class DerivScannerBridge {
                 if (variableName === 'maxStake' || variableName.toLowerCase().includes('stake')) {
                   numField.setValue(finalStake.toFixed(2));
                 }
-                if (variableName.toLowerCase().includes('loss') || variableName.toLowerCase().includes('threshold')) {
+                if (variableName.toLowerCase().includes('loss' || variableName.toLowerCase().includes('threshold'))) {
                   numField.setValue(finalLoss.toFixed(2));
                 }
                 if (variableName.toLowerCase().includes('profit') || variableName.toLowerCase().includes('target')) {
@@ -175,6 +183,7 @@ export class DerivScannerBridge {
         }
       });
 
+      // Synchronize workspace components visually
       if (typeof workspace.render === 'function') {
         workspace.render();
       }
