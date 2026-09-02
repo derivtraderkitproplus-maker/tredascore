@@ -6,8 +6,8 @@ export interface BotParameters {
   stake: number;
   stopLoss: number;
   takeProfit: number;
-  contractType: string;  // Added configuration mapping to mirror engine properties
-  targetSymbol: string;  // Target index e.g., 'R_50'
+  contractType: string;  
+  targetSymbol: string;  
 }
 
 export class DerivScannerBridge {
@@ -30,7 +30,6 @@ export class DerivScannerBridge {
     }
   }
 
-  // Normalizes varying API symbol keys into standard engine tokens
   private normalizeSymbolString(s: string): string {
     const term = s.toUpperCase();
     if (term.includes('1HZ10V') || term === 'R_10') return 'R_10';
@@ -41,7 +40,6 @@ export class DerivScannerBridge {
     return s;
   }
 
-  // Maps clean code arrays out to match system level tick events
   private checkSymbolMatch(incoming: string, registered: string): boolean {
     return this.normalizeSymbolString(incoming) === this.normalizeSymbolString(registered);
   }
@@ -87,7 +85,6 @@ export class DerivScannerBridge {
     try {
       const allBlocks = workspace.getAllBlocks(false);
 
-      // Cast parameters purely into formatted float variables
       const finalStake = parseFloat(params.stake.toString()) || 0;
       const finalLoss = parseFloat(params.stopLoss.toString()) || 0;
       const finalProfit = parseFloat(params.takeProfit.toString()) || 0;
@@ -151,7 +148,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 5. SAFE VARIABLE TILES SYNC LAYER
+        // 5. VARIABLES TILES SYNC LAYER
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -178,7 +175,6 @@ export class DerivScannerBridge {
         }
       });
 
-      // Synchronize workspace adjustments visually without forcing invasive memory overrides
       if (typeof workspace.render === 'function') {
         workspace.render();
       }
