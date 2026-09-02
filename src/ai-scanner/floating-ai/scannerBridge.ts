@@ -58,12 +58,8 @@ export class DerivScannerBridge {
           const data = JSON.parse(event.data);
           if (data.msg_type === 'tick' && data.tick) {
             const { symbol, quote } = data.tick;
-            
-            // Search across active symbols array using standard matching checks
             const matchedSymbol = this.activeSymbols.find(s => this.checkSymbolMatch(symbol, s));
-            
             if (matchedSymbol) {
-              // Pass the normalized value directly to keep scanner calculation routines pure
               this.onTickCallback?.(this.normalizeSymbolString(matchedSymbol), parseFloat(quote));
             }
           }
@@ -91,6 +87,11 @@ export class DerivScannerBridge {
     try {
       const allBlocks = workspace.getAllBlocks(false);
 
+      // Parse current numbers explicitly into verified floats
+      const finalStake = parseFloat(params.stake.toString()) || 0;
+      const finalLoss = parseFloat(params.stopLoss.toString()) || 0;
+      const finalProfit = parseFloat(params.takeProfit.toString()) || 0;
+
       allBlocks.forEach((block: any) => {
         // 1. DYNAMIC ASSET & MARKET TYPE INJECTION
         if (block.type === 'trade_definition_market') {
@@ -102,7 +103,6 @@ export class DerivScannerBridge {
             if (params.targetSymbol === 'R_50') systemSymbol = '1HZ50V';
             if (params.targetSymbol === 'R_75') systemSymbol = '1HZ75V';
             if (params.targetSymbol === 'R_100') systemSymbol = '1HZ100V';
-            
             symbolField.setValue(systemSymbol);
           }
         }
@@ -116,7 +116,6 @@ export class DerivScannerBridge {
             if (params.contractType === 'OVER_UNDER') mappedValue = 'digits';
             if (params.contractType === 'TOUCH_NO_TOUCH') mappedValue = 'touchnotouch';
             if (params.contractType === 'ACCUMULATOR') mappedValue = 'accumulator';
-            
             contractTypeField.setValue(mappedValue);
           }
         }
@@ -147,13 +146,12 @@ export class DerivScannerBridge {
             const stakeBlock = amountInput.connection.targetBlock();
             const numField = stakeBlock.getField('NUM');
             if (numField) {
-              const sanitizedStake = parseFloat(params.stake.toString()) || 0;
-              numField.setValue(sanitizedStake.toFixed(2));
+              numField.setValue(finalStake.toFixed(2));
             }
           }
         }
 
-        // 5. FIXED ENGINE MAPPING: Forces variables injection to use real mathematical float values
+        // 5. VISUAL VARIABLE TILES SYNC LAYER
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -166,22 +164,40 @@ export class DerivScannerBridge {
               
               if (numField) {
                 if (variableName === 'maxStake' || variableName.toLowerCase().includes('stake')) {
-                  const verifiedStakeValue = parseFloat(params.stake.toString()) || 0;
-                  numField.setValue(verifiedStakeValue.toFixed(2));
+                  numField.setValue(finalStake.toFixed(2));
                 }
                 if (variableName.toLowerCase().includes('loss') || variableName.toLowerCase().includes('threshold')) {
-                  const verifiedLossValue = parseFloat(params.stopLoss.toString()) || 0;
-                  numField.setValue(verifiedLossValue.toFixed(2));
+                  numField.setValue(finalLoss.toFixed(2));
                 }
                 if (variableName.toLowerCase().includes('profit') || variableName.toLowerCase().includes('target')) {
-                  const verifiedProfitValue = parseFloat(params.takeProfit.toString()) || 0;
-                  numField.setValue(verifiedProfitValue.toFixed(2));
+                  numField.setValue(finalProfit.toFixed(2));
                 }
               }
             }
           }
         }
       });
+
+      // --- 🚀 HARDWARE INTERACTION INJECTION HOOK: FORCES BACKEND COMPILER TYPE SANITIZATION ---
+      // Reaches directly into the running compiled context model to prevent text variable bleeding
+      const variableMap = workspace.getVariableMap ? workspace.getVariableMap() : null;
+      if (variableMap) {
+        const totalVariablesList = variableMap.getAllVariables();
+        totalVariablesList.forEach((v: any) => {
+          const vName = v.name.toLowerCase();
+          
+          // Force inject the sanitized float numbers directly into Blockly's internal runtime variable cache
+          if (vName === 'maxstake' || vName.includes('stake')) {
+            globalWin[v.id_] = finalStake; 
+          }
+          if (vName.includes('loss') || vName.includes('threshold')) {
+            globalWin[v.id_] = finalLoss;
+          }
+          if (vName.includes('profit') || vName.includes('target')) {
+            globalWin[v.id_] = finalProfit;
+          }
+        });
+      }
 
       if (typeof workspace.render === 'function') {
         workspace.render();
