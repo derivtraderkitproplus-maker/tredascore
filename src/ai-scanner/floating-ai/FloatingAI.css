@@ -1,4 +1,4 @@
-/* FloatingAI.css (Part 1 of 2) - Fixed Core Structure & Card Node Alignments */
+/* FloatingAI.css - PART 1: Main Wrapper Framework & Top Metrics Grid */
 
 .ai-strategy-scanner {
   background: #0b0d17 !important;
@@ -27,6 +27,7 @@
   font-size: 18px !important;
   font-weight: bold !important;
   color: #ffffff !important;
+  line-height: 1.2 !important;
 }
 
 .profile-counter {
@@ -36,6 +37,7 @@
   border-radius: 6px !important;
   font-size: 13px !important;
   font-weight: bold !important;
+  flex-shrink: 0 !important;
 }
 
 .scanner-subheader-text {
@@ -58,6 +60,7 @@
   padding: 10px !important;
   border-radius: 8px !important;
   border: 1px solid #1e2235 !important;
+  box-sizing: border-box !important;
 }
 
 .metric-box label {
@@ -65,27 +68,21 @@
   color: #6a6e85 !important;
   display: block !important;
   font-weight: 600 !important;
+  text-transform: uppercase !important;
 }
 
 .metric-box .val {
   font-size: 13px !important;
   font-weight: bold !important;
   margin-top: 4px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .highlight-yellow { color: #f5a623 !important; }
 .highlight-purple { color: #9064ff !important; }
-
-.notice-subtext {
-  font-size: 11px !important;
-  color: #d1a153 !important;
-  background: rgba(209, 161, 83, 0.08) !important;
-  padding: 10px !important;
-  border-radius: 6px !important;
-  margin: 12px 0 !important;
-  line-height: 1.4 !important;
-  flex-shrink: 0 !important;
-}
+/* FloatingAI.css - PART 2: Strategy Cards, Fixed Right Badge Columns, Drawers, and Buttons */
 
 .strategy-scroll-list {
   display: flex !important;
@@ -94,10 +91,10 @@
   flex-grow: 1 !important;
   overflow-y: auto !important; /* Confines list container scrolling inside specified limits */
   padding-right: 4px !important;
+  margin-top: 14px !important;
   margin-bottom: 4px !important;
 }
 
-/* Custom Scrollbar configuration aesthetics for high-end workspace interfaces */
 .strategy-scroll-list::-webkit-scrollbar {
   width: 4px !important;
 }
@@ -109,28 +106,23 @@
   border-radius: 4px !important;
 }
 
-/* HIGH PERFORMANCE TRANSITION & SWAPPING MATRIX RULES */
 .strategy-card-node {
   background: #131622 !important;
   border: 1px solid #1d2134 !important;
   border-radius: 10px !important;
-  padding: 0 !important; /* Changed to 0 so the padding is controlled explicitly by internal elements */
+  padding: 12px !important; /* RESTORED: Fixed the height collapsing layout error instantly */
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
-  overflow: hidden !important; /* Prevents text overlays from breaking container bounds */
-  
-  /* Smooth hardware-accelerated animations for position switches */
+  position: relative !important;
   transition: all 0.38s cubic-bezier(0.4, 0, 0.2, 1) !important;
   will-change: transform, opacity, background-color, border-color !important;
 }
 
-/* VISUAL ANCHOR ACCENT FOR THE #1 RUNNING STRATEGY */
 .strategy-card-node:first-child {
   border-color: #5078ff !important;
   background: linear-gradient(135deg, #131622 0%, #171b30 100%) !important;
   box-shadow: 0 4px 20px rgba(80, 120, 255, 0.08) !important;
-  position: relative !important;
 }
 
 .strategy-card-node:first-child::before {
@@ -141,16 +133,14 @@
   bottom: 0 !important;
   width: 4px !important;
   background: #5078ff !important;
-  z-index: 10 !important; /* Ensures the first child indicator line scales above inner paddings */
+  border-radius: 10px 0 0 10px !important;
 }
-/* FloatingAI.css (Part 2 of 2) - Clean Layout Alignments & Variable Input Grids */
 
 .card-summary {
   display: flex !important;
   align-items: center !important;
   cursor: pointer !important;
   width: 100% !important;
-  padding: 12px !important; /* Added explicit padding within the card clickable region */
   box-sizing: border-box !important;
 }
 
@@ -169,7 +159,6 @@
   flex-shrink: 0 !important;
 }
 
-/* Highlight rank #1 badge distinctly */
 .strategy-card-node:first-child .rank-badge {
   background: #5078ff !important;
   color: #ffffff !important;
@@ -178,7 +167,7 @@
 .meta-details { 
   flex: 1 !important; 
   text-align: left !important;
-  min-width: 0 !important; /* Forces inner long text elements to truncate gracefully if needed */
+  min-width: 0 !important; /* Forces ellipsis text truncation on overflow */
 }
 
 .meta-details h4 { 
@@ -197,23 +186,23 @@
   color: #6c718c !important; 
 }
 
-/* --- FIXED LAYER: RIGID BADGE ROW PACKING PREVENTS SQUEEZING TEXT --- */
+/* --- FIXED BADGE WRAPPER ARCHITECTURE STOPS CLIPPING --- */
 .badge-column {
-  margin-left: auto !important; /* Pushes the badge container row perfectly to the right side */
+  margin-left: auto !important; /* Secure placement anchoring on the right column */
   display: flex !important;
   align-items: center !important;
   justify-content: flex-end !important;
-  min-width: 65px !important; /* Hard constraint layout prevents horizontal component shrinking */
+  min-width: 68px !important; /* Locked boundaries protect character widths */
   flex-shrink: 0 !important;
 }
 
 .tier-badge {
   font-size: 10px !important;
   font-weight: bold !important;
-  padding: 4px 8px !important; /* Balanced uniform cell spacing */
+  padding: 4px 8px !important;
   border-radius: 4px !important;
   text-transform: uppercase !important;
-  white-space: nowrap !important; /* Stops strings from wrapping or collapsing into lines */
+  white-space: nowrap !important; /* Prevents status terms splitting into vertical lines */
   text-align: center !important;
   width: 100% !important;
   box-sizing: border-box !important;
@@ -222,17 +211,17 @@
 .tier-badge.high { 
   background: rgba(255, 74, 98, 0.15) !important; 
   color: #ff4a62 !important; 
-  border: 1px solid rgba(255, 74, 98, 0.3) !important;
+  border: 1px solid rgba(255, 74, 98, 0.25) !important;
 }
 .tier-badge.medium { 
   background: rgba(245, 166, 35, 0.15) !important; 
   color: #f5a623 !important; 
-  border: 1px solid rgba(245, 166, 35, 0.3) !important;
+  border: 1px solid rgba(245, 166, 35, 0.25) !important;
 }
 .tier-badge.low { 
   background: rgba(46, 212, 121, 0.15) !important; 
   color: #2ed479 !important; 
-  border: 1px solid rgba(46, 212, 121, 0.3) !important;
+  border: 1px solid rgba(46, 212, 121, 0.25) !important;
 }
 
 .arrow-toggle { 
@@ -240,7 +229,6 @@
   font-size: 11px !important; 
   flex-shrink: 0 !important;
   margin-left: 8px !important;
-  transition: transform 0.2s ease !important;
 }
 
 .card-node--frozen {
@@ -251,7 +239,8 @@
 .card-expanded-drawer {
   border-top: 1px solid #1a1e30 !important;
   background: #0f121d !important;
-  padding: 12px !important; /* Added explicit inner-drawer padding standard uniformity */
+  margin-top: 10px !important;
+  padding-top: 12px !important;
   display: flex !important;
   flex-direction: column !important;
 }
@@ -264,26 +253,6 @@
   text-align: left !important;
 }
 
-.live-metrics-data-row {
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
-  gap: 12px !important;
-  background: #0b0d17 !important;
-  padding: 10px !important;
-  border-radius: 6px !important;
-  border: 1px solid #161a29 !important;
-  box-sizing: border-box !important;
-}
-
-.data-cell {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-}
-.data-cell .lbl { font-size: 9px !important; color: #595d75 !important; font-weight: bold !important; text-transform: uppercase !important; }
-.data-cell .txt-bold { font-size: 12px !important; font-weight: bold !important; margin-top: 4px !important; color: #e2e4eb !important; }
-
-/* Dynamic Input Parameter Fields Grid */
 .ai-input-parameter-grid {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
@@ -304,6 +273,7 @@
   color: #6c718c !important;
   font-weight: bold !important;
   margin-bottom: 4px !important;
+  text-transform: uppercase !important;
 }
 
 .input-cell input {
@@ -321,6 +291,38 @@
 .input-cell input:focus {
   border-color: #5078ff !important;
   outline: none !important;
+}
+
+.live-metrics-data-row {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 12px !important;
+  background: #0b0d17 !important;
+  padding: 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid #161a29 !important;
+  box-sizing: border-box !important;
+}
+
+.data-cell {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+}
+
+.data-cell .lbl { 
+  font-size: 9px !important; 
+  color: #595d75 !important; 
+  font-weight: bold !important; 
+  text-transform: uppercase !important; 
+}
+
+.data-cell .txt-bold { 
+  font-size: 12px !important; 
+  font-weight: bold !important; 
+  margin-top: 4px !important; 
+  color: #e2e4eb !important; 
+  white-space: nowrap !important;
 }
 
 .inner-drawer-load-btn {
@@ -355,7 +357,7 @@
   cursor: pointer !important;
   font-weight: 600 !important;
   font-size: 13px !important;
-  margin-top: 14px !important; 
+  margin-top: 14px !important;
   height: auto !important;
   line-height: 1.2 !important;
   flex-shrink: 0 !important; 
