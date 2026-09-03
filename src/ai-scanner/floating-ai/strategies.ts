@@ -1,4 +1,4 @@
-// strategies.ts - PART 1: Interfaces, Types, and Mathematical Indicators
+// strategies.ts - PART 1: Mathematical Indicators & Strategy Registry (A)
 
 export interface StrategyProfile {
   id: string;
@@ -12,7 +12,7 @@ export interface StrategyProfile {
   contractType: 'RISE_FALL' | 'OVER_UNDER' | 'ACCUMULATOR' | 'TOUCH_NO_TOUCH';
   coreEngine: 'MARTINGALE' | 'DALEMBERT' | 'PROGRESSIVE' | 'NEURAL_FLOW';
   
-  // 🆕 RUNTIME EXECUTION SETTINGS (Captures frontend form state adjustments)
+  // RUNTIME EXECUTION SETTINGS (Captures frontend form state adjustments)
   runtimeSettings?: {
     defaultStake: number;
     takeProfitLimit: number; // Monetary target value
@@ -32,7 +32,7 @@ export interface StrategyResult {
   tierOverride: 'HIGH' | 'MEDIUM' | 'LOW';
   status?: 'HIGH' | 'MEDIUM' | 'LOW';
   
-  // 🆕 PASS-THROUGH EXECUTOR ENGINE STATE
+  // PASS-THROUGH EXECUTOR ENGINE STATE
   executionPayload?: {
     stake: number;
     takeProfit: number;
@@ -73,9 +73,8 @@ export function calculateVolatility(prices: number[]): number {
   const variance = prices.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / prices.length;
   return Math.sqrt(variance);
 }
-// strategies.ts - PART 2A: Profiles Array Registry
-import { StrategyProfile } from './strategies'; // Adjust import paths based on file layout
 
+// Global System Registry Tracking Strategy Targets
 export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'STRATEGY_1_3_2_6', name: '1-3-2-6 System', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 68, description: 'Fixed progressive staking sequence.', targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
   { id: 'ACC_DALEMBERT', name: 'Accumulator D\'Alembert', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Equilibrium based staking scale.', targetSymbol: 'R_25', contractType: 'ACCUMULATOR', coreEngine: 'DALEMBERT' },
@@ -91,7 +90,14 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'MARTINGALE_CLASSIC', name: 'Martingale Classic', tier: 'HIGH', requiredTicks: 100, confidenceGate: 75, description: 'Standard linear loss doubling matrix.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
   { id: 'OSCARS_GRIND', name: 'Oscar\'s Grind', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 62, description: 'Targeted single-unit win progression tracking.', targetSymbol: 'R_50', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
   { id: 'REVERSE_DALEMBERT', name: 'Reverse D\'Alembert', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 61, description: 'Inverted risk distribution progression.', targetSymbol: 'R_75', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' },
-  { id: 'REVERSE_MARTINGALE', name: 'Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 76, description: 'Compounded profit maximizing pipeline.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
+  { id: 'REVERSE_MARTINGALE', name: 'Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 76, description: 'Compounded profit maximizing pipeline.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' }
+];
+// strategies.ts - PART 2: Registry (B) & Live Evaluation Engine Logic
+
+import { StrategyProfile, StrategyResult, calculateEMA, calculateRSI, calculateVolatility } from './strategies';
+
+// Global System Registry Tracking Strategy Targets (Continued)
+export const ADDITIONAL_STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'AI_ALPHA_V16', name: 'AI Alpha Engine v16', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 66, description: 'Predictive neural trend optimization layer.', targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'NEURAL_FLOW' },
   { id: 'AI_ALPHA_V17', name: 'AI Alpha Engine v17', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 67, description: 'Dynamic multi-asset lookback tracking matrix.', targetSymbol: 'R_25', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
   { id: 'AI_ALPHA_V18', name: 'AI Alpha Engine v18', tier: 'LOW', requiredTicks: 100, confidenceGate: 58, description: 'High-frequency variance boundary check core.', targetSymbol: 'R_50', contractType: 'ACCUMULATOR', coreEngine: 'NEURAL_FLOW' },
@@ -108,8 +114,6 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
   { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' }
 ];
-// strategies.ts - PART 2B: Live Evaluation Engine Logic
-import { StrategyProfile, StrategyResult, calculateEMA, calculateRSI, calculateVolatility } from './strategies';
 
 export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
   const currentCount = ticks.length;
@@ -129,8 +133,13 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
 
   const strategySeed = profile.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
-  const fastEma = calculateEMA(ticks, 12);
-  const slowEma = calculateEMA(ticks, 26);
+  // Dynamic Multi-Asset Lookback Tuning: Handles asset pacing differences on fast vs slow indexes
+  const isFastAsset = profile.targetSymbol === 'R_100' || profile.targetSymbol === 'R_75';
+  const fastEmaPeriod = isFastAsset ? 18 : 12;
+  const slowEmaPeriod = isFastAsset ? 38 : 26;
+
+  const fastEma = calculateEMA(ticks, fastEmaPeriod);
+  const slowEma = calculateEMA(ticks, slowEmaPeriod);
   const rsiValue = calculateRSI(ticks, 14);
   const volatility = calculateVolatility(ticks.slice(-30));
 
@@ -169,11 +178,10 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   if (finalConfidence >= 75) tierOverride = 'HIGH';
   else if (finalConfidence >= 62) tierOverride = 'MEDIUM';
 
-  // 🆕 DYNAMIC RUNTIME VARIABLE PARSER
-  // Seamlessly catches interactive state values injected from your frontend panel fields.
-  const activeStake = profile.runtimeSettings?.defaultStake ?? 1.00;
-  const activeTP = profile.runtimeSettings?.takeProfitLimit ?? 1500;
-  const activeSL = profile.runtimeSettings?.stopLossLimit ?? 500;
+  // 🛠️ SAFE OPERATIONAL BASELINE FALLBACKS: $3.00 Stake, $8.00 Profit target, $4.00 Risk limit
+  const activeStake = profile.runtimeSettings?.defaultStake ?? 3.00;
+  const activeTP = profile.runtimeSettings?.takeProfitLimit ?? 8.00;
+  const activeSL = profile.runtimeSettings?.stopLossLimit ?? 4.00;
   const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
 
   return {
@@ -185,7 +193,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     marketCompatibility,
     finalConfidence,
     tierOverride,
-    // 🆕 RUNTIME CONTEXT ATTACHMENT NODE
+    // RUNTIME CONTEXT ATTACHMENT NODE
     executionPayload: {
       stake: activeStake,
       takeProfit: activeTP,
