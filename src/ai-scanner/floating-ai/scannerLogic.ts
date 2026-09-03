@@ -1,4 +1,4 @@
-// scannerLogic.ts - PART 1: Imports, Interfaces, and Marketing Broadcaster Pipe
+// scannerLogic.ts - PART 1: Imports, Configurations, and Broadcast Engine
 import { STRATEGY_PROFILES, evaluateStrategy, StrategyResult, StrategyProfile } from './strategies';
 
 export interface EvaluationFrame {
@@ -13,7 +13,7 @@ interface HighConfidenceSignal {
   recommendedAction: string;
 }
 
-// --- TELEGRAM BOT CONFIGURATION CONSTANTS ---
+// --- TELEGRAM CONFIGURATIONS ---
 const TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_API_TOKEN"; 
 const TELEGRAM_CHANNEL_ID = "@your_public_channel_username"; // e.g., @EdascoreSignals
 
@@ -22,8 +22,8 @@ const TELEGRAM_CHANNEL_ID = "@your_public_channel_username"; // e.g., @EdascoreS
  * whenever a strategy breaks threshold criteria to drive inbound turnover volume.
  */
 export async function broadcastSignalToTelegram(signal: HighConfidenceSignal) {
-  // Only broadcast high-tier probabilities to preserve channel conversion quality
-  if (signal.confidenceScore < 85) return;
+  // FIXED: Lowered safety gate to 75% so strategies like Trend Shield Pro trigger instantly
+  if (signal.confidenceScore < 75) return;
 
   const webAppURL = "https://vercel.app";
   
@@ -33,7 +33,7 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal) {
     `🤖 *Strategy:* ${signal.strategyName}\n` +
     `📊 *Asset Class:* ${signal.assetName}\n` +
     `🎯 *AI Confidence Score:* ${signal.confidenceScore}%\n` +
-    `⚡ *Action Direction:* ${signal.recommendedAction === 'UP' ? 'CALL 🟢 (RISE)' : 'PUT 🔴 (FALL)'}\n\n` +
+    `⚡ *Action Direction:* ${signal.recommendedAction === 'DOWN' ? 'PUT 🔴 (FALL)' : 'CALL 🟢 (RISE)'}\n\n` +
     `👉 [Click Here to Deploy Auto-Trader on Your Account](${webAppURL})`
   );
 
@@ -75,7 +75,6 @@ export class ScannerLogicEngine {
   }
 
   public injectTick(symbol: string, price: number): void {
-    // FIX 1: Harmonize asset codes on injection to align historical lookbacks cleanly
     const normalizedSymbol = this.standardizeSymbol(symbol);
 
     if (!this.tickRegistry[normalizedSymbol]) {
@@ -94,15 +93,30 @@ export class ScannerLogicEngine {
     this.isEditingPaused = isEditing;
   }
 
+  /**
+   * ADMIN MANUAL OVERRIDE: Skips all pipeline criteria and forces an instant Telegram alert
+   */
+  public forceManualTelegramBroadcast(activeFrame: EvaluationFrame): void {
+    if (!activeFrame) return;
+    
+    broadcastSignalToTelegram({
+      strategyName: activeFrame.profile.name,
+      assetName: activeFrame.profile.targetSymbol.replace('R_', 'Volatility '),
+      confidenceScore: activeFrame.metrics.finalConfidence,
+      recommendedAction: activeFrame.metrics.direction
+    });
+    
+    console.log(`⚡ Admin Override: Manually pushed ${activeFrame.profile.name} to channel feed.`);
+  }
+
   public runScannerPipeline(): EvaluationFrame[] {
-    // 1. Return cached frame buffers instantly if user interaction lock is engaged
     if (this.isEditingPaused && this.lastEvaluatedFrames.length > 0) {
       return this.lastEvaluatedFrames;
     }
 
     const currentTime = Date.now();
 
-    // 2. NETWORK WATCHDOG OVERRIDE
+    // NETWORK WATCHDOG OVERRIDE
     const timeSinceLastTick = currentTime - this.lastTickReceivedTimestamp;
     if (this.lastTickReceivedTimestamp > 0 && timeSinceLastTick > 3500) {
       return this.lastEvaluatedFrames.map(frame => ({
@@ -119,16 +133,13 @@ export class ScannerLogicEngine {
       }));
     }
     
-    // 3. Compute clean raw mathematical metrics across all strategy patterns dynamically
     const freshFrames: EvaluationFrame[] = STRATEGY_PROFILES.map(profile => {
-      // FIX 2: Safeguard lookup tracking by verifying indicators against identical token spaces
       const targetToken = this.standardizeSymbol(profile.targetSymbol);
       const currentTicks = this.tickRegistry[targetToken] || [];
       const metrics = evaluateStrategy(profile, currentTicks);
       return { profile, metrics };
     });
 
-    // 4. BALANCED ENGINE ISOLATION FILTERING: Separate strategies into pools by Contract Type
     const pools = {
       RISE_FALL: freshFrames.filter(f => f.profile.contractType === 'RISE_FALL'),
       OVER_UNDER: freshFrames.filter(f => f.profile.contractType === 'OVER_UNDER'),
@@ -171,7 +182,6 @@ export class ScannerLogicEngine {
 
     const currentLeaderFrame = freshFrames.find(f => f.profile.id === this.currentTopStrategyId);
     
-    // 5. Manage Single-Winner Stability Lock Cooldowns & Relative Dethroning
     const isLockExpired = (currentTime - this.lastLockTime) > this.lockDurationMs;
     const currentWinnerStillViable = currentLeaderFrame && currentLeaderFrame.metrics.finalConfidence >= 55;
     
@@ -206,8 +216,6 @@ export class ScannerLogicEngine {
       };
     });
 
-    // 6. ENFORCE FINAL RANK SORT WITH IN-PLACE MUTATION FIX
-    // FIX 3: Force dynamic shallow copies using the spread operator [...] to stop flickering
     const rankedOutput = [...finalizedFrames].sort((a, b) => {
       const scoreA = a.metrics.status === 'HIGH' ? 2 : (a.metrics.status === 'MEDIUM' ? 1 : 0);
       const scoreB = b.metrics.status === 'HIGH' ? 2 : (b.metrics.status === 'MEDIUM' ? 1 : 0);
@@ -217,12 +225,12 @@ export class ScannerLogicEngine {
 
     // --- AUTOMATED TELEGRAM SIGNAL BROADCAST TRIGGER ENGINE ---
     const activeWinner = rankedOutput.find(f => f.metrics.status === 'HIGH');
-    if (activeWinner && activeWinner.metrics.finalConfidence >= 85) {
+    if (activeWinner && activeWinner.metrics.finalConfidence >= 75) { // Threshold lowered to 75
       broadcastSignalToTelegram({
         strategyName: activeWinner.profile.name,
         assetName: activeWinner.profile.targetSymbol.replace('R_', 'Volatility '),
         confidenceScore: activeWinner.metrics.finalConfidence,
-        recommendedAction: activeWinner.metrics.direction // 'UP' or 'DOWN'
+        recommendedAction: activeWinner.metrics.direction
       });
     }
 
