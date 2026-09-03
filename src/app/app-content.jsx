@@ -26,7 +26,7 @@ import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
 
-// --- 👇 FIXED AND VERIFIED RELATIVE REPOSITORY PATH 👇 ---
+// Verified relative file system module route
 import { trackExecutedTradeResult } from '../ai-scanner/floating-ai/scannerLogic';
 
 const PreviewBranding =
@@ -34,7 +34,10 @@ const PreviewBranding =
 
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
+    
+    // FIXED: Enforce a strict state barrier to ensure Blockly background stores initialize cleanly
     const [is_loading, setIsLoading] = React.useState(true);
+    const [is_engine_stores_ready, setIsEngineStoresReady] = React.useState(false);
 
     const store = useStore();
     const { app, transactions, common, client } = store;
@@ -88,7 +91,6 @@ const AppContent = observer(() => {
             if (data?.msg_type === 'proposal_open_contract' && !data?.error) {
                 const { proposal_open_contract } = data;
 
-                // --- 👇 LIVE TARGET SHIELD: CAPTURE ACCUMULATOR RESULTS AS THEY SETTLE 👇 ---
                 if (proposal_open_contract?.is_sold) {
                     const netPnL = parseFloat(proposal_open_contract.profit || '0');
                     trackExecutedTradeResult(netPnL);
@@ -122,23 +124,32 @@ const AppContent = observer(() => {
         };
     }, [is_api_initialized, client.is_logged_in, client.loginid, handleMessage, connectionStatus]);
 
-    const init = () => {
-        ServerTime.init(common);
-        app.setDBotEngineStores();
-        ApiHelpers.setInstance(app.api_helpers_store);
-        import('@/utils/gtm').then(({ default: GTM }) => {
-            GTM.init(store);
-        });
+    // INTERNAL SYNCHRONIZATION INITIALIZER: Safely constructs system storage nodes
+    const runSecureInitialization = () => {
+        try {
+            ServerTime.init(common);
+            app.setDBotEngineStores();
+            ApiHelpers.setInstance(app.api_helpers_store);
+            import('@/utils/gtm').then(({ default: GTM }) => {
+                GTM.init(store);
+            });
+            setIsEngineStoresReady(true); // Confirms underlying data states are active
+        } catch (e) {
+            console.error("🚨 Initialization retry cycle required:", e);
+        }
     };
 
     const changeActiveSymbolLoadingState = () => {
-        init();
+        runSecureInitialization();
 
         const retrieveActiveSymbols = () => {
             const { active_symbols } = ApiHelpers.instance;
+            if (!active_symbols) return;
 
             active_symbols.retrieveActiveSymbols(true).then(() => {
                 setIsLoading(false);
+            }).catch(() => {
+                setIsLoading(false); 
             });
         };
 
@@ -150,13 +161,12 @@ const AppContent = observer(() => {
                     clearInterval(intervalId);
                     retrieveActiveSymbols();
                 }
-            }, 1000);
+            }, 500);
         }
     };
 
     React.useEffect(() => {
         if (is_api_initialized) {
-            init();
             setIsLoading(true);
             if (!client.is_logged_in) {
                 changeActiveSymbolLoadingState();
@@ -172,15 +182,18 @@ const AppContent = observer(() => {
 
     if (common?.error) return null;
 
+    // Guard view elements until both active assets and inner library definitions register active
+    const isSystemFullyHydrated = !is_loading && is_engine_stores_ready;
+
     return (
         <React.Fragment>
             {PreviewBranding && (
                 <Suspense fallback={null}>
-                    <PreviewBranding uiReady={!is_loading} />
+                    <PreviewBranding uiReady={isSystemFullyHydrated} />
                 </Suspense>
             )}
-            {is_loading ? (
-                <ChunkLoader message={localize('Initializing Deriv Bot account...')} />
+            {!isSystemFullyHydrated ? (
+                <ChunkLoader message={localize('Initializing Bot Builder components safely…')} />
             ) : (
                 <AuthLoadingWrapper>
                     <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
