@@ -34,10 +34,7 @@ const PreviewBranding =
 
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
-    
-    // FIXED: Enforce a strict state barrier to ensure Blockly background stores initialize cleanly
     const [is_loading, setIsLoading] = React.useState(true);
-    const [is_engine_stores_ready, setIsEngineStoresReady] = React.useState(false);
 
     const store = useStore();
     const { app, transactions, common, client } = store;
@@ -124,32 +121,30 @@ const AppContent = observer(() => {
         };
     }, [is_api_initialized, client.is_logged_in, client.loginid, handleMessage, connectionStatus]);
 
-    // INTERNAL SYNCHRONIZATION INITIALIZER: Safely constructs system storage nodes
-    const runSecureInitialization = () => {
-        try {
-            ServerTime.init(common);
-            app.setDBotEngineStores();
-            ApiHelpers.setInstance(app.api_helpers_store);
-            import('@/utils/gtm').then(({ default: GTM }) => {
-                GTM.init(store);
-            });
-            setIsEngineStoresReady(true); // Confirms underlying data states are active
-        } catch (e) {
-            console.error("🚨 Initialization retry cycle required:", e);
-        }
+    // CORE INITIALIZER: Moved back out to its original synchronous context to guarantee store initialization
+    const init = () => {
+        ServerTime.init(common);
+        app.setDBotEngineStores();
+        ApiHelpers.setInstance(app.api_helpers_store);
+        import('@/utils/gtm').then(({ default: GTM }) => {
+            GTM.init(store);
+        });
     };
 
     const changeActiveSymbolLoadingState = () => {
-        runSecureInitialization();
+        init();
 
         const retrieveActiveSymbols = () => {
             const { active_symbols } = ApiHelpers.instance;
-            if (!active_symbols) return;
+            if (!active_symbols) {
+                setIsLoading(false);
+                return;
+            }
 
             active_symbols.retrieveActiveSymbols(true).then(() => {
                 setIsLoading(false);
             }).catch(() => {
-                setIsLoading(false); 
+                setIsLoading(false);
             });
         };
 
@@ -161,39 +156,39 @@ const AppContent = observer(() => {
                     clearInterval(intervalId);
                     retrieveActiveSymbols();
                 }
-            }, 500);
+            }, 1000);
         }
     };
 
     React.useEffect(() => {
         if (is_api_initialized) {
+            init(); // CRITICAL FIX: Run instantly here to construct MobX workspace blocks immediately
             setIsLoading(true);
             if (!client.is_logged_in) {
                 changeActiveSymbolLoadingState();
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_api_initialized]);
 
     React.useEffect(() => {
         if (client.is_logged_in && is_api_initialized) {
             changeActiveSymbolLoadingState();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_api_initialized, client.loginid]);
 
     if (common?.error) return null;
-
-    // Guard view elements until both active assets and inner library definitions register active
-    const isSystemFullyHydrated = !is_loading && is_engine_stores_ready;
 
     return (
         <React.Fragment>
             {PreviewBranding && (
                 <Suspense fallback={null}>
-                    <PreviewBranding uiReady={isSystemFullyHydrated} />
+                    <PreviewBranding uiReady={!is_loading} />
                 </Suspense>
             )}
-            {!isSystemFullyHydrated ? (
-                <ChunkLoader message={localize('Initializing Bot Builder components safely…')} />
+            {is_loading ? (
+                <ChunkLoader message={localize('Initializing Deriv Bot account...')} />
             ) : (
                 <AuthLoadingWrapper>
                     <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
