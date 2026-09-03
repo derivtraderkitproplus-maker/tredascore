@@ -11,6 +11,14 @@ export interface StrategyProfile {
   targetSymbol: 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100';
   contractType: 'RISE_FALL' | 'OVER_UNDER' | 'ACCUMULATOR' | 'TOUCH_NO_TOUCH';
   coreEngine: 'MARTINGALE' | 'DALEMBERT' | 'PROGRESSIVE' | 'NEURAL_FLOW';
+  
+  // 🆕 RUNTIME EXECUTION SETTINGS (Captures frontend form state adjustments)
+  runtimeSettings?: {
+    defaultStake: number;
+    takeProfitLimit: number; // Monetary target value
+    stopLossLimit: number;   // Monetary protection floor value
+    growthRate?: number;     // Specific tracking multiplier for Accumulators
+  };
 }
 
 export interface StrategyResult {
@@ -23,6 +31,14 @@ export interface StrategyResult {
   finalConfidence: number;
   tierOverride: 'HIGH' | 'MEDIUM' | 'LOW';
   status?: 'HIGH' | 'MEDIUM' | 'LOW';
+  
+  // 🆕 PASS-THROUGH EXECUTOR ENGINE STATE
+  executionPayload?: {
+    stake: number;
+    takeProfit: number;
+    stopLoss: number;
+    growthRate: number;
+  };
 }
 
 // Helper: Calculate Exponential Moving Average (EMA)
@@ -58,7 +74,7 @@ export function calculateVolatility(prices: number[]): number {
   return Math.sqrt(variance);
 }
 // strategies.ts - PART 2A: Profiles Array Registry
-import { StrategyProfile } from './strategies';
+import { StrategyProfile } from './strategies'; // Adjust import paths based on file layout
 
 export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'STRATEGY_1_3_2_6', name: '1-3-2-6 System', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 68, description: 'Fixed progressive staking sequence.', targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
@@ -153,6 +169,13 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   if (finalConfidence >= 75) tierOverride = 'HIGH';
   else if (finalConfidence >= 62) tierOverride = 'MEDIUM';
 
+  // 🆕 DYNAMIC RUNTIME VARIABLE PARSER
+  // Seamlessly catches interactive state values injected from your frontend panel fields.
+  const activeStake = profile.runtimeSettings?.defaultStake ?? 1.00;
+  const activeTP = profile.runtimeSettings?.takeProfitLimit ?? 1500;
+  const activeSL = profile.runtimeSettings?.stopLossLimit ?? 500;
+  const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
+
   return {
     profileId: profile.id,
     ticksLoaded: currentCount,
@@ -161,6 +184,13 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     scannerScore,
     marketCompatibility,
     finalConfidence,
-    tierOverride
+    tierOverride,
+    // 🆕 RUNTIME CONTEXT ATTACHMENT NODE
+    executionPayload: {
+      stake: activeStake,
+      takeProfit: activeTP,
+      stopLoss: activeSL,
+      growthRate: activeGrowth
+    }
   };
 }
