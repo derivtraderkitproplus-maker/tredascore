@@ -1,4 +1,4 @@
-// scannerLogic.ts - PART 1: Core Engine Declarations & Client-Safe Gateways
+// scannerLogic.ts - PART 1: Server-Safe LocalStorage Circuit-Breaker Engine
 
 export interface EvaluationFrame {
   profile: {
@@ -30,10 +30,11 @@ interface HighConfidenceSignal {
 const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_API_TOKEN"; 
 const TELEGRAM_CHANNEL_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_ID || "@your_public_channel_username"; 
 
+// --- SAFETY MANAGEMENT CONFIGURATIONS ---
 export const ACCOUNT_LIMITS = {
-  TAKE_PROFIT_TARGET: 150.00,       
-  MAX_STOP_LOSS_LIMIT: -50.00,      
-  MAX_ALLOWED_SLIPPAGE_MS: 380      
+  TAKE_PROFIT_TARGET: 150.00,       // Automatically halt the run if profit reaches this amount (USD)
+  MAX_STOP_LOSS_LIMIT: -50.00,      // Automatically halt the run if losses breach this amount (USD)
+  MAX_ALLOWED_SLIPPAGE_MS: 380      // Slip-Window Deflector limit boundary cutoff 
 };
 
 const STATE_KEYS = {
@@ -42,7 +43,10 @@ const STATE_KEYS = {
   KILL_SWITCH: 'EDASCORE_SYSTEM_RUN_TERMINATED'
 };
 
-// Safe runtime utility function
+/**
+ * Hydration Check Utility: Ensures Vercel cloud rendering workflows bypass 
+ * storage calls until the file safely compiles on your phone's browser view.
+ */
 function isClient(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
@@ -64,7 +68,6 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
     masterActiveHighStrategyId = strategyId;
   }
 
-  // Safe tracking read block
   const currentPnl = isClient() ? parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00') : 0.00;
   const webAppURL = "https://vercel.app";
   const messageText = encodeURIComponent(
@@ -81,12 +84,15 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
 
   try {
     const response = await fetch(telegramApiEndPoint);
-    if (!response.ok) console.error("❌ Telegram gateway rejected execution payload:", response.statusText);
+    if (!response.ok) console.error("❌ Telegram gateway rejected payload:", response.statusText);
   } catch (error) {
     console.error("🚨 Transmission pipe pipeline network failure:", error);
   }
 }
 
+/**
+ * PRODUCTION RISK CONTROLLER: Tracks results to instantly trigger hard account circuit blocks
+ */
 export function trackExecutedTradeResult(profitOrLoss: number) {
   if (!isClient()) return;
   
@@ -94,28 +100,35 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
   let lossStreak = parseInt(localStorage.getItem(STATE_KEYS.LOSS_STREAK) || '0', 10);
   let isTerminated = false;
   
+  // Update state indicators mathematically 
   currentPnl += profitOrLoss;
   if (profitOrLoss < 0) {
     lossStreak += 1;
+    console.warn(`⚠️ Loss counted! Current consecutive running streak: ${lossStreak}/3`);
   } else {
-    lossStreak = 0; 
+    lossStreak = 0; // Clear streak cache instantly upon achieving a winner contract step
   }
 
+  // Evaluate risk constraint rules
   if (lossStreak >= 3) {
     isTerminated = true;
-    console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit!");
+    console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit! Stopping the automated run.");
   } else if (currentPnl >= ACCOUNT_LIMITS.TAKE_PROFIT_TARGET) {
     isTerminated = true;
+    console.log(`🎉 [TARGET HIT] Take Profit cap ($${ACCOUNT_LIMITS.TAKE_PROFIT_TARGET}) reached!`);
   } else if (currentPnl <= ACCOUNT_LIMITS.MAX_STOP_LOSS_LIMIT) {
     isTerminated = true;
+    console.error(`🚨 [RISK HIT] Max Stop Loss limit ($${ACCOUNT_LIMITS.MAX_STOP_LOSS_LIMIT}) breached!`);
   }
 
+  // Commit updates immediately to the browser local storage layer
   localStorage.setItem(STATE_KEYS.PnL, currentPnl.toString());
   localStorage.setItem(STATE_KEYS.LOSS_STREAK, lossStreak.toString());
   localStorage.setItem(STATE_KEYS.KILL_SWITCH, isTerminated.toString());
 
+  // Automatic shutdown alert delivery loop
   if (isTerminated) {
-    const alertsText = encodeURIComponent(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Account thresholds reached or 3 consecutive losses hit. Live execution channels have been disabled.`);
+    const alertsText = encodeURIComponent(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Safety rules hit. All automated execution pathways have been deactivated.`);
     fetch(`https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${alertsText}&parse_mode=Markdown`).catch(() => {});
   }
 }
@@ -125,12 +138,12 @@ export function resetAccountSessionRun() {
   localStorage.removeItem(STATE_KEYS.PnL);
   localStorage.removeItem(STATE_KEYS.LOSS_STREAK);
   localStorage.removeItem(STATE_KEYS.KILL_SWITCH);
+  console.log("🔄 Session limits reset cleanly. Ready for a new run.");
 }
 
 export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
 // scannerLogic.ts - PART 2: Safe Core Scanner Engine Pipeline
 
-import { broadcastSignalToTelegram, resetMasterHighLock, checkEngineStatus } from './Part1'; 
 import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
 
 export class ScannerLogicEngine {
@@ -195,6 +208,7 @@ export class ScannerLogicEngine {
   }
 
   public runScannerPipeline(): any[] {
+    // If circuit breaker is TRIPPED, automatically overwrite the data feed to lock execution
     if (checkEngineStatus()) {
       return this.lastEvaluatedFrames.map(frame => ({
         ...frame,
@@ -231,7 +245,6 @@ export class ScannerLogicEngine {
       }));
     }
     
-    // SAFE FALLBACK: Check if strategy files exist before looping
     const profiles = STRATEGY_PROFILES || [];
     const rawFrames = profiles.map(profile => {
       const targetToken = this.standardizeSymbol(profile.targetSymbol);
@@ -246,7 +259,6 @@ export class ScannerLogicEngine {
       return scoreB - scoreA;
     });
 
-    // Explicit fallback protection to prevent index evaluation runtime crashes
     const candidateWinner = sortedGlobalChallengers.length > 0 ? sortedGlobalChallengers[0] : null; 
 
     const assetToken = candidateWinner ? this.standardizeSymbol(candidateWinner.profile.targetSymbol) : '';
