@@ -1,4 +1,5 @@
-// FloatingAI.tsx - PART 1: Architecture, Memory Management & Component Logic
+// FloatingAI.tsx - PART 1: Core Setup, Lifecycles & State Management Handlers
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { DerivScannerBridge } from './scannerBridge';
 import { ScannerLogicEngine, EvaluationFrame } from './scannerLogic';
@@ -14,10 +15,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
   const [rawPipelineData, setRawPipelineData] = useState<EvaluationFrame[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  // USER INPUT PARAMETERS - Default values standardized to safe initial test sizes
-  const [stake, setStake] = useState<string>('1');
-  const [stopLoss, setStopLoss] = useState<string>('500');
-  const [takeProfit, setTakeProfit] = useState<string>('1500');
+  // 🛠️ CRITICAL LOGIC FIX: Maintain a singular dynamic map object to isolate settings parameters by profile ID
+  const [customStrategySettings, setCustomStrategySettings] = useState<Record<string, { stake: string; stopLoss: string; takeProfit: string }>>({});
 
   // INPUT FOCUS TRACKER - Freezes data streaming calculation frames mid-keystroke
   const [isTypingFocused, setIsTypingFocused] = useState<boolean>(false);
@@ -111,13 +110,13 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       setFrozenDisplayList(liveSortedProfiles);
     }
   }, [liveSortedProfiles, activeTab]);
+// FloatingAI.tsx - PART 2: Parameter Action Handlers & Global Metric Summary Layouts
 
   // Isolated matrix display layer rules
   const visualDisplayList = useMemo(() => {
     if (activeTab && frozenDisplayList.length > 0) {
       return frozenDisplayList;
     }
-    
     if (liveSortedProfiles.length > 0) return liveSortedProfiles;
 
     return STRATEGY_PROFILES.map(profile => ({
@@ -144,12 +143,16 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
   }, [visualDisplayList]);
 
+  // 🛠️ HANDLER FIX: Pull configuration settings isolated explicitly by their strategy profile ID
   const handleLoadBot = (targetDirection: string, frame: EvaluationFrame) => {
+    const strategyId = frame.profile.id;
+    const currentSettings = customStrategySettings[strategyId] || { stake: '1', stopLoss: '500', takeProfit: '1500' };
+
     networkBridge.injectDataToBlockly({
       direction: targetDirection,
-      stake: parseFloat(stake) || 0,
-      stopLoss: parseFloat(stopLoss) || 0,
-      takeProfit: parseFloat(takeProfit) || 0,
+      stake: parseFloat(currentSettings.stake) || 0,
+      stopLoss: parseFloat(currentSettings.stopLoss) || 0,
+      takeProfit: parseFloat(currentSettings.takeProfit) || 0,
       contractType: frame.profile.contractType,   
       targetSymbol: frame.profile.targetSymbol    
     });
@@ -163,6 +166,34 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     if (!frame) return;
     logicEngine.forceManualTelegramBroadcast(frame);
     alert(`📢 Manual Broadcast Sent!\nPushed ${frame.profile.name} directly to your channel.`);
+  };
+
+  // 🛠️ STATE UPDATE RUNTIME SYNC: Save input fields directly to active runtime metrics profile instances
+  const updateSettingsValue = (strategyId: string, inputField: 'stake' | 'stopLoss' | 'takeProfit', val: string) => {
+    setCustomStrategySettings(prev => {
+      const freshMap = {
+        ...prev,
+        [strategyId]: {
+          ...(prev[strategyId] || { stake: '1', stopLoss: '500', takeProfit: '1500' }),
+          [inputField]: val
+        }
+      };
+
+      // Push custom numeric adjustments straight down to the strategy memory layout fields
+      const targetProfile = STRATEGY_PROFILES.find(p => p.id === strategyId);
+      if (targetProfile) {
+        if (!targetProfile.runtimeSettings) {
+          targetProfile.runtimeSettings = { defaultStake: 3.0, stopLossLimit: 4.0, takeProfitLimit: 8.0 };
+        }
+        
+        const targetConfig = freshMap[strategyId];
+        if (inputField === 'stake') targetProfile.runtimeSettings.defaultStake = parseFloat(val) || 3.0;
+        if (inputField === 'stopLoss') targetProfile.runtimeSettings.stopLossLimit = parseFloat(val) || 4.0;
+        if (inputField === 'takeProfit') targetProfile.runtimeSettings.takeProfitLimit = parseFloat(val) || 8.0;
+      }
+
+      return freshMap;
+    });
   };
 
   const handleResetMetrics = () => {
@@ -182,7 +213,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     const resetFrame = logicEngine.runScannerPipeline();
     setRawPipelineData(resetFrame);
   };
-// FloatingAI.tsx - PART 2: Responsive Visual Grid Elements & Drawer Modules
+
   return (
     <div className="ai-strategy-scanner">
       <div className="scanner-header">
@@ -208,6 +239,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
+// FloatingAI.tsx - PART 3: Reactive Card Render Arrays, Isolated Input State Fields & Core Layouts
 
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
@@ -215,6 +247,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           const currentStatus = item.metrics.status || item.profile.tier || 'LOW';
           const assetDisplayLabel = item.profile.targetSymbol.replace('R_', 'Volatility ');
           const contractDisplayLabel = item.profile.contractType.replace(/_/g, ' ');
+
+          // 🛠️ ISOLATION FIX: Fetch unique local settings mapping parameters for this specific row profile ID
+          const rowSettings = customStrategySettings[item.profile.id] || { stake: '1', stopLoss: '500', takeProfit: '1500' };
 
           return (
             <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
@@ -239,6 +274,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     </span>
                   </div>
 
+                  {/* 🛠️ BINDING FIX: Pull metrics numbers directly from calculation outputs, NOT unmutated profile structures */}
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
 
@@ -257,13 +293,14 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                 <div className="card-expanded-drawer">
                   <p className="desc">{item.profile.description}</p>
                   
+                  {/* REACTIVE INPUT FORMS MATRIX: Values link directly to specific strategy state maps */}
                   <div className="ai-input-parameter-grid">
                     <div className="input-cell">
                       <label>STAKE (USD)</label>
                       <input 
                         type="number" 
-                        value={stake} 
-                        onChange={(e) => setStake(e.target.value)}
+                        value={rowSettings.stake} 
+                        onChange={(e) => updateSettingsValue(item.profile.id, 'stake', e.target.value)}
                         onFocus={() => setIsTypingFocused(true)}
                         onBlur={() => setIsTypingFocused(false)}
                       />
@@ -272,8 +309,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                       <label>STOP LOSS</label>
                       <input 
                         type="number" 
-                        value={stopLoss} 
-                        onChange={(e) => setStopLoss(e.target.value)}
+                        value={rowSettings.stopLoss} 
+                        onChange={(e) => updateSettingsValue(item.profile.id, 'stopLoss', e.target.value)}
                         onFocus={() => setIsTypingFocused(true)}
                         onBlur={() => setIsTypingFocused(false)}
                       />
@@ -282,8 +319,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                       <label>TAKE PROFIT</label>
                       <input 
                         type="number" 
-                        value={takeProfit} 
-                        onChange={(e) => setTakeProfit(e.target.value)}
+                        value={rowSettings.takeProfit} 
+                        onChange={(e) => updateSettingsValue(item.profile.id, 'takeProfit', e.target.value)}
                         onFocus={() => setIsTypingFocused(true)}
                         onBlur={() => setIsTypingFocused(false)}
                       />
