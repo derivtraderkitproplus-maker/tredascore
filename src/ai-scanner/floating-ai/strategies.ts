@@ -1,4 +1,4 @@
-// strategies.ts - PART 1: Mathematical Indicators & Strategy Registry (A)
+// strategies.ts - PART 1A: Global Interfaces & Mathematical Functions
 
 export interface StrategyProfile {
   id: string;
@@ -73,8 +73,7 @@ export function calculateVolatility(prices: number[]): number {
   const variance = prices.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / prices.length;
   return Math.sqrt(variance);
 }
-
-// Global System Registry Tracking Strategy Targets
+// Global System Strategy Profiles Registry Map
 export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'STRATEGY_1_3_2_6', name: '1-3-2-6 System', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 68, description: 'Fixed progressive staking sequence.', targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
   { id: 'ACC_DALEMBERT', name: 'Accumulator D\'Alembert', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Equilibrium based staking scale.', targetSymbol: 'R_25', contractType: 'ACCUMULATOR', coreEngine: 'DALEMBERT' },
@@ -90,14 +89,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'MARTINGALE_CLASSIC', name: 'Martingale Classic', tier: 'HIGH', requiredTicks: 100, confidenceGate: 75, description: 'Standard linear loss doubling matrix.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
   { id: 'OSCARS_GRIND', name: 'Oscar\'s Grind', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 62, description: 'Targeted single-unit win progression tracking.', targetSymbol: 'R_50', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
   { id: 'REVERSE_DALEMBERT', name: 'Reverse D\'Alembert', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 61, description: 'Inverted risk distribution progression.', targetSymbol: 'R_75', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' },
-  { id: 'REVERSE_MARTINGALE', name: 'Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 76, description: 'Compounded profit maximizing pipeline.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' }
-];
-// strategies.ts - PART 2: Registry (B) & Live Evaluation Engine Logic
-
-import { StrategyProfile, StrategyResult, calculateEMA, calculateRSI, calculateVolatility } from './strategies';
-
-// Global System Registry Tracking Strategy Targets (Continued)
-export const ADDITIONAL_STRATEGY_PROFILES: StrategyProfile[] = [
+  { id: 'REVERSE_MARTINGALE', name: 'Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 76, description: 'Compounded profit maximizing pipeline.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
   { id: 'AI_ALPHA_V16', name: 'AI Alpha Engine v16', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 66, description: 'Predictive neural trend optimization layer.', targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'NEURAL_FLOW' },
   { id: 'AI_ALPHA_V17', name: 'AI Alpha Engine v17', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 67, description: 'Dynamic multi-asset lookback tracking matrix.', targetSymbol: 'R_25', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
   { id: 'AI_ALPHA_V18', name: 'AI Alpha Engine v18', tier: 'LOW', requiredTicks: 100, confidenceGate: 58, description: 'High-frequency variance boundary check core.', targetSymbol: 'R_50', contractType: 'ACCUMULATOR', coreEngine: 'NEURAL_FLOW' },
@@ -114,6 +106,9 @@ export const ADDITIONAL_STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
   { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' }
 ];
+// strategies.ts - PART 2: Live Evaluation Engine Logic
+
+import { StrategyProfile, StrategyResult, calculateEMA, calculateRSI, calculateVolatility } from './strategies';
 
 export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
   const currentCount = ticks.length;
@@ -131,9 +126,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     };
   }
 
-  const strategySeed = profile.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-
-  // Dynamic Multi-Asset Lookback Tuning: Handles asset pacing differences on fast vs slow indexes
+  // Dynamic Multi-Asset Lookback Tuning: Adjusts filters to handle asset pacing variances
   const isFastAsset = profile.targetSymbol === 'R_100' || profile.targetSymbol === 'R_75';
   const fastEmaPeriod = isFastAsset ? 18 : 12;
   const slowEmaPeriod = isFastAsset ? 38 : 26;
@@ -143,42 +136,50 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   const rsiValue = calculateRSI(ticks, 14);
   const volatility = calculateVolatility(ticks.slice(-30));
 
+  // Determine actual real-time market trend direction based on live data
   let marketDirection = 'FLAT';
-  if (fastEma > slowEma + 0.05) marketDirection = 'UP';
-  else if (fastEma < slowEma - 0.05) marketDirection = 'DOWN';
+  if (fastEma > slowEma + 0.02) marketDirection = 'UP';
+  else if (fastEma < slowEma - 0.02) marketDirection = 'DOWN';
 
   let scannerScore = 50;
   let marketCompatibility = 50;
 
-  // --- DIVERSIFIED CONTRACT MATHEMATICAL SCORING MODIFIERS ---
+  // --- REAL TECHNICAL MODIFIERS REMOVING PLACEHOLDER STRING SEEDS ---
   if (profile.contractType === 'RISE_FALL') {
-    scannerScore = marketDirection !== 'FLAT' ? 78 : 45;
-    marketCompatibility = rsiValue > 55 || rsiValue < 45 ? 74 : 50;
+    // Favors entry when momentum is strong and RSI confirms room to move before absolute exhaustion
+    scannerScore = marketDirection === 'UP' && rsiValue < 70 ? 82 : (marketDirection === 'DOWN' && rsiValue > 30 ? 82 : 45);
+    marketCompatibility = rsiValue > 52 || rsiValue < 48 ? 78 : 50;
+    
   } else if (profile.contractType === 'OVER_UNDER') {
-    scannerScore = marketDirection === 'FLAT' ? 82 : 52;
-    marketCompatibility = rsiValue >= 42 && rsiValue <= 58 ? 80 : 46;
+    // Over/Under thrives in tight sideways channels with minimal explosive variance
+    scannerScore = marketDirection === 'FLAT' && volatility < 0.8 ? 84 : 42;
+    marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 85 : 48;
+    
   } else if (profile.contractType === 'TOUCH_NO_TOUCH') {
-    scannerScore = volatility > 1.2 ? 84 : 48;
-    marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 76 : 52;
+    // Touch contracts favor extreme, highly volatile breakouts
+    scannerScore = volatility > 1.5 && (rsiValue > 75 || rsiValue < 25) ? 86 : 40;
+    marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 80 : 45;
+    
   } else if (profile.contractType === 'ACCUMULATOR') {
-    scannerScore = marketDirection !== 'FLAT' && volatility <= 1.4 ? 85 : 40;
-    marketCompatibility = rsiValue >= 48 && rsiValue <= 62 ? 82 : 48;
+    // Accumulators require smooth, stable price movement without sudden explosive micro-spikes
+    const recentPrices = ticks.slice(-5);
+    const isSmoothTrend = recentPrices.every((p, idx) => idx === 0 || Math.abs(p - recentPrices[idx - 1]) < volatility * 0.5);
+
+    scannerScore = marketDirection !== 'FLAT' && volatility <= 1.1 && isSmoothTrend ? 88 : 35;
+    marketCompatibility = rsiValue >= 40 && rsiValue <= 60 ? 82 : 44;
   }
 
-  const microOffset = (strategySeed % 7) - 3;
-  scannerScore += microOffset;
-  marketCompatibility += (strategySeed % 5) - 2;
-
+  // Keep ranges cleanly bounded within standard UI visualization visualization limits
   scannerScore = Math.min(96, Math.max(35, scannerScore));
   marketCompatibility = Math.min(96, Math.max(35, marketCompatibility));
 
   const finalConfidence = Math.floor((scannerScore + marketCompatibility) / 2);
 
   let tierOverride: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
-  if (finalConfidence >= 75) tierOverride = 'HIGH';
-  else if (finalConfidence >= 62) tierOverride = 'MEDIUM';
+  if (finalConfidence >= 82) tierOverride = 'HIGH';
+  else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
 
-  // 🛠️ SAFE OPERATIONAL BASELINE FALLBACKS: $3.00 Stake, $8.00 Profit target, $4.00 Risk limit
+  // Enforcing requested safe baseline parameters directly within engine scope
   const activeStake = profile.runtimeSettings?.defaultStake ?? 3.00;
   const activeTP = profile.runtimeSettings?.takeProfitLimit ?? 8.00;
   const activeSL = profile.runtimeSettings?.stopLossLimit ?? 4.00;
