@@ -128,7 +128,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
   { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' }
 ];
-// strategies.ts - PART 3: Strategic Parameter Calculations & Fractional Risk Sizing Engine
+// strategies.ts - PART 3: Completely Decoupled Evaluation Logic & Fractional Staking Risk Engine
 
 export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
   const currentCount = ticks.length;
@@ -164,39 +164,43 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   let scannerScore = 50;
   let marketCompatibility = 50;
 
-  // --- STRATEGY-SPECIFIC REAL-TIME SCORING BREAKDOWNS (NON-CLONED FIX) ---
+  // --- DIVERSIFIED CONTRACT MATHEMATICAL SCORING MODIFIERS ---
   if (profile.contractType === 'RISE_FALL') {
-    if (profile.id.includes('TREND_PRINTER') || profile.id.includes('ALPHA')) {
-      // Focuses strictly on strong trend crossover distance and momentum stability
+    
+    // 🛠️ CRITICAL FIX: Explicitly separate strategies by unique ID to prevent cross-pollinating cloned statistics
+    if (profile.id === 'AI_TREND_PRINTER') {
       const emaSpread = Math.abs(fastEma - slowEma);
-      scannerScore = marketDirection !== 'FLAT' && rsiValue > 35 && rsiValue < 65 ? 86 : 40;
-      marketCompatibility = emaSpread > volatility * 0.15 ? 84 : 45;
+      scannerScore = marketDirection !== 'FLAT' && rsiValue > 40 && rsiValue < 60 ? 88 : 35;
+      marketCompatibility = emaSpread > volatility * 0.2 ? 82 : 45;
       
-    } else if (profile.id.includes('MARTINGALE') || profile.id.includes('SCALPER')) {
-      // Scalping/Martingale profiles prioritize high price velocity spikes
-      const isExplosiveVolume = volatility > 1.15;
-      scannerScore = marketDirection !== 'FLAT' && isExplosiveVolume ? 89 : 35;
-      marketCompatibility = rsiValue >= 42 && rsiValue <= 58 ? 82 : 44;
+    } else if (profile.id === 'AI_ALPHA_V19') {
+      scannerScore = marketDirection === 'UP' && rsiValue < 65 ? 85 : (marketDirection === 'DOWN' && rsiValue > 35 ? 85 : 40);
+      marketCompatibility = rsiValue > 55 || rsiValue < 45 ? 84 : 48;
+      
+    } else if (profile.id === 'MARTINGALE_CLASSIC' || profile.id === 'REVERSE_MARTINGALE') {
+      const isExplosiveVolume = volatility > 1.25;
+      scannerScore = marketDirection !== 'FLAT' && isExplosiveVolume ? 89 : 30;
+      marketCompatibility = rsiValue >= 42 && rsiValue <= 58 ? 80 : 42;
       
     } else {
-      // Catch-all baseline strategy logic for alternative directional profiles
-      const isTrendRider = marketDirection === 'UP' && rsiValue < 68;
-      scannerScore = isTrendRider ? 82 : 45;
-      marketCompatibility = rsiValue > 50 || rsiValue < 50 ? 76 : 50;
+      scannerScore = marketDirection !== 'FLAT' ? 78 : 45;
+      marketCompatibility = rsiValue > 52 || rsiValue < 48 ? 74 : 50;
     }
     
   } else if (profile.contractType === 'OVER_UNDER') {
-    // Over/Under performs best in calm, tight sideways ranges
-    scannerScore = marketDirection === 'FLAT' && volatility < 0.9 ? 86 : 45;
-    marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 84 : 45;
+    if (profile.id === 'DALEMBERT_CLASSIC') {
+      scannerScore = marketDirection === 'FLAT' && volatility < 0.7 ? 86 : 40;
+      marketCompatibility = rsiValue >= 48 && rsiValue <= 52 ? 88 : 45;
+    } else {
+      scannerScore = marketDirection === 'FLAT' && volatility < 0.9 ? 82 : 45;
+      marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 80 : 45;
+    }
     
   } else if (profile.contractType === 'TOUCH_NO_TOUCH') {
-    // Touch contracts favor volatile breakouts from key levels
     scannerScore = volatility > 1.4 && (rsiValue > 70 || rsiValue < 30) ? 88 : 38;
     marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 82 : 48;
     
   } else if (profile.contractType === 'ACCUMULATOR') {
-    // Safe mean-reversion boundary: Accumulators require calm consolidation, NOT high momentum
     const isSideways = marketDirection === 'FLAT';
     const isCalmRange = rsiValue >= 45 && rsiValue <= 55;
     const isLowRiskVol = volatility <= 0.8;
@@ -205,7 +209,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
       scannerScore = 85; 
       marketCompatibility = 85;
     } else {
-      scannerScore = 30; // Suppress it instantly if a strong trend or volatility spike breaks out
+      scannerScore = 30; 
       marketCompatibility = 30;
     }
   }
@@ -220,24 +224,21 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   if (finalConfidence >= 82) tierOverride = 'HIGH';
   else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
 
-  // Base fallback parameters
+  // Base fallback parameters ($3.00 Stake, $8.00 Profit target, $4.00 Risk limit)
   const baselineStake = profile.runtimeSettings?.defaultStake ?? 3.00;
   const activeTP = profile.runtimeSettings?.takeProfitLimit ?? 8.00;
   const activeSL = profile.runtimeSettings?.stopLossLimit ?? 4.00;
   const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
 
-  // 🛠️ ACTIVE PRODUCTION RISK CALCULATOR LOOP
+  // ACTIVE RISK CALCULATOR LOOP (Tracks local loss streaks to adjust trade sizes)
   let activeStake = baselineStake;
   
   if (typeof window !== 'undefined' && window.localStorage) {
     const activeStreakCount = parseInt(localStorage.getItem('EDASCORE_CONSECUTIVE_LOSS_COUNT') || '0', 10);
     
-    // Fractional Martingale Loss-Recovery Progression Logic
     if (activeStreakCount > 0 && (profile.coreEngine === 'MARTINGALE' || profile.coreEngine === 'NEURAL_FLOW')) {
-      // Step up position stake exposure proportionally to offset negative payout variance asymmetry
       activeStake = baselineStake * Math.pow(2.15, activeStreakCount);
       
-      // Strict upper allocation allocation safety ceilings to protect bankroll limits
       const safetyCeilingLimit = 25.00; 
       if (activeStake > safetyCeilingLimit) {
         console.warn(`🛡️ Risk Manager clamped stake size from $${activeStake.toFixed(2)} to safety ceiling of $${safetyCeilingLimit}.`);
