@@ -1,4 +1,4 @@
-// FloatingAI.tsx (Part 1 of 2) - Fixed Component Architecture & Top Metrics Hook
+// FloatingAI.tsx - PART 1: Architecture, Memory Management & Component Logic
 import React, { useEffect, useState, useMemo } from 'react';
 import { DerivScannerBridge } from './scannerBridge';
 import { ScannerLogicEngine, EvaluationFrame } from './scannerLogic';
@@ -14,7 +14,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
   const [rawPipelineData, setRawPipelineData] = useState<EvaluationFrame[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  // USER INPUT PARAMETERS - Default values standardized to clean strings
+  // USER INPUT PARAMETERS - Default values standardized to safe initial test sizes
   const [stake, setStake] = useState<string>('1');
   const [stopLoss, setStopLoss] = useState<string>('500');
   const [takeProfit, setTakeProfit] = useState<string>('1500');
@@ -136,7 +136,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     }));
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
-  // Pulls metrics strictly using index 0 path to eliminate structural array undefined errors
+  // Pulls metrics safely using fallback evaluations
   const globalSummary = useMemo(() => {
     if (visualDisplayList && visualDisplayList.length > 0 && visualDisplayList[0].metrics) {
       return visualDisplayList[0].metrics;
@@ -159,18 +159,30 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     }
   };
 
-  /**
-   * HANDLES MANUAL TRANSMISSION FROM USER DASHBOARD BUTTON CLICKS
-   */
   const handleManualTelegramShare = (frame: EvaluationFrame) => {
     if (!frame) return;
     logicEngine.forceManualTelegramBroadcast(frame);
     alert(`📢 Manual Broadcast Sent!\nPushed ${frame.profile.name} directly to your channel.`);
   };
-  const resetFrame = logicEngine.runScannerPipeline();
+
+  const handleResetMetrics = () => {
+    setActiveTab(null);
+    setRawPipelineData([]);
+    setFrozenDisplayList([]);
+    
+    trackingSymbols.forEach(symbol => {
+      let basePrice = 845.20;
+      for (let i = 0; i < 115; i++) {
+        const noise = (Math.random() - 0.5) * 0.45;
+        basePrice += noise;
+        logicEngine.injectTick(symbol, basePrice);
+      }
+    });
+
+    const resetFrame = logicEngine.runScannerPipeline();
     setRawPipelineData(resetFrame);
   };
-
+// FloatingAI.tsx - PART 2: Responsive Visual Grid Elements & Drawer Modules
   return (
     <div className="ai-strategy-scanner">
       <div className="scanner-header">
@@ -200,30 +212,21 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
-          
-          // Read the globally isolated status identifier mapped out by our engine pipeline
           const currentStatus = item.metrics.status || item.profile.tier || 'LOW';
-          
-          // Formats internal registry symbol codes into beautiful user dashboard labels
           const assetDisplayLabel = item.profile.targetSymbol.replace('R_', 'Volatility ');
-          
-          // Normalizes technical contract enum strings into highly readable indicator badges
           const contractDisplayLabel = item.profile.contractType.replace(/_/g, ' ');
 
           return (
             <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
-              {/* FIXED STRATEGY INFRASTRUCTURE COLUMN CONTROLLER BLOCK */}
               <div 
                 className="card-summary" 
                 onClick={() => setActiveTab(isExpanded ? null : item.profile.id)}
               >
                 <div className="rank-badge">#{index + 1}</div>
                 
-                {/* Info Text Area Column */}
                 <div className="meta-details">
                   <h4>{item.profile.name}</h4>
                   
-                  {/* --- MULTI-VOLATILITY & ENGINE ARCHITECTURE META INFO TAGS --- */}
                   <div className="strategy-tags-row" style={{ display: 'flex', gap: '6px', margin: '4px 0', flexWrap: 'wrap' }}>
                     <span className={`asset-tag symbol-${item.profile.targetSymbol.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#2a3243', color: '#00e676', fontWeight: 'bold' }}>
                       {assetDisplayLabel}
@@ -239,7 +242,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
 
-                {/* Right Badge Column - Guarantees status indicators never clip or truncate */}
                 <div className="badge-column">
                   <span className={`tier-badge ${currentStatus.toLowerCase()}`}>
                     {currentStatus}
@@ -307,16 +309,15 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     <button 
                       className="inner-drawer-load-btn"
                       onClick={() => handleLoadBot(item.metrics.direction, item)}
-                      style={{ width: '100%', padding: '12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold' }}
+                      style={{ width: '100%', padding: '12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
                     >
                       📥 Load Strategy Parameters
                     </button>
 
-                    {/* 📢 INJECTED MANUAL TELEGRAM COMMISSIONS MULTIPLIER BUTTON LINK */}
                     <button 
                       className="inner-drawer-telegram-btn"
                       onClick={() => handleManualTelegramShare(item)}
-                      style={{ width: '100%', padding: '12px', background: '#0088cc', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                      style={{ width: '100%', padding: '12px', background: '#0088cc', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}
                     >
                       📢 Broadcast Signal to Telegram
                     </button>
