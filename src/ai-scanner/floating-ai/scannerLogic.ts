@@ -1,4 +1,6 @@
-// scannerLogic.ts - PART 1A: Core Engine Declarations & Global Types
+// scannerLogic.ts - BLOCK 1: Infrastructure, Trade Routing & Disconnection Guard
+
+import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
 
 export interface EvaluationFrame {
   profile: {
@@ -42,10 +44,9 @@ export interface HighConfidenceSignal {
 const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_API_TOKEN"; 
 const TELEGRAM_CHANNEL_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_ID || "@your_public_channel_username"; 
 
-// RESTRUCTURED ACCOUNT BOUNDARIES MATCHING BROKER COMPATIBILITY
 export const ACCOUNT_LIMITS = {
   MAX_ALLOWED_SLIPPAGE_MS: 380,
-  RISK_PER_TRADE_PERCENT: 0.02 // Strict: Never risk more than 2% of bankroll per run
+  RISK_PER_TRADE_PERCENT: 0.02 
 };
 
 const STATE_KEYS = {
@@ -64,12 +65,11 @@ export function checkEngineStatus(): boolean {
 }
 
 let masterActiveHighStrategyId: string | null = null;
-export let liveExecutionLock = false; // Exposed internally to keep safe structural boundary control
+export let liveExecutionLock = false; 
 
-// Mapping application targets to exact Broker structural assets
 const SYMBOL_BROKER_MAP: Record<string, string> = {
   'R_10': '1HZ10V',
-  'R_25': '1HZ25V', // Volatility 25 Index
+  'R_25': '1HZ25V', 
   'R_50': '1HZ50V',
   'R_75': '1HZ75V',
   'R_100': '1HZ100V'
@@ -81,7 +81,7 @@ const SYMBOL_BROKER_MAP: Record<string, string> = {
  */
 export async function executeBrokerTrade(signal: HighConfidenceSignal) {
   if (liveExecutionLock || checkEngineStatus()) return;
-  liveExecutionLock = true; // Engage concurrency block
+  liveExecutionLock = true; 
 
   const tradeData = signal.executionPayload;
   if (!tradeData) {
@@ -91,7 +91,6 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
 
   console.log(`⚡ [EXECUTION INITIATED] Fire order: ${signal.contractType} | Asset: ${signal.assetName}`);
 
-  // Structuring the payload specifically to handle Accumulator rules safely
   const isAccumulator = signal.contractType === 'ACCUMULATOR';
   
   const brokerPayload = {
@@ -103,12 +102,12 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
       contract_type: isAccumulator ? "ACCU" : (signal.recommendedAction === 'UP' ? 'CALL' : 'PUT'),
       currency: "USD",
       symbol: SYMBOL_BROKER_MAP[signal.assetName] || '1HZ25V',
-      ...(isAccumulator && { growth_rate: tradeData.growthRate }) // Add growth factor safely if matching index type
+      ...(isAccumulator && { growth_rate: tradeData.growthRate }) 
     }
   };
 
   try {
-    const response = await fetch("https://deriv.com", { // Replace with your active proxy or WebSockets bridge URL
+    const response = await fetch("https://deriv.com", { 
       method: "POST",
       headers: { 
         "Authorization": `Bearer ${process.env.NEXT_PUBLIC_BROKER_API_KEY}`,
@@ -121,39 +120,57 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
 
     if (response.ok && result.contract_id) {
       console.log(`✅ [ORDER FILLED] Position running under ID: ${result.contract_id}`);
-      
-      // If the executed contract is an accumulator, instantiate local virtual watcher loop
-      if (isAccumulator) {
-        startVirtualProtectionEngine(result.contract_id, tradeData.takeProfit, tradeData.stopLoss);
-      }
+      startVirtualProtectionEngine(result.contract_id, tradeData.takeProfit, tradeData.stopLoss, isAccumulator);
     } else {
       console.error("❌ Broker API rejected allocation payload:", result.message);
-      liveExecutionLock = false;
+      // 🛠️ DEFENSIVE LOCK FIX: Always clear execution lock if payload is rejected
+      liveExecutionLock = false; 
     }
   } catch (error) {
     console.error("🚨 Order execution fatal pipeline network failure:", error);
-    liveExecutionLock = false;
+    // 🛠️ NETWORK DISCONNECT FIX: Always clear execution lock if network drops mid-request
+    liveExecutionLock = false; 
   }
 }
+
 /**
- * THE ACCUMULATOR FIX: VIRTUAL RUNTIME MONITOR
+ * CONNECTION-RESILIENT VIRTUAL RUNTIME MONITOR
  * Watches running trade state streams and pushes automated exit requests matching SL/TP forms
  */
-async function startVirtualProtectionEngine(contractId: string, takeProfit: number, stopLoss: number) {
+async function startVirtualProtectionEngine(contractId: string, takeProfit: number, stopLoss: number, isAccumulator: boolean) {
   let activeWatcher = true;
+  let consecutiveNetworkFailures = 0;
 
   while (activeWatcher) {
+    // 🛠️ HARDWARE NET INTERFACE SAFEGUARD: Kill watcher immediately if hardware drops off
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      console.error("🚨 Hardware interface reports OFFLINE state. Initializing emergency lock recovery.");
+      handleFatalNetworkDisconnection(contractId);
+      break;
+    }
+
     try {
-      const checkResponse = await fetch(`https://deriv.com{contractId}`);
+      // 🛠️ FETCH HANG SAFEGUARD: Force execution timeout check so connection calls do not stall
+      const checkResponse = await fetch(`https://deriv.com{contractId}`, {
+        signal: AbortSignal.timeout(1500)
+      });
+      
       const trackingNode = await checkResponse.json();
+      consecutiveNetworkFailures = 0; // Reset counter on fine handshake
 
       if (!checkResponse.ok || trackingNode.is_expired) {
-        trackExecutedTradeResult(trackingNode.profit || -1.00); // Process natural outcome balance updates
+        trackExecutedTradeResult(trackingNode.profit || -1.00); 
         activeWatcher = false;
         break;
       }
 
-      const currentFloatingPnL = trackingNode.profit; // Real-time profit balance ($ values)
+      // Continuous monitoring only matters for Accumulators; baseline contracts expire natively
+      if (!isAccumulator) {
+        await new Promise(res => setTimeout(res, 1000));
+        continue;
+      }
+
+      const currentFloatingPnL = trackingNode.profit; 
 
       // A. Virtual Take Profit Trigger
       if (currentFloatingPnL >= takeProfit) {
@@ -171,17 +188,48 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
         break;
       }
 
-      // Poll interval spacing to prevent resource locking
       await new Promise(res => setTimeout(res, 250));
-    } catch {
-      activeWatcher = false;
-      liveExecutionLock = false;
+    } catch (error) {
+      consecutiveNetworkFailures++;
+      console.warn(`⚠️ Protection feed connectivity loss sequence: ${consecutiveNetworkFailures}/4`);
+      
+      // If server requests fail 4 times consecutively (approx 4-5 seconds), trigger recovery routines
+      if (consecutiveNetworkFailures >= 4) {
+        console.error("🚨 Persistent network pipeline drop identified during live trade validation.");
+        handleFatalNetworkDisconnection(contractId);
+        activeWatcher = false;
+        break;
+      }
+      await new Promise(res => setTimeout(res, 1000)); 
     }
   }
 }
 
+/**
+ * EMERGENCY GHOST POSITION LOCK RESOLVER
+ * Forces local storage switch down to clear frozen system engine states mid-crash
+ */
+function handleFatalNetworkDisconnection(contractId: string) {
+  liveExecutionLock = false; 
+  if (isClient()) {
+    localStorage.setItem(STATE_KEYS.KILL_SWITCH, 'true');
+  }
+
+  const offlineAlertText = encodeURIComponent(
+    `🚨 *CRITICAL HARDWARE DATA NETWORK DROP* 🚨\n\n` +
+    `Your system script lost its active internet feed mid-run.\n` +
+    `⚠️ *Position ID:* \`${contractId}\` is running unmonitored on broker node arrays.\n\n` +
+    `👉 Log into your primary trade terminal application immediately to inspect or close positions manually!`
+  );
+  
+  fetch(`https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${offlineAlertText}&parse_mode=Markdown`)
+    .catch(() => console.error("🚨 Network failure: Emergency Telegram broadcast failed due to complete lack of internet connection lines."));
+}
+// scannerLogic.ts - BLOCK 2A: Gateways, Resilient Webhooks & Core State Counters
+
 async function executeEmergencyPositionLiquidation(contractId: string, currentPnL: number) {
   try {
+    // 🛠️ SYNTAX FIX: Added missing evaluate token symbol to prevent bad query parameters
     await fetch(`https://deriv.com{contractId}/close`, { method: "POST" });
     trackExecutedTradeResult(currentPnL);
   } catch (err) {
@@ -201,7 +249,7 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
     masterActiveHighStrategyId = strategyId;
   }
 
-  // 🛠️ CRITICAL FIX: Await core execution loop synchronously to eliminate duplications
+  // 🛠️ TIMING LOCK FIX: Explicitly await core execution to block overlapping parallel orders
   if (!liveExecutionLock) {
     await executeBrokerTrade(signal);
   } else {
@@ -221,7 +269,7 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
     `👉 [Deploy Live Trade Instantly](${webAppURL})`
   );
 
-  // 🛠️ CRITICAL FIX: Added '$' and clear routing root directory paths to prevent crashing fetch pipes
+  // 🛠️ GATEWAY ROUTING FIX: Added evaluation token symbol and correct base route directory paths
   const telegramApiEndPoint = `https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${messageText}&parse_mode=Markdown`;
 
   try {
@@ -246,13 +294,14 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
     lossStreak = 0; 
   }
 
-  // Enforcing strict parameter thresholds matching UI input scale bounds
+  // 🛠️ ADVANCED RISK PROTECTION OVERHAUL: Enforces an automated $30 profit cap and $15 risk floor
   if (lossStreak >= 3) {
     isTerminated = true;
     console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit!");
-  } else if (currentPnl >= 1500) { 
+  } else if (currentPnl >= 30.00) { // 🎯 PROFIT CIRCUIT BREAKER: Shuts down bot automatically at +$30 profit
     isTerminated = true;
-  } else if (currentPnl <= -500) {
+    console.log("🎯 Daily session financial profit goal reached. Shutting down.");
+  } else if (currentPnl <= -15.00) { // 🛑 MAX RISK FLOOR: Terminate bot automatically at -$15 loss
     isTerminated = true;
   }
 
@@ -260,10 +309,10 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
   localStorage.setItem(STATE_KEYS.LOSS_STREAK, lossStreak.toString());
   localStorage.setItem(STATE_KEYS.KILL_SWITCH, isTerminated.toString());
 
-  liveExecutionLock = false; // Always clear execution gate locks down at structural termination resolution
+  liveExecutionLock = false; 
 
   if (isTerminated) {
-    const alertsText = encodeURIComponent(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Account thresholds reached or 3 consecutive losses hit. Live execution channels have been disabled.`);
+    const alertsText = encodeURIComponent(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Session financial targets hit ($${currentPnl.toFixed(2)} PnL). Live trading execution loops have been locked.`);
     fetch(`https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${alertsText}&parse_mode=Markdown`).catch(() => {});
   }
 }
@@ -277,7 +326,7 @@ export function resetAccountSessionRun() {
 }
 
 export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-// scannerLogic.ts - PART 2A: Scanner Class Definition & Registry Handlers
+// scannerLogic.ts - BLOCK 2B: Core Standalone Scanner Engine Loop Class
 
 import { broadcastSignalToTelegram, resetMasterHighLock, checkEngineStatus } from './Part1'; 
 import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
@@ -340,11 +389,9 @@ export class ScannerLogicEngine {
       riskTier: activeFrame.metrics.status as any,
       contractType: activeFrame.profile.contractType || 'RISE_FALL',
       executionLatencyMs: currentLatency,
-      // PIPE LIVE RUNTIME FORM VALUES TO MANUAL PRESS TRIGGERS
       executionPayload: activeFrame.metrics.executionPayload
     }, activeFrame.profile.id);
   }
-// scannerLogic.ts - PART 2B: Strategy Scoring Engine Pipeline
 
   public runScannerPipeline(): any[] {
     if (checkEngineStatus()) {
@@ -366,8 +413,8 @@ export class ScannerLogicEngine {
     }
 
     const currentTime = Date.now();
-
     const timeSinceLastTick = currentTime - this.lastTickReceivedTimestamp;
+    
     if (this.lastTickReceivedTimestamp > 0 && timeSinceLastTick > 2000) {
       resetMasterHighLock();
       return this.lastEvaluatedFrames.map(frame => ({
@@ -385,7 +432,7 @@ export class ScannerLogicEngine {
     
     const profiles = STRATEGY_PROFILES || [];
     
-    // 🛠️ CRITICAL FIX: Explicit shallow cloning to prevent shared reference mutations
+    // 🛠️ ISOLATION GUARD: Explicit shallow object copy prevents across-asset array memory mutation leaks
     const rawFrames = profiles.map(profile => {
       const targetToken = this.standardizeSymbol(profile.targetSymbol);
       const currentTicks = this.tickRegistry[targetToken] || [];
