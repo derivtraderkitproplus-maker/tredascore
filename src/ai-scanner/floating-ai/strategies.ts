@@ -7,15 +7,17 @@ export interface StrategyProfile {
   requiredTicks: number;
   confidenceGate: number;
   description: string;
+  // --- MULTI-VOLATILITY & DIVERSE ENGINE CONFIGURATIONS ---
   targetSymbol: 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100';
   contractType: 'RISE_FALL' | 'OVER_UNDER' | 'ACCUMULATOR' | 'TOUCH_NO_TOUCH';
   coreEngine: 'MARTINGALE' | 'DALEMBERT' | 'PROGRESSIVE' | 'NEURAL_FLOW';
   
+  // RUNTIME EXECUTION SETTINGS (Captures frontend form state adjustments)
   runtimeSettings?: {
     defaultStake: number;
-    takeProfitLimit: number; 
-    stopLossLimit: number;   
-    growthRate?: number;     
+    takeProfitLimit: number; // Monetary target value
+    stopLossLimit: number;   // Monetary protection floor value
+    growthRate?: number;     // Specific tracking multiplier for Accumulators
   };
 }
 
@@ -30,6 +32,7 @@ export interface StrategyResult {
   tierOverride: 'HIGH' | 'MEDIUM' | 'LOW';
   status?: 'HIGH' | 'MEDIUM' | 'LOW';
   
+  // PASS-THROUGH EXECUTOR ENGINE STATE
   executionPayload?: {
     stake: number;
     takeProfit: number;
@@ -46,6 +49,7 @@ export function calculateEMA(prices: number[], period: number): number {
   if (!prices || prices.length === 0) return 0;
   
   const k = 2 / (period + 1);
+  // 🛠️ CRITICAL FIX: Extract the first numerical point explicitly as a number, NOT an array reference
   let emaValue = prices[0]; 
   
   for (let i = 1; i < prices.length; i++) {
@@ -90,7 +94,7 @@ export function calculateVolatility(prices: number[]): number {
   const variance = prices.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / prices.length;
   return Math.sqrt(variance);
 }
-// strategies.ts - PART 2: Global Configuration Registry Map (Block A)
+// strategies.ts - PART 2: Global Configuration Strategy Registry Array Map
 
 export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'STRATEGY_1_3_2_6', name: '1-3-2-6 System', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 68, description: 'Fixed progressive staking sequence.', targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
@@ -107,11 +111,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'MARTINGALE_CLASSIC', name: 'Martingale Classic', tier: 'HIGH', requiredTicks: 100, confidenceGate: 75, description: 'Standard linear loss doubling matrix.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
   { id: 'OSCARS_GRIND', name: 'Oscar\'s Grind', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 62, description: 'Targeted single-unit win progression tracking.', targetSymbol: 'R_50', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
   { id: 'REVERSE_DALEMBERT', name: 'Reverse D\'Alembert', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 61, description: 'Inverted risk distribution progression.', targetSymbol: 'R_75', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' },
-  { id: 'REVERSE_MARTINGALE', name: 'Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 76, description: 'Compounded profit maximizing pipeline.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' }
-];
-// strategies.ts - PART 3: Global Configuration Registry Map (Block B) & Evaluation Handshake
-
-export const ADDITIONAL_STRATEGY_PROFILES: StrategyProfile[] = [
+  { id: 'REVERSE_MARTINGALE', name: 'Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 76, description: 'Compounded profit maximizing pipeline.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
   { id: 'AI_ALPHA_V16', name: 'AI Alpha Engine v16', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 66, description: 'Predictive neural trend optimization layer.', targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'NEURAL_FLOW' },
   { id: 'AI_ALPHA_V17', name: 'AI Alpha Engine v17', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 67, description: 'Dynamic multi-asset lookback tracking matrix.', targetSymbol: 'R_25', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
   { id: 'AI_ALPHA_V18', name: 'AI Alpha Engine v18', tier: 'LOW', requiredTicks: 100, confidenceGate: 58, description: 'High-frequency variance boundary check core.', targetSymbol: 'R_50', contractType: 'ACCUMULATOR', coreEngine: 'NEURAL_FLOW' },
@@ -128,6 +128,7 @@ export const ADDITIONAL_STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
   { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' }
 ];
+// strategies.ts - PART 3: Strategic Parameter Calculations & Fractional Risk Sizing Engine
 
 export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
   const currentCount = ticks.length;
@@ -144,8 +145,8 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
       tierOverride: profile.tier
     };
   }
-// strategies.ts - PART 4: Real-Time Scoring Metrics & Fractional Risk Staking Engine
 
+  // Dynamic Multi-Asset Lookback Tuning: Handles asset pacing differences on fast vs slow indexes
   const isFastAsset = profile.targetSymbol === 'R_100' || profile.targetSymbol === 'R_75';
   const fastEmaPeriod = isFastAsset ? 18 : 12;
   const slowEmaPeriod = isFastAsset ? 38 : 26;
@@ -155,7 +156,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   const rsiValue = calculateRSI(ticks, 14);
   const volatility = calculateVolatility(ticks.slice(-30));
 
-  // Verify real-time price trend direction using our corrected scalar calculation metrics
+  // Determine actual real-time market trend direction based on live data
   let marketDirection = 'FLAT';
   if (fastEma > slowEma + 0.02) marketDirection = 'UP';
   else if (fastEma < slowEma - 0.02) marketDirection = 'DOWN';
@@ -163,19 +164,34 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   let scannerScore = 50;
   let marketCompatibility = 50;
 
-  // --- BALANCED TECHNICAL MODIFIERS BASED ON AUTHENTIC TICK PARAMETERS ---
+  // --- STRATEGY-SPECIFIC REAL-TIME SCORING BREAKDOWNS (NON-CLONED FIX) ---
   if (profile.contractType === 'RISE_FALL') {
-    // Strongly rewards strong directional trend momentum
-    scannerScore = marketDirection === 'UP' && rsiValue < 70 ? 88 : (marketDirection === 'DOWN' && rsiValue > 30 ? 88 : 40);
-    marketCompatibility = rsiValue > 55 || rsiValue < 45 ? 82 : 50;
+    if (profile.id.includes('TREND_PRINTER') || profile.id.includes('ALPHA')) {
+      // Focuses strictly on strong trend crossover distance and momentum stability
+      const emaSpread = Math.abs(fastEma - slowEma);
+      scannerScore = marketDirection !== 'FLAT' && rsiValue > 35 && rsiValue < 65 ? 86 : 40;
+      marketCompatibility = emaSpread > volatility * 0.15 ? 84 : 45;
+      
+    } else if (profile.id.includes('MARTINGALE') || profile.id.includes('SCALPER')) {
+      // Scalping/Martingale profiles prioritize high price velocity spikes
+      const isExplosiveVolume = volatility > 1.15;
+      scannerScore = marketDirection !== 'FLAT' && isExplosiveVolume ? 89 : 35;
+      marketCompatibility = rsiValue >= 42 && rsiValue <= 58 ? 82 : 44;
+      
+    } else {
+      // Catch-all baseline strategy logic for alternative directional profiles
+      const isTrendRider = marketDirection === 'UP' && rsiValue < 68;
+      scannerScore = isTrendRider ? 82 : 45;
+      marketCompatibility = rsiValue > 50 || rsiValue < 50 ? 76 : 50;
+    }
     
   } else if (profile.contractType === 'OVER_UNDER') {
-    // Rewards tight sideways ranges with low market variance
+    // Over/Under performs best in calm, tight sideways ranges
     scannerScore = marketDirection === 'FLAT' && volatility < 0.9 ? 86 : 45;
     marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 84 : 45;
     
   } else if (profile.contractType === 'TOUCH_NO_TOUCH') {
-    // Rewards high volatility expansions and breakout thresholds
+    // Touch contracts favor volatile breakouts from key levels
     scannerScore = volatility > 1.4 && (rsiValue > 70 || rsiValue < 30) ? 88 : 38;
     marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 82 : 48;
     
@@ -194,7 +210,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     }
   }
 
-  // Bound calculations cleanly within UI dashboard visualization limits
+  // Clamping arrays to normal project UI visualization thresholds
   scannerScore = Math.min(96, Math.max(35, scannerScore));
   marketCompatibility = Math.min(96, Math.max(35, marketCompatibility));
 
@@ -210,7 +226,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   const activeSL = profile.runtimeSettings?.stopLossLimit ?? 4.00;
   const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
 
-  // 🛠️ ACTIVE STAKING MANAGER CALCULATOR LOOP
+  // 🛠️ ACTIVE PRODUCTION RISK CALCULATOR LOOP
   let activeStake = baselineStake;
   
   if (typeof window !== 'undefined' && window.localStorage) {
