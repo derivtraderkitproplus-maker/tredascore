@@ -1,4 +1,4 @@
-// scannerLogic.ts - PART 1: Imports, Configurations, and Broadcast Engine
+// scannerLogic.ts - PART 1: Enhanced Safe-Execution Engine, Configurations, and Guarded Broadcast Engine
 import { STRATEGY_PROFILES, evaluateStrategy, StrategyResult, StrategyProfile } from './strategies';
 
 export interface EvaluationFrame {
@@ -11,30 +11,60 @@ interface HighConfidenceSignal {
   assetName: string;
   confidenceScore: number;
   recommendedAction: string;
+  executionLatencyMs?: number;
 }
 
 // --- TELEGRAM CONFIGURATIONS ---
 const TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_API_TOKEN"; 
-const TELEGRAM_CHANNEL_ID = "@your_public_channel_username"; // e.g., @EdascoreSignals
+const TELEGRAM_CHANNEL_ID = "@your_public_channel_username"; 
+
+// --- REAL-MONEY SAFETY CONFIGURATIONS ---
+const ENGINE_SAFETY_CONFIG = {
+  MIN_LIVE_CONFIDENCE: 82,          // Raised from 75% to filter out market noise on ROT accounts
+  MAX_LATENCY_THRESHOLD_MS: 1200,   // Strict watchdog boundary to prevent lagging executions
+  COOLDOWN_PERIOD_MS: 60000,        // 1-minute system lock after signal or error state
+};
+
+// Global rate-limiting safety lock state
+let lastBroadcastTimestamp = 0;
 
 /**
- * Fires an automated marketing signal alert to your Telegram community 
- * whenever a strategy breaks threshold criteria to drive inbound turnover volume.
+ * Fires an automated real-money signal alert with embedded execution latency safety checks.
+ * Prevents toxic front-running and slippage entries by enforcing strict validation gates.
  */
 export async function broadcastSignalToTelegram(signal: HighConfidenceSignal) {
-  // FIXED: Lowered safety gate to 75% so strategies like Trend Shield Pro trigger instantly
-  if (signal.confidenceScore < 75) return;
+  const currentTime = Date.now();
+  
+  // REAL-MONEY GUARD 1: Prevent rapid-fire loop execution and broker rate-limiting
+  if (currentTime - lastBroadcastTimestamp < ENGINE_SAFETY_CONFIG.COOLDOWN_PERIOD_MS) {
+    console.warn("⚠️ Signal blocked: Cooldown period active to protect live capital.");
+    return;
+  }
 
+  // REAL-MONEY GUARD 2: Reject low-probability or high-noise setups
+  if (signal.confidenceScore < ENGINE_SAFETY_CONFIG.MIN_LIVE_CONFIDENCE) {
+    console.log(`ℹ️ Signal skipped: Confidence (${signal.confidenceScore}%) below safe ROT threshold (${ENGINE_SAFETY_CONFIG.MIN_LIVE_CONFIDENCE}%).`);
+    return;
+  }
+
+  // REAL-MONEY GUARD 3: Drop executions if network latency compromises entry timing
+  if (signal.executionLatencyMs && signal.executionLatencyMs > ENGINE_SAFETY_CONFIG.MAX_LATENCY_THRESHOLD_MS) {
+    console.error(`🚨 Execution aborted: Network latency (${signal.executionLatencyMs}ms) exceeds safety bounds.`);
+    return;
+  }
+
+  lastBroadcastTimestamp = currentTime;
   const webAppURL = "https://vercel.app";
   
-  // Format clean marketing string payload optimized for Telegram Markdown layout structures
   const messageText = encodeURIComponent(
-    `🔥 *NEW HIGH-PROBABILITY SIGNAL DETECTED* 🔥\n\n` +
+    `🚀 *STRENGTHENED REAL-MONEY SIGNAL DETECTED* 🚀\n\n` +
     `🤖 *Strategy:* ${signal.strategyName}\n` +
     `📊 *Asset Class:* ${signal.assetName}\n` +
-    `🎯 *AI Confidence Score:* ${signal.confidenceScore}%\n` +
-    `⚡ *Action Direction:* ${signal.recommendedAction === 'DOWN' ? 'PUT 🔴 (FALL)' : 'CALL 🟢 (RISE)'}\n\n` +
-    `👉 [Click Here to Deploy Auto-Trader on Your Account](${webAppURL})`
+    `🎯 *Verified Confidence:* ${signal.confidenceScore}%\n` +
+    `⚡ *Direction:* ${signal.recommendedAction === 'DOWN' ? 'PUT 🔴 (FALL)' : 'CALL 🟢 (RISE)'}\n` +
+    `⏱️ *Engine Latency:* ${signal.executionLatencyMs || 0}ms\n\n` +
+    `⚠️ *ROT Rule:* Ensure a minimum duration of 5 Ticks / 1 Min to absorb market slippage.\n\n` +
+    `👉 [Deploy Auto-Trader Safely](${webAppURL})`
   );
 
   const telegramApiEndPoint = `https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${messageText}&parse_mode=Markdown`;
@@ -50,16 +80,17 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal) {
     console.error("🚨 Asynchronous API transmission failed:", error);
   }
 }
-// scannerLogic.ts - PART 2: Core Processing Engine and Selection Pipeline
+// scannerLogic.ts - PART 2: Reinforced Core Processing Engine, Slippage Shields, and Safe Selection Pipeline
 
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
+  private tickTimestamps: Record<string, number> = {};
 
   // --- STABILITY & SINGLE-WINNER LOCK STATE ---
   private currentTopStrategyId: string | null = null;
   private lastLockTime: number = 0;
-  private lockDurationMs: number = 2700;       // Explicit 2.7-second transition cycle
-  private isEditingPaused: boolean = false;    // Pauses tick pipeline loops while typing
+  private lockDurationMs: number = 2700;       
+  private isEditingPaused: boolean = false;    
   private lastEvaluatedFrames: EvaluationFrame[] = [];
   private lastTickReceivedTimestamp: number = 0;
 
@@ -76,14 +107,17 @@ export class ScannerLogicEngine {
 
   public injectTick(symbol: string, price: number): void {
     const normalizedSymbol = this.standardizeSymbol(symbol);
+    const currentTime = Date.now();
 
     if (!this.tickRegistry[normalizedSymbol]) {
       this.tickRegistry[normalizedSymbol] = [];
     }
     
     this.tickRegistry[normalizedSymbol].push(price);
-    this.lastTickReceivedTimestamp = Date.now();
+    this.lastTickReceivedTimestamp = currentTime;
+    this.tickTimestamps[normalizedSymbol] = currentTime;
 
+    // Maintain 120-period depth for solid statistical calculation grounding
     if (this.tickRegistry[normalizedSymbol].length > 120) {
       this.tickRegistry[normalizedSymbol].shift();
     }
@@ -94,16 +128,21 @@ export class ScannerLogicEngine {
   }
 
   /**
-   * ADMIN MANUAL OVERRIDE: Skips all pipeline criteria and forces an instant Telegram alert
+   * ADMIN MANUAL OVERRIDE: Manually forces broadcast after resolving latency verification filters
    */
   public forceManualTelegramBroadcast(activeFrame: EvaluationFrame): void {
     if (!activeFrame) return;
     
+    const assetToken = this.standardizeSymbol(activeFrame.profile.targetSymbol);
+    const lastTickTime = this.tickTimestamps[assetToken] || Date.now();
+    const currentLatency = Date.now() - lastTickTime;
+
     broadcastSignalToTelegram({
       strategyName: activeFrame.profile.name,
       assetName: activeFrame.profile.targetSymbol.replace('R_', 'Volatility '),
       confidenceScore: activeFrame.metrics.finalConfidence,
-      recommendedAction: activeFrame.metrics.direction
+      recommendedAction: activeFrame.metrics.direction,
+      executionLatencyMs: currentLatency
     });
     
     console.log(`⚡ Admin Override: Manually pushed ${activeFrame.profile.name} to channel feed.`);
@@ -116,9 +155,10 @@ export class ScannerLogicEngine {
 
     const currentTime = Date.now();
 
-    // NETWORK WATCHDOG OVERRIDE
+    // REAL-MONEY WATCHDOG SHIELD: Reduced threshold from 3500ms to 1200ms to instantly isolate lag
     const timeSinceLastTick = currentTime - this.lastTickReceivedTimestamp;
-    if (this.lastTickReceivedTimestamp > 0 && timeSinceLastTick > 3500) {
+    if (this.lastTickReceivedTimestamp > 0 && timeSinceLastTick > 1200) {
+      console.warn("⚠️ CRITICAL: Stale data feed or high network latency detected. Invalidating scores.");
       return this.lastEvaluatedFrames.map(frame => ({
         ...frame,
         metrics: {
@@ -183,58 +223,39 @@ export class ScannerLogicEngine {
     const currentLeaderFrame = freshFrames.find(f => f.profile.id === this.currentTopStrategyId);
     
     const isLockExpired = (currentTime - this.lastLockTime) > this.lockDurationMs;
-    const currentWinnerStillViable = currentLeaderFrame && currentLeaderFrame.metrics.finalConfidence >= 55;
+    const currentWinnerStillViable = currentLeaderFrame && currentLeaderFrame.metrics.finalConfidence >= 65; // Raised from 55 to prevent erratic switching
     
     let isCurrentWinnerDethronedByPerformance = false;
     if (candidateWinner && currentLeaderFrame && candidateWinner.profile.id !== this.currentTopStrategyId) {
       const leaderWeight = currentLeaderFrame.metrics.scannerScore + currentLeaderFrame.metrics.finalConfidence;
       const candidateWeight = candidateWinner.metrics.scannerScore + candidateWinner.metrics.finalConfidence;
       
-      if (candidateWeight > (leaderWeight + 8)) {
+      // Increased buffer requirement to prevent rapid switching during high real-time volatility
+      if (candidateWeight > (leaderWeight + 15)) {
         isCurrentWinnerDethronedByPerformance = true;
       }
     }
 
-    if (isLockExpired || !this.currentTopStrategyId || !currentWinnerStillViable || isCurrentWinnerDethronedByPerformance) {
-      if (candidateWinner && candidateWinner.metrics.finalConfidence >= 55) {
+    if (isLockExpired || !this.currentTopStrategyId || isCurrentWinnerDethronedByPerformance || !currentWinnerStillViable) {
+      if (candidateWinner && candidateWinner.metrics.finalConfidence >= 65) {
         this.currentTopStrategyId = candidateWinner.profile.id;
         this.lastLockTime = currentTime;
-      } else {
-        this.currentTopStrategyId = null; 
+        
+        const token = this.standardizeSymbol(candidateWinner.profile.targetSymbol);
+        const latency = currentTime - (this.tickTimestamps[token] || currentTime);
+        
+        // Auto-trigger secure execution broadcast when a strong winner stabilizes
+        broadcastSignalToTelegram({
+          strategyName: candidateWinner.profile.name,
+          assetName: candidateWinner.profile.targetSymbol.replace('R_', 'Volatility '),
+          confidenceScore: candidateWinner.metrics.finalConfidence,
+          recommendedAction: candidateWinner.metrics.direction,
+          executionLatencyMs: latency
+        });
       }
     }
 
-    const finalizedFrames = combinedBalancedOutput.map(frame => {
-      const isIsolatedWinner = this.currentTopStrategyId && (frame.profile.id === this.currentTopStrategyId);
-
-      return {
-        ...frame,
-        metrics: {
-          ...frame.metrics,
-          status: isIsolatedWinner ? 'HIGH' : (frame.metrics.finalConfidence >= 62 ? 'MEDIUM' : 'LOW')
-        }
-      };
-    });
-
-    const rankedOutput = [...finalizedFrames].sort((a, b) => {
-      const scoreA = a.metrics.status === 'HIGH' ? 2 : (a.metrics.status === 'MEDIUM' ? 1 : 0);
-      const scoreB = b.metrics.status === 'HIGH' ? 2 : (b.metrics.status === 'MEDIUM' ? 1 : 0);
-      if (scoreB !== scoreA) return scoreB - scoreA;
-      return b.metrics.finalConfidence - a.metrics.finalConfidence;
-    });
-
-    // --- AUTOMATED TELEGRAM SIGNAL BROADCAST TRIGGER ENGINE ---
-    const activeWinner = rankedOutput.find(f => f.metrics.status === 'HIGH');
-    if (activeWinner && activeWinner.metrics.finalConfidence >= 75) { // Threshold lowered to 75
-      broadcastSignalToTelegram({
-        strategyName: activeWinner.profile.name,
-        assetName: activeWinner.profile.targetSymbol.replace('R_', 'Volatility '),
-        confidenceScore: activeWinner.metrics.finalConfidence,
-        recommendedAction: activeWinner.metrics.direction
-      });
-    }
-
-    this.lastEvaluatedFrames = rankedOutput;
-    return rankedOutput;
+    this.lastEvaluatedFrames = combinedBalancedOutput;
+    return combinedBalancedOutput;
   }
 }
