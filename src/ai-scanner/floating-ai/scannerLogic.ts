@@ -1,9 +1,8 @@
-// scannerLogic.ts - PART 1: Broadcast Engine with Slip-Window Deflector & Target Safety Gates
-import { STRATEGY_PROFILES, evaluateStrategy, StrategyResult, StrategyProfile } from './strategies';
+// scannerLogic.ts - PART 1: Production LocalStorage Circuit-Breaker & Secure Gateway Engine
 
 export interface EvaluationFrame {
-  profile: StrategyProfile;
-  metrics: StrategyResult;
+  profile: any;
+  metrics: any;
 }
 
 interface HighConfidenceSignal {
@@ -16,52 +15,69 @@ interface HighConfidenceSignal {
   executionLatencyMs: number;
 }
 
-const TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_API_TOKEN"; 
-const TELEGRAM_CHANNEL_ID = "@your_public_channel_username"; 
+const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_API_TOKEN"; 
+const TELEGRAM_CHANNEL_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_ID || "@your_public_channel_username"; 
 
-// --- REAL-MONEY INFRASTRUCTURE TARGET CONFIGURATIONS ---
+// --- SAFETY CONTROLS BOUNDARIES ---
 export const ACCOUNT_LIMITS = {
-  TAKE_PROFIT_TARGET: 150.00,       // Absolute profit threshold target in USD
-  MAX_STOP_LOSS_LIMIT: -50.00,      // Absolute loss limit threshold in USD
-  MAX_ALLOWED_SLIPPAGE_MS: 380,     // Slip-Window Deflector limit cutoff (380ms maximum routing window)
+  TAKE_PROFIT_TARGET: 150.00,       // Stopping target parameter in USD
+  MAX_STOP_LOSS_LIMIT: -50.00,      // Max loss threshold parameter in USD
+  MAX_ALLOWED_SLIPPAGE_MS: 380      // Slip-Window Deflector strict boundary cutoff
 };
 
-// --- RUNTIME STATE TRACKERS ---
-let globalActiveHighStrategyId: string | null = null;
-let currentRunProfitLoss = 0.00;     
-let consecutiveLossCount = 0;        
-let isEngineTerminated = false;      
+/**
+ * PRODUCTION PERSISTENCE CORE: Utilizes browser local storage to prevent session loss
+ */
+const STATE_KEYS = {
+  PnL: 'EDASCORE_CURRENT_RUN_PNL',
+  LOSS_STREAK: 'EDASCORE_CONSECUTIVE_LOSS_COUNT',
+  KILL_SWITCH: 'EDASCORE_SYSTEM_RUN_TERMINATED'
+};
+
+function getPersistedState() {
+  if (typeof window === 'undefined') return { pnl: 0, losses: 0, terminated: false };
+  return {
+    pnl: parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00'),
+    losses: parseInt(localStorage.getItem(STATE_KEYS.LOSS_STREAK) || '0', 10),
+    terminated: localStorage.getItem(STATE_KEYS.KILL_SWITCH) === 'true'
+  };
+}
+
+export function checkEngineStatus(): boolean {
+  return getPersistedState().terminated;
+}
+
+let masterActiveHighStrategyId: string | null = null;
 
 export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, strategyId: string) {
-  // CRITICAL SAFETY 1: Complete pipeline shutdown verification check
-  if (isEngineTerminated) {
-    console.warn("🛑 Trade blocked: System run has been terminated by account safety rules.");
+  // CRITICAL LAYER 1: Immediate state check verification
+  if (checkEngineStatus()) {
+    console.error("🛑 [SAFETY SHIELD] Signal broadcast dropped. The circuit-breaker is TRIPPED.");
     return;
   }
 
-  // DYNAMIC SLIP-WINDOW DEFLECTOR: Rejects the trade if broker-side pipeline lag is too high
+  // DYNAMIC SLIP-WINDOW DEFLECTOR
   if (signal.executionLatencyMs > ACCOUNT_LIMITS.MAX_ALLOWED_SLIPPAGE_MS) {
-    console.error(`⚠️ [SLIP DEFLECTOR] Trade blocked! Network latency (${signal.executionLatencyMs}ms) exceeds the safe execution window of ${ACCOUNT_LIMITS.MAX_ALLOWED_SLIPPAGE_MS}ms.`);
+    console.warn(`⚠️ [SLIP DEFLECTOR] Trade rejected: Latency (${signal.executionLatencyMs}ms) exceeds safety bounds.`);
     return;
   }
 
-  // CONFIDENCE FLOOR GATE: Must be strictly greater than 80%
   if (signal.confidenceScore <= 80) return;
 
-  // GLOBAL SINGLE-HIGH MUTEX
   if (signal.riskTier === 'HIGH') {
     if (masterActiveHighStrategyId !== null && masterActiveHighStrategyId !== strategyId) return;
     masterActiveHighStrategyId = strategyId;
   }
 
+  const activeState = getPersistedState();
   const webAppURL = "https://vercel.app";
   const messageText = encodeURIComponent(
     `🚀 *CRITICAL HIGH-CONFIDENCE REAL SIGNAL* 🚀\n\n` +
     `🤖 *Strategy:* ${signal.strategyName}\n` +
     `📊 *Asset Class:* ${signal.assetName}\n` +
     `🎯 *Verified Confidence:* ${signal.confidenceScore}%\n` +
-    `⏱️ *Slip-Window Ping:* ${signal.executionLatencyMs}ms (SAFE)\n` +
-    `📈 *Current Run PnL:* $${currentRunProfitLoss.toFixed(2)}\n\n` +
+    `⏱️ *Slip-Window Ping:* ${signal.executionLatencyMs}ms\n` +
+    `📈 *Session Profit/Loss:* $${activeState.pnl.toFixed(2)}\n\n` +
     `👉 [Deploy Live Trade Instantly](${webAppURL})`
   );
 
@@ -69,44 +85,68 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
 
   try {
     const response = await fetch(telegramApiEndPoint);
-    if (!response.ok) console.error("❌ Telegram gateway rejected payload:", response.statusText);
+    if (!response.ok) console.error("❌ Telegram gateway rejected execution payload:", response.statusText);
   } catch (error) {
-    console.error("🚨 Transmission pipeline network failure:", error);
+    console.error("🚨 Transmission pipe pipeline network failure:", error);
   }
 }
 
-// --- ENGINE SYSTEM STATE SETTERS (Hook these up to your execution callbacks) ---
+/**
+ * HARD TRACKING CONNECTOR: Forcefully triggers terminal state blocks on your account storage
+ * Connect this directly to the execution transaction event payload output of your bot!
+ */
 export function trackExecutedTradeResult(profitOrLoss: number) {
-  currentRunProfitLoss += profitOrLoss;
-
+  if (typeof window === 'undefined') return;
+  
+  const state = getPersistedState();
+  
+  state.pnl += profitOrLoss;
   if (profitOrLoss < 0) {
-    consecutiveLossCount++;
-    console.warn(`⚠️ Loss recorded. Consecutive loss streak: ${consecutiveLossCount}/3`);
+    state.losses += 1;
+    console.warn(`⚠️ Loss recorded. Account consecutive streak marker: ${state.losses}/3`);
   } else {
-    consecutiveLossCount = 0; // Reset streak instantly upon winning
+    state.losses = 0; // Immediate clearance on success
   }
 
-  // KILL-SWITCH A: 3 Consecutive Losses
-  if (consecutiveLossCount >= 3) {
-    isEngineTerminated = true;
-    console.error("🚨 [CRITICAL KILL-SWITCH] 3 consecutive losses hit! Stopping the run immediately to protect capital.");
+  // CRITICAL PROTECTION VERIFICATION EVALUATIONS
+  if (state.losses >= 3) {
+    state.terminated = true;
+    console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit! Tripping system circuit breaker.");
+  } else if (state.pnl >= ACCOUNT_LIMITS.TAKE_PROFIT_TARGET) {
+    state.terminated = true;
+    console.log(`🎉 [TARGET ATTAINED] Profit Target of $${ACCOUNT_LIMITS.TAKE_PROFIT_TARGET} achieved. Stopping run.`);
+  } else if (state.pnl <= ACCOUNT_LIMITS.MAX_STOP_LOSS_LIMIT) {
+    state.terminated = true;
+    console.error(`🚨 [RISK MANAGEMENT BREACH] Stop Loss of $${ACCOUNT_LIMITS.MAX_STOP_LOSS_LIMIT} hit. Stopping run.`);
   }
 
-  // KILL-SWITCH B: Profit/Loss Threshold targets hit
-  if (currentRunProfitLoss >= ACCOUNT_LIMITS.TAKE_PROFIT_TARGET) {
-    isEngineTerminated = true;
-    console.log(`🎉 [TARGET ACHIEVED] Take Profit Target ($${ACCOUNT_LIMITS.TAKE_PROFIT_TARGET}) achieved! Stopping the run.`);
-  } else if (currentRunProfitLoss <= ACCOUNT_LIMITS.MAX_STOP_LOSS_LIMIT) {
-    isEngineTerminated = true;
-    console.error(`🚨 [RISK CAP HIT] Max Stop Loss Limit ($${ACCOUNT_LIMITS.MAX_STOP_LOSS_LIMIT}) breached! Stopping the run.`);
+  // Commit updates instantly back into the application layer's storage device
+  localStorage.setItem(STATE_KEYS.PnL, state.pnl.toString());
+  localStorage.setItem(STATE_KEYS.LOSS_STREAK, state.losses.toString());
+  localStorage.setItem(STATE_KEYS.KILL_SWITCH, state.terminated.toString());
+
+  // HARD TELEGRAM ALERT ON SHUTDOWN ENFORCEMENT
+  if (state.terminated) {
+    const alertsText = encodeURIComponent(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Account thresholds reached or 3 consecutive losses hit. Live execution channels have been disabled.`);
+    fetch(`https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${alertsText}&parse_mode=Markdown`).catch(() => {});
   }
 }
 
-let masterActiveHighStrategyId: string | null = null;
+/**
+ * RESET MANAGER FUNCTION: Call this from an admin layout window component to wipe state blocks and restart
+ */
+export function resetAccountSessionRun() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(STATE_KEYS.PnL);
+  localStorage.removeItem(STATE_KEYS.LOSS_STREAK);
+  localStorage.removeItem(STATE_KEYS.KILL_SWITCH);
+  console.log("🔄 Session states wiped. Ready for a clean automated execution run.");
+}
+
 export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-export function checkEngineStatus(): boolean { return isEngineTerminated; }
 // scannerLogic.ts - PART 2: Core Processing Engine and Safe Pre-Sort Demotion Matrix
 import { broadcastSignalToTelegram, resetMasterHighLock, checkEngineStatus } from './Part1'; 
+import { STRATEGY_PROFILES, evaluateStrategy, StrategyResult, StrategyProfile } from './strategies';
 
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
@@ -169,7 +209,7 @@ export class ScannerLogicEngine {
   }
 
   public runScannerPipeline(): EvaluationFrame[] {
-    // HARD ENFORCEMENT: Kill pipeline computation loop if target metrics or losses stop the run
+    // HARD PIPELINE DEFLECTOR: If circuit breaker state registers true, immediately mask data views
     if (checkEngineStatus()) {
       return this.lastEvaluatedFrames.map(frame => ({
         ...frame,
@@ -190,7 +230,6 @@ export class ScannerLogicEngine {
 
     const currentTime = Date.now();
 
-    // Data-stagnation protection check
     const timeSinceLastTick = currentTime - this.lastTickReceivedTimestamp;
     if (this.lastTickReceivedTimestamp > 0 && timeSinceLastTick > 2000) {
       resetMasterHighLock();
@@ -214,18 +253,15 @@ export class ScannerLogicEngine {
       return { profile, metrics };
     });
 
-    // SYSTEM PRE-SORT: Isolate candidate rank order globally before parsing rendering status values
     const sortedGlobalChallengers = [...rawFrames].sort((a, b) => {
       return (b.metrics.scannerScore + b.metrics.finalConfidence) - (a.metrics.scannerScore + a.metrics.finalConfidence);
     });
 
-    const candidateWinner = sortedGlobalChallengers[0]; 
+    const candidateWinner = sortedGlobalChallengers; 
 
-    // DETECT PING AND CALCULATE ACTIVE DEVIATION WINDOW
     const assetToken = candidateWinner ? this.standardizeSymbol(candidateWinner.profile.targetSymbol) : '';
     const currentLatency = currentTime - (this.tickTimestamps[assetToken] || currentTime);
 
-    // DEMOTION MATRIX MATRIX MAP LAYER
     const strictEnforcedFrames = rawFrames.map(frame => {
       const isAbsoluteGlobalWinner = candidateWinner && frame.profile.id === candidateWinner.profile.id;
       const passesConfidenceThreshold = frame.metrics.finalConfidence > 80;
