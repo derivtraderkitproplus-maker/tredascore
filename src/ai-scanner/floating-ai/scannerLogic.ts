@@ -1,4 +1,4 @@
-// scannerLogic.ts - PART 1: Global Typings & Core Engine Structures
+// scannerLogic.ts - PART 1: Core System Interfaces & Type Contracts
 
 import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
 
@@ -77,10 +77,6 @@ const SYMBOL_BROKER_MAP: Record<string, string> = {
 };
 // scannerLogic.ts - PART 2: Connection-Resilient Broker Trade Routers
 
-/**
- * CORE QUANT MACHINE BROKER ROUTING ENGINE
- * Connects directly to the exchange API layer to fire trades instantly
- */
 export async function executeBrokerTrade(signal: HighConfidenceSignal) {
   if (liveExecutionLock || checkEngineStatus()) return;
   liveExecutionLock = true; 
@@ -125,26 +121,19 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
       startVirtualProtectionEngine(result.contract_id, tradeData.takeProfit, tradeData.stopLoss, isAccumulator);
     } else {
       console.error("❌ Broker API rejected allocation payload:", result.message);
-      // 🛠️ DEFENSIVE LOCK FIX: Free execution gate locks down instantly if broker rejects parameters
       liveExecutionLock = false; 
     }
   } catch (error) {
     console.error("🚨 Order execution fatal pipeline network failure:", error);
-    // 🛠️ DEFENSIVE LOCK FIX: Free locks safely if hardware connection fails mid-flight
     liveExecutionLock = false; 
   }
 }
 
-/**
- * CONNECTION-RESILIENT VIRTUAL RUNTIME MONITOR
- * Watches running trade state streams and pushes automated exit requests matching SL/TP forms
- */
 async function startVirtualProtectionEngine(contractId: string, takeProfit: number, stopLoss: number, isAccumulator: boolean) {
   let activeWatcher = true;
   let consecutiveNetworkFailures = 0;
 
   while (activeWatcher) {
-    // 🛠️ NETWORK STATUS CHECKER: Abort watcher loop instantly if device interface flags offline state
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       console.error("🚨 Hardware network interface reported OFFLINE state. Aborting watcher safely.");
       handleFatalNetworkDisconnection(contractId);
@@ -152,13 +141,12 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
     }
 
     try {
-      // 🛠️ FETCH TIMEOUT SHIELD: Force execution limits to prevent hanging connections on slow networks
       const checkResponse = await fetch(`https://deriv.com{contractId}`, {
         signal: AbortSignal.timeout(1500)
       });
       
       const trackingNode = await checkResponse.json();
-      consecutiveNetworkFailures = 0; // Reset network tracking counters upon clean handshake response
+      consecutiveNetworkFailures = 0; 
 
       if (!checkResponse.ok || trackingNode.is_expired) {
         trackExecutedTradeResult(trackingNode.profit || -1.00); 
@@ -166,7 +154,6 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
         break;
       }
 
-      // Flat contract types expire natively on the broker array layer; continuously scan Accumulators
       if (!isAccumulator) {
         await new Promise(res => setTimeout(res, 1000));
         continue;
@@ -174,7 +161,6 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
 
       const currentFloatingPnL = trackingNode.profit; 
 
-      // A. Virtual Take Profit Trigger
       if (currentFloatingPnL >= takeProfit) {
         console.log(`🎯 Virtual Take Profit Hit (+$${currentFloatingPnL}). Forcing structural sell closure.`);
         await executeEmergencyPositionLiquidation(contractId, currentFloatingPnL);
@@ -182,7 +168,6 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
         break;
       }
 
-      // B. Virtual Stop Loss Trigger
       if (currentFloatingPnL <= -stopLoss) {
         console.log(`🛑 Virtual Stop Loss Broken (-$${Math.abs(currentFloatingPnL)}). Killing transaction.`);
         await executeEmergencyPositionLiquidation(contractId, currentFloatingPnL);
@@ -195,7 +180,6 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
       consecutiveNetworkFailures++;
       console.warn(`⚠️ Network connection pipeline verification drop: ${consecutiveNetworkFailures}/4`);
       
-      // If server check requests fail 4 times consecutively (approx 4-5 seconds), initialize safety loops
       if (consecutiveNetworkFailures >= 4) {
         console.error("🚨 Persistent data pipeline disconnect identified during trade execution runtime.");
         handleFatalNetworkDisconnection(contractId);
@@ -206,12 +190,8 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
     }
   }
 }
-// scannerLogic.ts - PART 3: Fallback Network Disconnection & Telegram Gateway Broadcasters
+// scannerLogic.ts - PART 3: Safe Account Resets, Telegram Bridges & Emergency Closures
 
-/**
- * THE GHOST POSITION RESOLVER
- * Forces local storage data down to clear frozen system engine states mid-crash
- */
 function handleFatalNetworkDisconnection(contractId: string) {
   liveExecutionLock = false; 
   if (isClient()) {
@@ -278,12 +258,8 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
     console.error("🚨 Transmission pipe pipeline network failure:", error);
   }
 }
-// scannerLogic.ts - PART 4A: Operational Circuit Breakers & Session Tracker Mutators
+// scannerLogic.ts - PART 4: 5-Run Circuit Breakers & State-Isolated Engine Class Loop
 
-/**
- * 🛠️ DYNAMIC AUTOMATED CIRCUIT BREAKER
- * Enforces immediate automated shutdowns when constraints are met without relying on manual buttons
- */
 export function trackExecutedTradeResult(profitOrLoss: number) {
   if (!isClient()) return;
   
@@ -319,7 +295,6 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
     shutdownReason = `Strict Execution Cap Restraint Reached (${totalRunsCount}/5 trades completed).`;
   }
 
-  // Save localized memory state logs back down to the browser database context
   localStorage.setItem(STATE_KEYS.PnL, currentPnl.toString());
   localStorage.setItem(STATE_KEYS.LOSS_STREAK, lossStreak.toString());
   localStorage.setItem(STATE_KEYS.TOTAL_RUNS_COUNT, totalRunsCount.toString());
@@ -351,9 +326,7 @@ export function resetAccountSessionRun() {
 }
 
 export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-// scannerLogic.ts - PART 4B: Exported Scanner Pipeline Logic Engine Class
 
-// 🛠️ CRITICAL COMPILATION FIX: Added the public export keyword to enable clean linking with FloatingAI.tsx
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
   private tickTimestamps: Record<string, number> = {};
@@ -472,7 +445,6 @@ export class ScannerLogicEngine {
     });
 
     const candidateWinner = sortedGlobalChallengers.length > 0 ? sortedGlobalChallengers : null; 
-
     const assetToken = candidateWinner ? this.standardizeSymbol(candidateWinner.profile.targetSymbol) : '';
     const currentLatency = currentTime - (this.tickTimestamps[assetToken] || currentTime);
 
