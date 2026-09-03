@@ -128,7 +128,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
   { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' }
 ];
-// strategies.ts - PART 3: Completely Decoupled Evaluation Logic & Fractional Staking Risk Engine
+// strategies.ts - PART 3: Strategic Calculations, State Bindings & Fractional Risk Engine
 
 export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
   const currentCount = ticks.length;
@@ -164,10 +164,8 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   let scannerScore = 50;
   let marketCompatibility = 50;
 
-  // --- DIVERSIFIED CONTRACT MATHEMATICAL SCORING MODIFIERS ---
+  // --- STRATEGY-SPECIFIC REAL-TIME SCORING BREAKDOWNS (NON-CLONED FIX) ---
   if (profile.contractType === 'RISE_FALL') {
-    
-    // 🛠️ CRITICAL FIX: Explicitly separate strategies by unique ID to prevent cross-pollinating cloned statistics
     if (profile.id === 'AI_TREND_PRINTER') {
       const emaSpread = Math.abs(fastEma - slowEma);
       scannerScore = marketDirection !== 'FLAT' && rsiValue > 40 && rsiValue < 60 ? 88 : 35;
@@ -224,10 +222,19 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   if (finalConfidence >= 82) tierOverride = 'HIGH';
   else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
 
-  // Base fallback parameters ($3.00 Stake, $8.00 Profit target, $4.00 Risk limit)
-  const baselineStake = profile.runtimeSettings?.defaultStake ?? 3.00;
-  const activeTP = profile.runtimeSettings?.takeProfitLimit ?? 8.00;
-  const activeSL = profile.runtimeSettings?.stopLossLimit ?? 4.00;
+  // 🛠️ FRONTEND FORM FIX: Dynamically link interactive text inputs over fallback overrides
+  const baselineStake = profile.runtimeSettings?.defaultStake && profile.runtimeSettings.defaultStake > 0 
+    ? profile.runtimeSettings.defaultStake 
+    : 3.00;
+    
+  const activeTP = profile.runtimeSettings?.takeProfitLimit && profile.runtimeSettings.takeProfitLimit > 0
+    ? profile.runtimeSettings.takeProfitLimit 
+    : 8.00;
+    
+  const activeSL = profile.runtimeSettings?.stopLossLimit && profile.runtimeSettings.stopLossLimit > 0
+    ? profile.runtimeSettings.stopLossLimit 
+    : 4.00;
+    
   const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
 
   // ACTIVE RISK CALCULATOR LOOP (Tracks local loss streaks to adjust trade sizes)
