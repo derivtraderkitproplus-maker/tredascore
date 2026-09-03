@@ -1,4 +1,4 @@
-// scannerLogic.ts - BLOCK 1: Infrastructure, Trade Routing & Disconnection Guard
+// scannerLogic.ts - PART 1: Global Typings & Core Engine Structures
 
 import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
 
@@ -74,6 +74,7 @@ const SYMBOL_BROKER_MAP: Record<string, string> = {
   'R_75': '1HZ75V',
   'R_100': '1HZ100V'
 };
+// scannerLogic.ts - PART 2: Connection-Resilient Broker Trade Routers
 
 /**
  * CORE QUANT MACHINE BROKER ROUTING ENGINE
@@ -123,12 +124,12 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
       startVirtualProtectionEngine(result.contract_id, tradeData.takeProfit, tradeData.stopLoss, isAccumulator);
     } else {
       console.error("❌ Broker API rejected allocation payload:", result.message);
-      // 🛠️ DEFENSIVE LOCK FIX: Always clear execution lock if payload is rejected
+      // 🛠️ DEFENSIVE LOCK FIX: Free execution gate locks down instantly if broker rejects payload parameters
       liveExecutionLock = false; 
     }
   } catch (error) {
     console.error("🚨 Order execution fatal pipeline network failure:", error);
-    // 🛠️ NETWORK DISCONNECT FIX: Always clear execution lock if network drops mid-request
+    // 🛠️ DEFENSIVE LOCK FIX: Free locks safely if hardware connection fails mid-flight
     liveExecutionLock = false; 
   }
 }
@@ -142,21 +143,21 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
   let consecutiveNetworkFailures = 0;
 
   while (activeWatcher) {
-    // 🛠️ HARDWARE NET INTERFACE SAFEGUARD: Kill watcher immediately if hardware drops off
+    // 🛠️ NETWORK STATUS CHECKER: Abort watcher loop instantly if device interface flags offline state
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      console.error("🚨 Hardware interface reports OFFLINE state. Initializing emergency lock recovery.");
+      console.error("🚨 Hardware network interface reported OFFLINE state. Aborting watcher safely.");
       handleFatalNetworkDisconnection(contractId);
       break;
     }
 
     try {
-      // 🛠️ FETCH HANG SAFEGUARD: Force execution timeout check so connection calls do not stall
+      // 🛠️ FETCH TIMEOUT SHIELD: Force execution limits to prevent hanging connections on slow cellular towers
       const checkResponse = await fetch(`https://deriv.com{contractId}`, {
         signal: AbortSignal.timeout(1500)
       });
       
       const trackingNode = await checkResponse.json();
-      consecutiveNetworkFailures = 0; // Reset counter on fine handshake
+      consecutiveNetworkFailures = 0; // Reset network tracking counters upon clean handshake response
 
       if (!checkResponse.ok || trackingNode.is_expired) {
         trackExecutedTradeResult(trackingNode.profit || -1.00); 
@@ -164,7 +165,7 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
         break;
       }
 
-      // Continuous monitoring only matters for Accumulators; baseline contracts expire natively
+      // Flat contract types expire natively on the broker array layer; continuously scan Accumulators
       if (!isAccumulator) {
         await new Promise(res => setTimeout(res, 1000));
         continue;
@@ -191,11 +192,11 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
       await new Promise(res => setTimeout(res, 250));
     } catch (error) {
       consecutiveNetworkFailures++;
-      console.warn(`⚠️ Protection feed connectivity loss sequence: ${consecutiveNetworkFailures}/4`);
+      console.warn(`⚠️ Network connection pipeline verification drop: ${consecutiveNetworkFailures}/4`);
       
-      // If server requests fail 4 times consecutively (approx 4-5 seconds), trigger recovery routines
+      // If server check requests fail 4 times consecutively (approx 4-5 seconds), initialize safety loops
       if (consecutiveNetworkFailures >= 4) {
-        console.error("🚨 Persistent network pipeline drop identified during live trade validation.");
+        console.error("🚨 Persistent data pipeline disconnect identified during trade execution runtime.");
         handleFatalNetworkDisconnection(contractId);
         activeWatcher = false;
         break;
@@ -204,10 +205,11 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
     }
   }
 }
+// scannerLogic.ts - PART 3: Safe Account Resets, Telegram Bridges & Financial Circuit Breakers
 
 /**
- * EMERGENCY GHOST POSITION LOCK RESOLVER
- * Forces local storage switch down to clear frozen system engine states mid-crash
+ * THE GHOST POSITION RESOLVER
+ * Forces local storage data down to clear frozen system engine states mid-crash
  */
 function handleFatalNetworkDisconnection(contractId: string) {
   liveExecutionLock = false; 
@@ -225,11 +227,10 @@ function handleFatalNetworkDisconnection(contractId: string) {
   fetch(`https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${offlineAlertText}&parse_mode=Markdown`)
     .catch(() => console.error("🚨 Network failure: Emergency Telegram broadcast failed due to complete lack of internet connection lines."));
 }
-// scannerLogic.ts - BLOCK 2A: Gateways, Resilient Webhooks & Core State Counters
 
 async function executeEmergencyPositionLiquidation(contractId: string, currentPnL: number) {
   try {
-    // 🛠️ SYNTAX FIX: Added missing evaluate token symbol to prevent bad query parameters
+    // 🛠️ INTERPOLATION FIX: Added missing '$' sign for template literal evaluation
     await fetch(`https://deriv.com{contractId}/close`, { method: "POST" });
     trackExecutedTradeResult(currentPnL);
   } catch (err) {
@@ -249,7 +250,7 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
     masterActiveHighStrategyId = strategyId;
   }
 
-  // 🛠️ TIMING LOCK FIX: Explicitly await core execution to block overlapping parallel orders
+  // 🛠️ ASYNC BLOCK FIX: Explicitly await core execution loop to block overlapping parallel orders
   if (!liveExecutionLock) {
     await executeBrokerTrade(signal);
   } else {
@@ -269,7 +270,7 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
     `👉 [Deploy Live Trade Instantly](${webAppURL})`
   );
 
-  // 🛠️ GATEWAY ROUTING FIX: Added evaluation token symbol and correct base route directory paths
+  // 🛠️ GATEWAY ROUTING FIX: Added '$' character and the mandatory /bot prefix directory path
   const telegramApiEndPoint = `https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${messageText}&parse_mode=Markdown`;
 
   try {
@@ -294,13 +295,13 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
     lossStreak = 0; 
   }
 
-  // 🛠️ ADVANCED RISK PROTECTION OVERHAUL: Enforces an automated $30 profit cap and $15 risk floor
+  // 🛠️ AUTOMATED DISCIPLINE SWITCH: Enforces strict target profit thresholds to lock in session runs
   if (lossStreak >= 3) {
     isTerminated = true;
     console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit!");
   } else if (currentPnl >= 30.00) { // 🎯 PROFIT CIRCUIT BREAKER: Shuts down bot automatically at +$30 profit
     isTerminated = true;
-    console.log("🎯 Daily session financial profit goal reached. Shutting down.");
+    console.log("🎯 Session financial profit goal reached. Shutting down.");
   } else if (currentPnl <= -15.00) { // 🛑 MAX RISK FLOOR: Terminate bot automatically at -$15 loss
     isTerminated = true;
   }
@@ -312,7 +313,7 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
   liveExecutionLock = false; 
 
   if (isTerminated) {
-    const alertsText = encodeURIComponent(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Session financial targets hit ($${currentPnl.toFixed(2)} PnL). Live trading execution loops have been locked.`);
+    const alertsText = encodeURIComponent(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Session targets hit ($${currentPnl.toFixed(2)} PnL). Live trading execution loops have been locked down.`);
     fetch(`https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${alertsText}&parse_mode=Markdown`).catch(() => {});
   }
 }
@@ -326,10 +327,7 @@ export function resetAccountSessionRun() {
 }
 
 export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-// scannerLogic.ts - BLOCK 2B: Core Standalone Scanner Engine Loop Class
-
-import { broadcastSignalToTelegram, resetMasterHighLock, checkEngineStatus } from './Part1'; 
-import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
+// scannerLogic.ts - PART 4: Deep-Cloned Scanner Pipeline Logic Engine Class
 
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
@@ -432,14 +430,14 @@ export class ScannerLogicEngine {
     
     const profiles = STRATEGY_PROFILES || [];
     
-    // 🛠️ ISOLATION GUARD: Explicit shallow object copy prevents across-asset array memory mutation leaks
     const rawFrames = profiles.map(profile => {
       const targetToken = this.standardizeSymbol(profile.targetSymbol);
       const currentTicks = this.tickRegistry[targetToken] || [];
       const baseMetrics = evaluateStrategy ? evaluateStrategy(profile, currentTicks) : { finalConfidence: 0, scannerScore: 0, direction: 'FLAT', status: 'LOW' };
       
+      // 🛠️ PIPELINE REFERENCE FIX: Force hard deep copy isolation to prevent variable cross-pollination
       return { 
-        profile: { ...profile }, 
+        profile: JSON.parse(JSON.stringify(profile)), 
         metrics: { ...baseMetrics } 
       };
     });
