@@ -327,7 +327,7 @@ export function resetAccountSessionRun() {
 }
 
 export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-// scannerLogic.ts - PART 4: Deep-Cloned Scanner Pipeline Logic Engine Class
+// scannerLogic.ts - PART 4: State-Isolated Engine Runtime Class Loop
 
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
@@ -433,11 +433,14 @@ export class ScannerLogicEngine {
     const rawFrames = profiles.map(profile => {
       const targetToken = this.standardizeSymbol(profile.targetSymbol);
       const currentTicks = this.tickRegistry[targetToken] || [];
-      const baseMetrics = evaluateStrategy ? evaluateStrategy(profile, currentTicks) : { finalConfidence: 0, scannerScore: 0, direction: 'FLAT', status: 'LOW' };
       
-      // 🛠️ PIPELINE REFERENCE FIX: Force hard deep copy isolation to prevent variable cross-pollination
+      // 🛠️ DEEP CLONE CONFIGURATION SAFEGUARD: Decouples form field parameters completely
+      const isolatedProfileCopy = JSON.parse(JSON.stringify(profile));
+      
+      const baseMetrics = evaluateStrategy ? evaluateStrategy(isolatedProfileCopy, currentTicks) : { finalConfidence: 0, scannerScore: 0, direction: 'FLAT', status: 'LOW' };
+      
       return { 
-        profile: JSON.parse(JSON.stringify(profile)), 
+        profile: isolatedProfileCopy, 
         metrics: { ...baseMetrics } 
       };
     });
