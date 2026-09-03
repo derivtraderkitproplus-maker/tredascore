@@ -26,8 +26,8 @@ import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
 
-// --- 👇 FIXED ABSOLUTE ROUTE: RESOLVES PATH0 DIRECTORY COMPILATION FAILURE ENTIRELY 👇 ---
-import { trackExecutedTradeResult } from '@/ai-scanner/floating-ai/Part1';
+// --- 👇 ULTIMATE SAFE PATH: CLIMBS OUT TO SCANNERLOGIC EXTENSION DIRECTLY 👇 ---
+import { trackExecutedTradeResult } from '../ai-scanner/floating-ai/scannerLogic';
 
 const PreviewBranding =
     process.env.NEXT_PUBLIC_APP_BUILD === 'true' ? lazy(() => import('../preview/preview-branding')) : null;
