@@ -1,4 +1,7 @@
-// Part1.ts - Production Ready Risk Controller & Hydration-Safe State Hub
+// ============================================================================
+// === scannerLogic.ts - PART 1: Safe Risk Controls & Telegram Broadcast Engine
+// ============================================================================
+import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
 
 export interface EvaluationFrame {
   profile: {
@@ -30,11 +33,11 @@ interface HighConfidenceSignal {
 const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_API_TOKEN"; 
 const TELEGRAM_CHANNEL_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_ID || "@your_public_channel_username"; 
 
-// --- ADVANCED ACCOUNT STRATEGY CONFIGURATIONS ---
+// --- PLATFORM RISK BOUNDARY SETTINGS ---
 export const ACCOUNT_LIMITS = {
-  TAKE_PROFIT_TARGET: 150.00,       
-  MAX_STOP_LOSS_LIMIT: -50.00,      
-  MAX_ALLOWED_SLIPPAGE_MS: 380      
+  TAKE_PROFIT_TARGET: 150.00,       // Halt execution when profit tier registers here (USD)
+  MAX_STOP_LOSS_LIMIT: -50.00,      // Halt execution when loss tier drops here (USD)
+  MAX_ALLOWED_SLIPPAGE_MS: 380      // Slip-Window Deflector network cutoff threshold
 };
 
 const STATE_KEYS = {
@@ -44,8 +47,8 @@ const STATE_KEYS = {
 };
 
 /**
- * Hydration Check Utility: Prevents Vercel cloud rendering engines from 
- * evaluating localStorage parameters before compilation finishes.
+ * Serverless Environment Guard: Blocks Vercel node execution engines from accessing
+ * client browser components during initial structural file system compilations.
  */
 function isClient(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -90,6 +93,9 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
   }
 }
 
+/**
+ * STRATEGY TRANSACTION INTERCEPTOR: Automatically manages performance data matrices
+ */
 export function trackExecutedTradeResult(profitOrLoss: number) {
   if (!isClient()) return;
   
@@ -135,9 +141,9 @@ export function resetAccountSessionRun() {
 }
 
 export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-// scannerLogic.ts - PART 2: Safe Core Scanner Engine Pipeline Engine
-import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
-import { broadcastSignalToTelegram, resetMasterHighLock, checkEngineStatus, EvaluationFrame } from './Part1';
+// ============================================================================
+// === scannerLogic.ts - PART 2: Core Matrix Pipeline & Processing Engine
+// ============================================================================
 
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
@@ -251,7 +257,7 @@ export class ScannerLogicEngine {
       return scoreB - scoreA;
     });
 
-    const candidateWinner = sortedGlobalChallengers.length > 0 ? sortedGlobalChallengers : null; 
+    const candidateWinner = sortedGlobalChallengers.length > 0 ? sortedGlobalChallengers[0] : null; 
 
     const assetToken = candidateWinner ? this.standardizeSymbol(candidateWinner.profile.targetSymbol) : '';
     const currentLatency = currentTime - (this.tickTimestamps[assetToken] || currentTime);
