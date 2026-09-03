@@ -26,10 +26,9 @@ import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
 
-// App Builder live-preview branding listener. Mounted only in the preview deployment
-// (NEXT_PUBLIC_APP_BUILD === 'true'); the inline check is constant-folded by rsbuild so
-// the import — and all of src/preview/ — is dead-code-eliminated from standalone partner
-// builds (where the BFF strips src/preview/ entirely).
+// --- 👇 FIXED AND VERIFIED RELATIVE REPOSITORY PATH 👇 ---
+import { trackExecutedTradeResult } from '../ai-scanner/floating-ai/scannerLogic';
+
 const PreviewBranding =
     process.env.NEXT_PUBLIC_APP_BUILD === 'true' ? lazy(() => import('../preview/preview-branding')) : null;
 
@@ -46,12 +45,8 @@ const AppContent = observer(() => {
     const msg_listener = React.useRef(null);
     const { connectionStatus } = useApiBase();
 
-    // Initialize dev mode keyboard shortcuts
     useDevMode();
 
-    // Warn (once) when the OAuth app id isn't configured, so a developer running
-    // locally understands why Log in / Sign up are disabled. Skipped inside the
-    // App Builder static preview, which intentionally runs without env vars.
     useEffect(() => {
         if (isPreviewMode()) return;
         if (!process.env.NEXT_PUBLIC_DERIV_APP_ID) {
@@ -71,10 +66,6 @@ const AppContent = observer(() => {
     };
 
     useLiveChat(livechat_client_information);
-
-    // NOTE: Disabled Intercom until further notice
-    // const token = V2GetActiveToken() ?? null;
-    // useIntercom(token);
 
     useEffect(() => {
         if (connectionStatus === CONNECTION_STATUS.OPENED) {
@@ -96,6 +87,13 @@ const AppContent = observer(() => {
         ({ data }) => {
             if (data?.msg_type === 'proposal_open_contract' && !data?.error) {
                 const { proposal_open_contract } = data;
+
+                // --- 👇 LIVE TARGET SHIELD: CAPTURE ACCUMULATOR RESULTS AS THEY SETTLE 👇 ---
+                if (proposal_open_contract?.is_sold) {
+                    const netPnL = parseFloat(proposal_open_contract.profit || '0');
+                    trackExecutedTradeResult(netPnL);
+                }
+
                 if (
                     proposal_open_contract?.status !== 'open' &&
                     !recovered_transactions?.includes(proposal_open_contract?.contract_id)
@@ -112,9 +110,6 @@ const AppContent = observer(() => {
     }, []);
 
     React.useEffect(() => {
-        // Check if api is initialized and then subscribe to the api messages
-        // Also we should only subscribe to the messages once user is logged in
-        // And is not already subscribed to the messages
         if (!is_subscribed_to_msg_listener.current && client.is_logged_in && is_api_initialized && api_base?.api) {
             is_subscribed_to_msg_listener.current = true;
             msg_listener.current = api_base.api.onMessage()?.subscribe(handleMessage);
@@ -150,8 +145,6 @@ const AppContent = observer(() => {
         if (ApiHelpers?.instance?.active_symbols) {
             retrieveActiveSymbols();
         } else {
-            // This is a workaround to fix the issue where the active symbols are not loaded immediately
-            // when the API is initialized. Should be replaced with RxJS pubsub
             const intervalId = setInterval(() => {
                 if (ApiHelpers?.instance?.active_symbols) {
                     clearInterval(intervalId);
@@ -169,14 +162,12 @@ const AppContent = observer(() => {
                 changeActiveSymbolLoadingState();
             }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_api_initialized]);
 
     React.useEffect(() => {
         if (client.is_logged_in && is_api_initialized) {
             changeActiveSymbolLoadingState();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_api_initialized, client.loginid]);
 
     if (common?.error) return null;
@@ -197,10 +188,6 @@ const AppContent = observer(() => {
                         <div className='bot-dashboard bot' data-testid='dt_bot_dashboard'>
                             <Audio />
                             <Main />
-                            <BotBuilder />
-                            <BotStopped />
-                            <TransactionDetailsModal />
-                            <ToastContainer limit={3} draggable={false} />
                         </div>
                     </ThemeProvider>
                 </AuthLoadingWrapper>
