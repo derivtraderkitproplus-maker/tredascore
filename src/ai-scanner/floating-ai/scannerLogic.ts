@@ -1,4 +1,4 @@
-// scannerLogic.ts - PART 1: Production LocalStorage Circuit-Breaker & Secure Gateway Engine
+// scannerLogic.ts - PART 1: Server-Safe LocalStorage Circuit-Breaker Engine
 
 export interface EvaluationFrame {
   profile: any;
@@ -18,24 +18,30 @@ interface HighConfidenceSignal {
 const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_API_TOKEN"; 
 const TELEGRAM_CHANNEL_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_ID || "@your_public_channel_username"; 
 
-// --- SAFETY CONTROLS BOUNDARIES ---
 export const ACCOUNT_LIMITS = {
-  TAKE_PROFIT_TARGET: 150.00,       // Stopping target parameter in USD
-  MAX_STOP_LOSS_LIMIT: -50.00,      // Max loss threshold parameter in USD
-  MAX_ALLOWED_SLIPPAGE_MS: 380      // Slip-Window Deflector strict boundary cutoff
+  TAKE_PROFIT_TARGET: 150.00,       
+  MAX_STOP_LOSS_LIMIT: -50.00,      
+  MAX_ALLOWED_SLIPPAGE_MS: 380      
 };
 
-/**
- * PRODUCTION PERSISTENCE CORE: Utilizes browser local storage to prevent session loss
- */
 const STATE_KEYS = {
   PnL: 'EDASCORE_CURRENT_RUN_PNL',
   LOSS_STREAK: 'EDASCORE_CONSECUTIVE_LOSS_COUNT',
   KILL_SWITCH: 'EDASCORE_SYSTEM_RUN_TERMINATED'
 };
 
+/**
+ * FIXED: Secure environment check ensures Vercel cloud rendering engines 
+ * skip local browser storage access during structural initialization loops.
+ */
+function isClient(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
+
 function getPersistedState() {
-  if (typeof window === 'undefined') return { pnl: 0, losses: 0, terminated: false };
+  if (!isClient()) {
+    return { pnl: 0, losses: 0, terminated: false };
+  }
   return {
     pnl: parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00'),
     losses: parseInt(localStorage.getItem(STATE_KEYS.LOSS_STREAK) || '0', 10),
@@ -50,15 +56,13 @@ export function checkEngineStatus(): boolean {
 let masterActiveHighStrategyId: string | null = null;
 
 export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, strategyId: string) {
-  // CRITICAL LAYER 1: Immediate state check verification
   if (checkEngineStatus()) {
-    console.error("🛑 [SAFETY SHIELD] Signal broadcast dropped. The circuit-breaker is TRIPPED.");
+    console.error("🛑 [SAFETY SHIELD] Signal broadcast dropped. Circuit-breaker is TRIPPED.");
     return;
   }
 
-  // DYNAMIC SLIP-WINDOW DEFLECTOR
   if (signal.executionLatencyMs > ACCOUNT_LIMITS.MAX_ALLOWED_SLIPPAGE_MS) {
-    console.warn(`⚠️ [SLIP DEFLECTOR] Trade rejected: Latency (${signal.executionLatencyMs}ms) exceeds safety bounds.`);
+    console.warn(`⚠️ [SLIP DEFLECTOR] Trade rejected: Latency (${signal.executionLatencyMs}ms) exceeds bounds.`);
     return;
   }
 
@@ -85,66 +89,56 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
 
   try {
     const response = await fetch(telegramApiEndPoint);
-    if (!response.ok) console.error("❌ Telegram gateway rejected execution payload:", response.statusText);
+    if (!response.ok) console.error("❌ Telegram gateway rejected payload:", response.statusText);
   } catch (error) {
-    console.error("🚨 Transmission pipe pipeline network failure:", error);
+    console.error("🚨 Transmission network failure:", error);
   }
 }
 
-/**
- * HARD TRACKING CONNECTOR: Forcefully triggers terminal state blocks on your account storage
- * Connect this directly to the execution transaction event payload output of your bot!
- */
 export function trackExecutedTradeResult(profitOrLoss: number) {
-  if (typeof window === 'undefined') return;
+  if (!isClient()) return;
   
   const state = getPersistedState();
   
   state.pnl += profitOrLoss;
   if (profitOrLoss < 0) {
     state.losses += 1;
-    console.warn(`⚠️ Loss recorded. Account consecutive streak marker: ${state.losses}/3`);
+    console.warn(`⚠️ Loss recorded. Streak marker: ${state.losses}/3`);
   } else {
-    state.losses = 0; // Immediate clearance on success
+    state.losses = 0; 
   }
 
-  // CRITICAL PROTECTION VERIFICATION EVALUATIONS
   if (state.losses >= 3) {
     state.terminated = true;
-    console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit! Tripping system circuit breaker.");
+    console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit!");
   } else if (state.pnl >= ACCOUNT_LIMITS.TAKE_PROFIT_TARGET) {
     state.terminated = true;
-    console.log(`🎉 [TARGET ATTAINED] Profit Target of $${ACCOUNT_LIMITS.TAKE_PROFIT_TARGET} achieved. Stopping run.`);
+    console.log(`🎉 [TARGET ATTAINED] Profit Target of $${ACCOUNT_LIMITS.TAKE_PROFIT_TARGET} hit.`);
   } else if (state.pnl <= ACCOUNT_LIMITS.MAX_STOP_LOSS_LIMIT) {
     state.terminated = true;
-    console.error(`🚨 [RISK MANAGEMENT BREACH] Stop Loss of $${ACCOUNT_LIMITS.MAX_STOP_LOSS_LIMIT} hit. Stopping run.`);
+    console.error(`🚨 [RISK BREACH] Stop Loss of $${ACCOUNT_LIMITS.MAX_STOP_LOSS_LIMIT} hit.`);
   }
 
-  // Commit updates instantly back into the application layer's storage device
   localStorage.setItem(STATE_KEYS.PnL, state.pnl.toString());
   localStorage.setItem(STATE_KEYS.LOSS_STREAK, state.losses.toString());
   localStorage.setItem(STATE_KEYS.KILL_SWITCH, state.terminated.toString());
 
-  // HARD TELEGRAM ALERT ON SHUTDOWN ENFORCEMENT
   if (state.terminated) {
     const alertsText = encodeURIComponent(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Account thresholds reached or 3 consecutive losses hit. Live execution channels have been disabled.`);
     fetch(`https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${alertsText}&parse_mode=Markdown`).catch(() => {});
   }
 }
 
-/**
- * RESET MANAGER FUNCTION: Call this from an admin layout window component to wipe state blocks and restart
- */
 export function resetAccountSessionRun() {
-  if (typeof window === 'undefined') return;
+  if (!isClient()) return;
   localStorage.removeItem(STATE_KEYS.PnL);
   localStorage.removeItem(STATE_KEYS.LOSS_STREAK);
   localStorage.removeItem(STATE_KEYS.KILL_SWITCH);
-  console.log("🔄 Session states wiped. Ready for a clean automated execution run.");
+  console.log("🔄 Session states wiped cleanly.");
 }
 
 export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-// scannerLogic.ts - PART 2: Core Processing Engine and Safe Pre-Sort Demotion Matrix
+// scannerLogic.ts - PART 2: Safe Core Scanner Pipeline with Embedded Hydration Guardrails
 import { broadcastSignalToTelegram, resetMasterHighLock, checkEngineStatus } from './Part1'; 
 import { STRATEGY_PROFILES, evaluateStrategy, StrategyResult, StrategyProfile } from './strategies';
 
@@ -209,7 +203,7 @@ export class ScannerLogicEngine {
   }
 
   public runScannerPipeline(): EvaluationFrame[] {
-    // HARD PIPELINE DEFLECTOR: If circuit breaker state registers true, immediately mask data views
+    // If circuit breaker state checks true on client side, gracefully update view structures
     if (checkEngineStatus()) {
       return this.lastEvaluatedFrames.map(frame => ({
         ...frame,
