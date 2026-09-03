@@ -128,7 +128,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
   { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' }
 ];
-// strategies.ts - PART 3: Strategic Calculations, State Bindings & Fractional Risk Engine
+// strategies.ts - PART 3: Dynamic Fallback Calculations & Synchronized Settings Engine
 
 export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
   const currentCount = ticks.length;
@@ -164,8 +164,10 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   let scannerScore = 50;
   let marketCompatibility = 50;
 
-  // --- STRATEGY-SPECIFIC REAL-TIME SCORING BREAKDOWNS (NON-CLONED FIX) ---
+  // --- DIVERSIFIED CONTRACT MATHEMATICAL SCORING MODIFIERS ---
   if (profile.contractType === 'RISE_FALL') {
+    
+    // Explicit strategy isolation branches by unique ID to prevent identical cloned statistics
     if (profile.id === 'AI_TREND_PRINTER') {
       const emaSpread = Math.abs(fastEma - slowEma);
       scannerScore = marketDirection !== 'FLAT' && rsiValue > 40 && rsiValue < 60 ? 88 : 35;
@@ -181,8 +183,16 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
       marketCompatibility = rsiValue >= 42 && rsiValue <= 58 ? 80 : 42;
       
     } else {
-      scannerScore = marketDirection !== 'FLAT' ? 78 : 45;
-      marketCompatibility = rsiValue > 52 || rsiValue < 48 ? 74 : 50;
+      // 🛠️ CRITICAL LOGIC FIX: Replaced hardcoded fallback numbers with true indicator deviations
+      const rsiDistanceFactor = Math.abs(rsiValue - 50); 
+      const uniqueVelocityWeight = Math.min(12, Math.floor(volatility * 4));
+      
+      // Forces every row card score to separate dynamically based on asset volatility scales
+      scannerScore = marketDirection === 'UP' 
+        ? Math.floor(82 - rsiDistanceFactor + uniqueVelocityWeight) 
+        : Math.floor(76 - rsiDistanceFactor + uniqueVelocityWeight);
+        
+      marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 84 : 72;
     }
     
   } else if (profile.contractType === 'OVER_UNDER') {
@@ -212,7 +222,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     }
   }
 
-  // Clamping arrays to normal project UI visualization thresholds
+  // Clamping metrics cleanly within UI visualization limits
   scannerScore = Math.min(96, Math.max(35, scannerScore));
   marketCompatibility = Math.min(96, Math.max(35, marketCompatibility));
 
@@ -222,7 +232,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   if (finalConfidence >= 82) tierOverride = 'HIGH';
   else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
 
-  // 🛠️ FRONTEND FORM FIX: Dynamically link interactive text inputs over fallback overrides
+  // Front-end interactive form state linkage prioritizing inputs over defaults
   const baselineStake = profile.runtimeSettings?.defaultStake && profile.runtimeSettings.defaultStake > 0 
     ? profile.runtimeSettings.defaultStake 
     : 3.00;
@@ -237,7 +247,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     
   const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
 
-  // ACTIVE RISK CALCULATOR LOOP (Tracks local loss streaks to adjust trade sizes)
+  // Active Fractional Staking Risk Manager
   let activeStake = baselineStake;
   
   if (typeof window !== 'undefined' && window.localStorage) {
