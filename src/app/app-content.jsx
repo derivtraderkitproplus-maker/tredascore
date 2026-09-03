@@ -26,8 +26,8 @@ import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
 
-// --- 👇 FIXED IMPORT: POINTS DIRECTLY TO THE NEW PERSISTENT PART 1 HUB 👇 ---
-import { trackExecutedTradeResult } from '../ai-scanner/floating-ai/Part1';
+// --- 👇 FIXED ABSOLUTE ROUTE: RESOLVES PATH0 DIRECTORY COMPILATION FAILURE ENTIRELY 👇 ---
+import { trackExecutedTradeResult } from '@/ai-scanner/floating-ai/Part1';
 
 const PreviewBranding =
     process.env.NEXT_PUBLIC_APP_BUILD === 'true' ? lazy(() => import('../preview/preview-branding')) : null;
@@ -88,7 +88,6 @@ const AppContent = observer(() => {
             if (data?.msg_type === 'proposal_open_contract' && !data?.error) {
                 const { proposal_open_contract } = data;
 
-                // --- 👇 LIVE INTERCEPTOR: PIPES CONTRACT METRICS TO SYSTEM HUB 👇 ---
                 if (proposal_open_contract?.is_sold) {
                     const netPnL = parseFloat(proposal_open_contract.profit || '0');
                     trackExecutedTradeResult(netPnL);
@@ -156,7 +155,7 @@ const AppContent = observer(() => {
 
     React.useEffect(() => {
         if (is_api_initialized) {
-            init(); // Guaranteed instantiation of MobX stores 
+            init(); 
             setIsLoading(true);
             if (!client.is_logged_in) {
                 changeActiveSymbolLoadingState();
