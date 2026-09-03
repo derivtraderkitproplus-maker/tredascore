@@ -1,4 +1,4 @@
-// scannerLogic.ts - PART 1: Guarded Broadcast Engine & Global Mutex Lock Gate
+// scannerLogic.ts - PART 1: Guarded Broadcast Engine & Global Mutual Exclusion Gate
 import { STRATEGY_PROFILES, evaluateStrategy, StrategyResult, StrategyProfile } from './strategies';
 
 export interface EvaluationFrame {
@@ -19,41 +19,38 @@ interface HighConfidenceSignal {
 const TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_API_TOKEN"; 
 const TELEGRAM_CHANNEL_ID = "@your_public_channel_username"; 
 
-// MASTER SYSTEM LOGIC SHIELD: Forces an absolute single slot registry across the entire runtime execution
-let globalActiveHighStrategyId: string | null = null;
+let masterActiveHighStrategyId: string | null = null;
 let lastBroadcastTimestamp = 0;
-const GLOBAL_COOLDOWN_MS = 30000; 
+const GLOBAL_COOLDOWN_MS = 45000; // Increased cooldown to prevent quick consecutive alerts
 
 export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, strategyId: string) {
   const currentTime = Date.now();
 
-  // RULE 1: Direct confidence floor check — must strictly exceed 80%
+  // RULE 1: Direct confidence floor gate—must be strictly greater than 80%
   if (signal.confidenceScore <= 80) {
     return;
   }
 
-  // RULE 2: Global single HIGH reservation enforce lock
+  // RULE 2: Strict single-HIGH constraint reservation check
   if (signal.riskTier === 'HIGH') {
-    if (globalActiveHighStrategyId !== null && globalActiveHighStrategyId !== strategyId) {
-      // Hard block: Drops concurrent setups instantly if another script occupies the high seat
-      return;
+    if (masterActiveHighStrategyId !== null && masterActiveHighStrategyId !== strategyId) {
+      return; // Absolute drop if another strategy holds the global high reservation
     }
-    globalActiveHighStrategyId = strategyId;
+    masterActiveHighStrategyId = strategyId;
   }
 
-  // Prevent rate-limiting endpoint overruns 
   if (currentTime - lastBroadcastTimestamp < GLOBAL_COOLDOWN_MS) return;
 
   lastBroadcastTimestamp = currentTime;
   const webAppURL = "https://vercel.app";
   
   const messageText = encodeURIComponent(
-    `🚀 *CRITICAL HIGH-CONFIDENCE SIGNAL* 🚀\n\n` +
+    `🚀 *CRITICAL HIGH-CONFIDENCE REAL SIGNAL* 🚀\n\n` +
     `🤖 *Strategy:* ${signal.strategyName}\n` +
     `📊 *Asset Class:* ${signal.assetName}\n` +
-    `🎯 *Verified Confidence:* ${signal.confidenceScore}% (>80% Enforced)\n` +
+    `🎯 *Verified Confidence:* ${signal.confidenceScore}% (>80% Rule Enforced)\n` +
     `⚡ *Direction:* ${signal.recommendedAction}\n` +
-    `🚨 *Risk Tier Status:* ${signal.riskTier}\n\n` +
+    `🚨 *Risk Status:* ${signal.riskTier}\n\n` +
     `👉 [Deploy Live Trade Instantly](${webAppURL})`
   );
 
@@ -61,24 +58,17 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
 
   try {
     const response = await fetch(telegramApiEndPoint);
-    if (!response.ok) console.error("❌ Telegram gateway rejected payload:", response.statusText);
+    if (!response.ok) console.error("❌ Telegram gateway link rejected payload:", response.statusText);
   } catch (error) {
-    console.error("🚨 Transmission pipe exception:", error);
+    console.error("🚨 Transmission pipeline network failure:", error);
   }
 }
 
-/**
- * System-wide hook to release the high seat when a strategy decays or drops rank position
- */
-export function setGlobalHighLock(strategyId: string | null) {
-  globalActiveHighStrategyId = strategyId;
+export function resetMasterHighLock() {
+  masterActiveHighStrategyId = null;
 }
-
-export function getGlobalHighLock(): string | null {
-  return globalActiveHighStrategyId;
-}
-// scannerLogic.ts - PART 2: Core Scanner Pipeline and Global HIGH State Demotion Map
-import { broadcastSignalToTelegram, setGlobalHighLock, getGlobalHighLock } from './Part1'; 
+// scannerLogic.ts - PART 2: Core Scanner Pipeline and Global Pre-Sort Winner Demotion Matrix
+import { broadcastSignalToTelegram, resetMasterHighLock } from './Part1'; 
 
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
@@ -86,7 +76,7 @@ export class ScannerLogicEngine {
 
   private currentTopStrategyId: string | null = null;
   private lastLockTime: number = 0;
-  private lockDurationMs: number = 3500;       // Extended lock duration from 2700ms to 3500ms to calm down quick flickering
+  private lockDurationMs: number = 5000;       // Extended hold time to 5 seconds to eliminate quick UI flickering
   private isEditingPaused: boolean = false;    
   private lastEvaluatedFrames: EvaluationFrame[] = [];
   private lastTickReceivedTimestamp: number = 0;
@@ -134,7 +124,7 @@ export class ScannerLogicEngine {
       assetName: activeFrame.profile.targetSymbol.replace('R_', 'Volatility '),
       confidenceScore: activeFrame.metrics.finalConfidence,
       recommendedAction: activeFrame.metrics.direction,
-      riskTier: activeFrame.metrics.status as 'LOW' | 'MEDIUM' | 'HIGH',
+      riskTier: activeFrame.metrics.status as any,
       contractType: activeFrame.profile.contractType,
       executionLatencyMs: currentLatency
     }, activeFrame.profile.id);
@@ -147,10 +137,10 @@ export class ScannerLogicEngine {
 
     const currentTime = Date.now();
 
-    // Catch stagnant WebSocket connections quickly
+    // Sudden WebSocket disconnection watchdog fallback 
     const timeSinceLastTick = currentTime - this.lastTickReceivedTimestamp;
     if (this.lastTickReceivedTimestamp > 0 && timeSinceLastTick > 2500) {
-      setGlobalHighLock(null);
+      resetMasterHighLock();
       return this.lastEvaluatedFrames.map(frame => ({
         ...frame,
         metrics: {
@@ -165,6 +155,7 @@ export class ScannerLogicEngine {
       }));
     }
     
+    // 1. Calculate metrics for all active rows
     const rawFrames: EvaluationFrame[] = STRATEGY_PROFILES.map(profile => {
       const targetToken = this.standardizeSymbol(profile.targetSymbol);
       const currentTicks = this.tickRegistry[targetToken] || [];
@@ -172,43 +163,41 @@ export class ScannerLogicEngine {
       return { profile, metrics };
     });
 
-    // 1. Sort the entire matrix system-wide by pure mathematical weight first
+    // 2. SYSTEM-WIDE PRE-SORT: Sort globally by performance weights *before* evaluating statuses
     const sortedGlobalChallengers = [...rawFrames].sort((a, b) => {
       return (b.metrics.scannerScore + b.metrics.finalConfidence) - (a.metrics.scannerScore + a.metrics.finalConfidence);
     });
 
-    // 2. Identify the single ultimate candidate winner strategy object
+    // Extract the strict single candidate winner at index position [0]
     const candidateWinner = sortedGlobalChallengers[0]; 
-    
-    // 3. HARD ENFORCEMENT FILTER: Clear all secondary HIGH tiers. Force a single high layout item.
+
+    // 3. HARD ENFORCEMENT LOOP: Force single-winner rules and strip secondary tags
     const strictEnforcedFrames = rawFrames.map(frame => {
-      // If this item is NOT the absolute current candidate winner, it is strictly forbidden from claiming HIGH status
-      if (candidateWinner && frame.profile.id === candidateWinner.profile.id) {
-        // Enforce the text constraint logic requirement (> 80% check)
-        if (frame.metrics.finalConfidence > 80) {
-          frame.metrics.status = 'HIGH';
-        } else {
-          frame.metrics.status = 'MEDIUM'; // Drop back down if it cannot beat the threshold check
-        }
+      const isAbsoluteGlobalWinner = candidateWinner && frame.profile.id === candidateWinner.profile.id;
+      const passesConfidenceThreshold = frame.metrics.finalConfidence > 80;
+
+      if (isAbsoluteGlobalWinner && passesConfidenceThreshold) {
+        frame.metrics.status = 'HIGH';
       } else {
-        // Forcefully demote status parameters for every single competitor row to prevent concurrent flashing
-        if (frame.metrics.status === 'HIGH') {
-          frame.metrics.status = 'MEDIUM';
-        }
+        // Absolute demotion: If it isn't the clear global winner over 80%, it cannot be HIGH
+        frame.metrics.status = frame.metrics.finalConfidence >= 65 ? 'MEDIUM' : 'LOW';
       }
       return frame;
     });
 
     const currentLeaderFrame = strictEnforcedFrames.find(f => f.profile.id === this.currentTopStrategyId);
     const isLockExpired = (currentTime - this.lastLockTime) > this.lockDurationMs;
-    const currentWinnerStillViable = currentLeaderFrame && currentLeaderFrame.metrics.finalConfidence >= 75;
+    
+    // Require a 78% baseline to keep holding the top locked display position
+    const currentWinnerStillViable = currentLeaderFrame && currentLeaderFrame.metrics.finalConfidence >= 78;
     
     let isCurrentWinnerDethronedByPerformance = false;
     if (candidateWinner && currentLeaderFrame && candidateWinner.profile.id !== this.currentTopStrategyId) {
       const leaderWeight = currentLeaderFrame.metrics.scannerScore + currentLeaderFrame.metrics.finalConfidence;
       const candidateWeight = candidateWinner.metrics.scannerScore + candidateWinner.metrics.finalConfidence;
-      // Increased performance buffer wall gap to +18 to freeze rapid chart jumping anomalies
-      if (candidateWeight > (leaderWeight + 18)) {
+      
+      // Increased buffer gap to +22 points to absorb quick multi-asset tick spikes completely
+      if (candidateWeight > (leaderWeight + 22)) {
         isCurrentWinnerDethronedByPerformance = true;
       }
     }
@@ -217,7 +206,6 @@ export class ScannerLogicEngine {
       if (candidateWinner && candidateWinner.metrics.finalConfidence > 80) {
         this.currentTopStrategyId = candidateWinner.profile.id;
         this.lastLockTime = currentTime;
-        setGlobalHighLock(candidateWinner.profile.id);
         
         const token = this.standardizeSymbol(candidateWinner.profile.targetSymbol);
         const latency = currentTime - (this.tickTimestamps[token] || currentTime);
@@ -227,17 +215,16 @@ export class ScannerLogicEngine {
           assetName: candidateWinner.profile.targetSymbol.replace('R_', 'Volatility '),
           confidenceScore: candidateWinner.metrics.finalConfidence,
           recommendedAction: candidateWinner.metrics.direction,
-          riskTier: 'HIGH', // Enforced winner tier state
+          riskTier: 'HIGH',
           contractType: candidateWinner.profile.contractType,
           executionLatencyMs: latency
         }, candidateWinner.profile.id);
       } else {
-        // Clear active seat locks if no strategy scores clear the >80% condition gate
-        setGlobalHighLock(null);
+        resetMasterHighLock();
       }
     }
 
-    // Sort final downstream mapped records by confidence metrics cleanly for UI table lists
+    // Sort final view structures cleanly by highest confidence to keep your layout lists aligned
     const finalViewOutput = [...strictEnforcedFrames].sort((a, b) => b.metrics.finalConfidence - a.metrics.finalConfidence);
     this.lastEvaluatedFrames = finalViewOutput;
     return finalViewOutput;
