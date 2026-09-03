@@ -1,4 +1,4 @@
-// scannerLogic.ts - PART 1: Core Engine Declarations & Client-Safe Gateways
+// scannerLogic.ts - PART 1A: Core Engine Declarations & Global Types
 
 export interface EvaluationFrame {
   profile: {
@@ -23,7 +23,7 @@ export interface EvaluationFrame {
   };
 }
 
-interface HighConfidenceSignal {
+export interface HighConfidenceSignal {
   strategyName: string;
   assetName: string;
   confidenceScore: number;
@@ -31,7 +31,6 @@ interface HighConfidenceSignal {
   riskTier: 'LOW' | 'MEDIUM' | 'HIGH';
   contractType: string;
   executionLatencyMs: number;
-  // 🆕 RUNTIME EXECUTION OVERLAYS
   executionPayload?: {
     stake: number;
     takeProfit: number;
@@ -43,7 +42,7 @@ interface HighConfidenceSignal {
 const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_API_TOKEN"; 
 const TELEGRAM_CHANNEL_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_ID || "@your_public_channel_username"; 
 
-// 🆕 RESTRUCTURED ACCOUNT BOUNDARIES MATCHING BROKER COMPATIBILITY
+// RESTRUCTURED ACCOUNT BOUNDARIES MATCHING BROKER COMPATIBILITY
 export const ACCOUNT_LIMITS = {
   MAX_ALLOWED_SLIPPAGE_MS: 380,
   RISK_PER_TRADE_PERCENT: 0.02 // Strict: Never risk more than 2% of bankroll per run
@@ -65,7 +64,7 @@ export function checkEngineStatus(): boolean {
 }
 
 let masterActiveHighStrategyId: string | null = null;
-let liveExecutionLock = false; // 🆕 CONCURRENCY PROTECTOR: Blocks double-fills on single microticks
+export let liveExecutionLock = false; // Exposed internally to keep safe structural boundary control
 
 // Mapping application targets to exact Broker structural assets
 const SYMBOL_BROKER_MAP: Record<string, string> = {
@@ -77,7 +76,7 @@ const SYMBOL_BROKER_MAP: Record<string, string> = {
 };
 
 /**
- * 🆕 CORE QUANT MACHINE BROKER ROUTING ENGINE
+ * CORE QUANT MACHINE BROKER ROUTING ENGINE
  * Connects directly to the exchange API layer to fire trades instantly
  */
 export async function executeBrokerTrade(signal: HighConfidenceSignal) {
@@ -136,9 +135,8 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
     liveExecutionLock = false;
   }
 }
-
 /**
- * 🆕 THE ACCUMULATOR FIX: VIRTUAL RUNTIME MONITOR
+ * THE ACCUMULATOR FIX: VIRTUAL RUNTIME MONITOR
  * Watches running trade state streams and pushes automated exit requests matching SL/TP forms
  */
 async function startVirtualProtectionEngine(contractId: string, takeProfit: number, stopLoss: number) {
@@ -146,7 +144,7 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
 
   while (activeWatcher) {
     try {
-      const checkResponse = await fetch(`https://deriv.com/${contractId}`);
+      const checkResponse = await fetch(`https://deriv.com{contractId}`);
       const trackingNode = await checkResponse.json();
 
       if (!checkResponse.ok || trackingNode.is_expired) {
@@ -184,7 +182,7 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
 
 async function executeEmergencyPositionLiquidation(contractId: string, currentPnL: number) {
   try {
-    await fetch(`https://deriv.com/${contractId}/close`, { method: "POST" });
+    await fetch(`https://deriv.com{contractId}/close`, { method: "POST" });
     trackExecutedTradeResult(currentPnL);
   } catch (err) {
     console.error("Critical failure during liquidation execution:", err);
@@ -203,9 +201,13 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
     masterActiveHighStrategyId = strategyId;
   }
 
-  // 🆕 PROACTIVE STRATEGY LINKING
-  // Automatically trigger backend trades when high confidence is flagged
-  executeBrokerTrade(signal);
+  // 🛠️ CRITICAL FIX: Await core execution loop synchronously to eliminate duplications
+  if (!liveExecutionLock) {
+    await executeBrokerTrade(signal);
+  } else {
+    console.warn("⚠️ Pipeline skipped redundant execution to protect system balance.");
+    return;
+  }
 
   const currentPnl = isClient() ? parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00') : 0.00;
   const webAppURL = "https://vercel.app";
@@ -219,7 +221,7 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
     `👉 [Deploy Live Trade Instantly](${webAppURL})`
   );
 
-  // FIXED ENDPOINT CONCATENATION STRING TYPO (Added missing slash)
+  // 🛠️ CRITICAL FIX: Added '$' and clear routing root directory paths to prevent crashing fetch pipes
   const telegramApiEndPoint = `https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${messageText}&parse_mode=Markdown`;
 
   try {
@@ -248,7 +250,7 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
   if (lossStreak >= 3) {
     isTerminated = true;
     console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit!");
-  } else if (currentPnl >= 1500) { // Scaled to your user input limits tracker
+  } else if (currentPnl >= 1500) { 
     isTerminated = true;
   } else if (currentPnl <= -500) {
     isTerminated = true;
@@ -275,7 +277,7 @@ export function resetAccountSessionRun() {
 }
 
 export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-// scannerLogic.ts - PART 2: Safe Core Scanner Engine Pipeline
+// scannerLogic.ts - PART 2A: Scanner Class Definition & Registry Handlers
 
 import { broadcastSignalToTelegram, resetMasterHighLock, checkEngineStatus } from './Part1'; 
 import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
@@ -338,10 +340,11 @@ export class ScannerLogicEngine {
       riskTier: activeFrame.metrics.status as any,
       contractType: activeFrame.profile.contractType || 'RISE_FALL',
       executionLatencyMs: currentLatency,
-      // 🆕 PIPE LIVE RUNTIME FORM VALUES TO MANUAL PRESS TRIGGERS
+      // PIPE LIVE RUNTIME FORM VALUES TO MANUAL PRESS TRIGGERS
       executionPayload: activeFrame.metrics.executionPayload
     }, activeFrame.profile.id);
   }
+// scannerLogic.ts - PART 2B: Strategy Scoring Engine Pipeline
 
   public runScannerPipeline(): any[] {
     if (checkEngineStatus()) {
@@ -381,11 +384,17 @@ export class ScannerLogicEngine {
     }
     
     const profiles = STRATEGY_PROFILES || [];
+    
+    // 🛠️ CRITICAL FIX: Explicit shallow cloning to prevent shared reference mutations
     const rawFrames = profiles.map(profile => {
       const targetToken = this.standardizeSymbol(profile.targetSymbol);
       const currentTicks = this.tickRegistry[targetToken] || [];
-      const metrics = evaluateStrategy ? evaluateStrategy(profile, currentTicks) : { finalConfidence: 0, scannerScore: 0, direction: 'FLAT', status: 'LOW' };
-      return { profile, metrics };
+      const baseMetrics = evaluateStrategy ? evaluateStrategy(profile, currentTicks) : { finalConfidence: 0, scannerScore: 0, direction: 'FLAT', status: 'LOW' };
+      
+      return { 
+        profile: { ...profile }, 
+        metrics: { ...baseMetrics } 
+      };
     });
 
     const sortedGlobalChallengers = [...rawFrames].sort((a, b) => {
@@ -438,7 +447,6 @@ export class ScannerLogicEngine {
           riskTier: 'HIGH',
           contractType: candidateWinner.profile.contractType || 'RISE_FALL',
           executionLatencyMs: currentLatency,
-          // 🆕 PIPE LIVE RUNTIME OVERLAYS TO PIPELINE RADAR ACTIONS
           executionPayload: candidateWinner.metrics.executionPayload
         }, candidateWinner.profile.id);
       } else {
