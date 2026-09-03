@@ -1,4 +1,4 @@
-// scannerLogic.ts - PART 1: Server-Safe LocalStorage Circuit-Breaker Engine
+// Part1.ts - Production Ready Risk Controller & Hydration-Safe State Hub
 
 export interface EvaluationFrame {
   profile: {
@@ -30,11 +30,11 @@ interface HighConfidenceSignal {
 const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_API_TOKEN"; 
 const TELEGRAM_CHANNEL_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_ID || "@your_public_channel_username"; 
 
-// --- SAFETY MANAGEMENT CONFIGURATIONS ---
+// --- ADVANCED ACCOUNT STRATEGY CONFIGURATIONS ---
 export const ACCOUNT_LIMITS = {
-  TAKE_PROFIT_TARGET: 150.00,       // Automatically halt the run if profit reaches this amount (USD)
-  MAX_STOP_LOSS_LIMIT: -50.00,      // Automatically halt the run if losses breach this amount (USD)
-  MAX_ALLOWED_SLIPPAGE_MS: 380      // Slip-Window Deflector limit boundary cutoff 
+  TAKE_PROFIT_TARGET: 150.00,       
+  MAX_STOP_LOSS_LIMIT: -50.00,      
+  MAX_ALLOWED_SLIPPAGE_MS: 380      
 };
 
 const STATE_KEYS = {
@@ -44,8 +44,8 @@ const STATE_KEYS = {
 };
 
 /**
- * Hydration Check Utility: Ensures Vercel cloud rendering workflows bypass 
- * storage calls until the file safely compiles on your phone's browser view.
+ * Hydration Check Utility: Prevents Vercel cloud rendering engines from 
+ * evaluating localStorage parameters before compilation finishes.
  */
 function isClient(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -86,13 +86,10 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
     const response = await fetch(telegramApiEndPoint);
     if (!response.ok) console.error("❌ Telegram gateway rejected payload:", response.statusText);
   } catch (error) {
-    console.error("🚨 Transmission pipe pipeline network failure:", error);
+    console.error("🚨 Transmission network failure:", error);
   }
 }
 
-/**
- * PRODUCTION RISK CONTROLLER: Tracks results to instantly trigger hard account circuit blocks
- */
 export function trackExecutedTradeResult(profitOrLoss: number) {
   if (!isClient()) return;
   
@@ -100,16 +97,14 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
   let lossStreak = parseInt(localStorage.getItem(STATE_KEYS.LOSS_STREAK) || '0', 10);
   let isTerminated = false;
   
-  // Update state indicators mathematically 
   currentPnl += profitOrLoss;
   if (profitOrLoss < 0) {
     lossStreak += 1;
     console.warn(`⚠️ Loss counted! Current consecutive running streak: ${lossStreak}/3`);
   } else {
-    lossStreak = 0; // Clear streak cache instantly upon achieving a winner contract step
+    lossStreak = 0; 
   }
 
-  // Evaluate risk constraint rules
   if (lossStreak >= 3) {
     isTerminated = true;
     console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit! Stopping the automated run.");
@@ -121,12 +116,10 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
     console.error(`🚨 [RISK HIT] Max Stop Loss limit ($${ACCOUNT_LIMITS.MAX_STOP_LOSS_LIMIT}) breached!`);
   }
 
-  // Commit updates immediately to the browser local storage layer
   localStorage.setItem(STATE_KEYS.PnL, currentPnl.toString());
   localStorage.setItem(STATE_KEYS.LOSS_STREAK, lossStreak.toString());
   localStorage.setItem(STATE_KEYS.KILL_SWITCH, isTerminated.toString());
 
-  // Automatic shutdown alert delivery loop
   if (isTerminated) {
     const alertsText = encodeURIComponent(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Safety rules hit. All automated execution pathways have been deactivated.`);
     fetch(`https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${alertsText}&parse_mode=Markdown`).catch(() => {});
@@ -142,9 +135,9 @@ export function resetAccountSessionRun() {
 }
 
 export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-// scannerLogic.ts - PART 2: Safe Core Scanner Engine Pipeline
-
+// scannerLogic.ts - PART 2: Safe Core Scanner Engine Pipeline Engine
 import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
+import { broadcastSignalToTelegram, resetMasterHighLock, checkEngineStatus, EvaluationFrame } from './Part1';
 
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
@@ -208,7 +201,6 @@ export class ScannerLogicEngine {
   }
 
   public runScannerPipeline(): any[] {
-    // If circuit breaker is TRIPPED, automatically overwrite the data feed to lock execution
     if (checkEngineStatus()) {
       return this.lastEvaluatedFrames.map(frame => ({
         ...frame,
@@ -259,7 +251,7 @@ export class ScannerLogicEngine {
       return scoreB - scoreA;
     });
 
-    const candidateWinner = sortedGlobalChallengers.length > 0 ? sortedGlobalChallengers[0] : null; 
+    const candidateWinner = sortedGlobalChallengers.length > 0 ? sortedGlobalChallengers : null; 
 
     const assetToken = candidateWinner ? this.standardizeSymbol(candidateWinner.profile.targetSymbol) : '';
     const currentLatency = currentTime - (this.tickTimestamps[assetToken] || currentTime);
