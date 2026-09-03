@@ -26,9 +26,6 @@ import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
 
-// --- 👇 ULTIMATE SAFE PATH: CLIMBS OUT TO SCANNERLOGIC EXTENSION DIRECTLY 👇 ---
-import { trackExecutedTradeResult } from '../ai-scanner/floating-ai/scannerLogic';
-
 const PreviewBranding =
     process.env.NEXT_PUBLIC_APP_BUILD === 'true' ? lazy(() => import('../preview/preview-branding')) : null;
 
@@ -88,9 +85,10 @@ const AppContent = observer(() => {
             if (data?.msg_type === 'proposal_open_contract' && !data?.error) {
                 const { proposal_open_contract } = data;
 
-                if (proposal_open_contract?.is_sold) {
+                // --- 👇 UNBREAKABLE FIX: DISPATCH RESULTS VIA DECOUPLED BROWSER EVENTS 👇 ---
+                if (proposal_open_contract?.is_sold && typeof window !== 'undefined') {
                     const netPnL = parseFloat(proposal_open_contract.profit || '0');
-                    trackExecutedTradeResult(netPnL);
+                    window.dispatchEvent(new CustomEvent('EDA_TRADE_SETTLED', { detail: netPnL }));
                 }
 
                 if (
@@ -155,7 +153,7 @@ const AppContent = observer(() => {
 
     React.useEffect(() => {
         if (is_api_initialized) {
-            init(); 
+            init();
             setIsLoading(true);
             if (!client.is_logged_in) {
                 changeActiveSymbolLoadingState();
