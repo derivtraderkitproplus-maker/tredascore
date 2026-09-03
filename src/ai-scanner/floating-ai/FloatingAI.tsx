@@ -110,7 +110,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       setFrozenDisplayList(liveSortedProfiles);
     }
   }, [liveSortedProfiles, activeTab]);
-// FloatingAI.tsx - PART 2: Parameter Action Handlers & Global Metric Summary Layouts
+// FloatingAI.tsx - PART 2: Parameter Action Handlers & Clean Visual Metric Banners
 
   // Isolated matrix display layer rules
   const visualDisplayList = useMemo(() => {
@@ -221,6 +221,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         <span className="profile-counter">30/30</span>
       </div>
 
+      {/* 🛠️ GRAPHICAL INJECTION FIX: Completely removed the markdown block text comment line so it breaks out of your layout */}
       <div className="scanner-subheader-text">
         {activeTab ? "🔒 Metrics Locked for Editing Parameters" : "Balanced strategies rank below. Tap to lock & edit parameters."}
       </div>
@@ -239,7 +240,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
-// FloatingAI.tsx - PART 3: Reactive Card Render Arrays, Isolated Input State Fields & Core Layouts
 
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
