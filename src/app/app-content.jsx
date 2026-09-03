@@ -26,8 +26,8 @@ import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
 
-// Verified relative file system module route
-import { trackExecutedTradeResult } from '../ai-scanner/floating-ai/scannerLogic';
+// --- 👇 FIXED IMPORT: POINTS DIRECTLY TO THE NEW PERSISTENT PART 1 HUB 👇 ---
+import { trackExecutedTradeResult } from '../ai-scanner/floating-ai/Part1';
 
 const PreviewBranding =
     process.env.NEXT_PUBLIC_APP_BUILD === 'true' ? lazy(() => import('../preview/preview-branding')) : null;
@@ -88,6 +88,7 @@ const AppContent = observer(() => {
             if (data?.msg_type === 'proposal_open_contract' && !data?.error) {
                 const { proposal_open_contract } = data;
 
+                // --- 👇 LIVE INTERCEPTOR: PIPES CONTRACT METRICS TO SYSTEM HUB 👇 ---
                 if (proposal_open_contract?.is_sold) {
                     const netPnL = parseFloat(proposal_open_contract.profit || '0');
                     trackExecutedTradeResult(netPnL);
@@ -121,7 +122,6 @@ const AppContent = observer(() => {
         };
     }, [is_api_initialized, client.is_logged_in, client.loginid, handleMessage, connectionStatus]);
 
-    // CORE INITIALIZER: Moved back out to its original synchronous context to guarantee store initialization
     const init = () => {
         ServerTime.init(common);
         app.setDBotEngineStores();
@@ -136,14 +136,8 @@ const AppContent = observer(() => {
 
         const retrieveActiveSymbols = () => {
             const { active_symbols } = ApiHelpers.instance;
-            if (!active_symbols) {
-                setIsLoading(false);
-                return;
-            }
 
             active_symbols.retrieveActiveSymbols(true).then(() => {
-                setIsLoading(false);
-            }).catch(() => {
                 setIsLoading(false);
             });
         };
@@ -162,7 +156,7 @@ const AppContent = observer(() => {
 
     React.useEffect(() => {
         if (is_api_initialized) {
-            init(); // CRITICAL FIX: Run instantly here to construct MobX workspace blocks immediately
+            init(); // Guaranteed instantiation of MobX stores 
             setIsLoading(true);
             if (!client.is_logged_in) {
                 changeActiveSymbolLoadingState();
