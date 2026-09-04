@@ -1,4 +1,4 @@
-// FloatingAI.tsx - PART 1: Core Module Initializers & Dynamic State Architecture
+// FloatingAI.tsx - PART 1: Module Initializers & Dynamic State Architecture
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { DerivScannerBridge } from './scannerBridge';
@@ -30,7 +30,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
 
   // Supported synthetic index ticker keys matching your global asset engine registry
   const trackingSymbols = useMemo(() => ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'], []);
-// FloatingAI.tsx - PART 2: System Lifecycles & Dynamic Tick Pre-Seeding Layers
+// FloatingAI.tsx - PART 2: Lifecycles, Active Editing Lock Synchronization, & Tick Pre-Seeding Arrays
 
   // Synchronize component input editing focus states down to the calculation core logic instance
   useEffect(() => {
@@ -78,7 +78,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       const updatedFrame = logicEngine.runScannerPipeline();
       setRawPipelineData(updatedFrame);
     }, 1000);
-// FloatingAI.tsx - PART 3: Network Listener Pipelines & Memoized Strategy Sorting Matrix
+// FloatingAI.tsx - PART 3: Network Bridging, Dynamic Target Fallbacks, & Optimization Filters
 
     // 3. MULTIPLEXING NETWORK LISTENER PIPELINE
     networkBridge.initPipeline(trackingSymbols, (symbol, price) => {
@@ -139,18 +139,18 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
 
   // Pulls global display indicators safely using fallback metrics
   const globalSummary = useMemo(() => {
-    if (visualDisplayList && visualDisplayList.length > 0 && (visualDisplayList as any).metrics) {
-      return (visualDisplayList as any).metrics;
+    if (visualDisplayList && visualDisplayList.length > 0 && visualDisplayList[0]?.metrics) {
+      return visualDisplayList[0].metrics;
     }
     return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
   }, [visualDisplayList]);
-// FloatingAI.tsx - PART 4: Real-time UI Parameter Allocation & Synchronization Loop
+// FloatingAI.tsx - PART 4: Parameter Routers & State Synchronization
 
   // Load configuration settings isolated explicitly by profile ID into Blockly
   const handleLoadBot = (targetDirection: string, frame: EvaluationFrame) => {
     const strategyId = frame.profile.id;
     
-    // Fallback paths read metrics value preferences dynamically from default strategy records
+    // FIXED: Swapped out hardcoded strings for true dynamic strategy runtime configuration metrics
     const currentSettings = customStrategySettings[strategyId] || { 
       stake: (frame.profile.runtimeSettings?.defaultStake || 3.00).toString(), 
       stopLoss: (frame.profile.runtimeSettings?.stopLossLimit || 4.00).toString(), 
@@ -258,6 +258,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         </div>
       </div>
 
+
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
@@ -265,7 +266,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           const assetDisplayLabel = item.profile.targetSymbol.replace('R_', 'Volatility ');
           const contractDisplayLabel = item.profile.contractType.replace(/_/g, ' ');
 
-          // Fallback settings metrics update natively from profile definitions
+          // FIXED: Fallback paths pull directly from strategy configuration layers safely
           const rowSettings = customStrategySettings[item.profile.id] || { 
             stake: (item.profile.runtimeSettings?.defaultStake || 3.00).toString(), 
             stopLoss: (item.profile.runtimeSettings?.stopLossLimit || 4.00).toString(), 
@@ -278,14 +279,14 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                 <div className="rank-badge">#{index + 1}</div>
                 <div className="meta-details">
                   <h4>{item.profile.name}</h4>
-                  <div className="strategy-tags-row">
-                    <span className={`asset-tag symbol-${item.profile.targetSymbol.toLowerCase()}`}>
+                  <div className="strategy-tags-row" style={{ display: 'flex', gap: '6px', margin: '4px 0', flexWrap: 'wrap' }}>
+                    <span className={`asset-tag symbol-${item.profile.targetSymbol.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#2a3243', color: '#00e676', fontWeight: 'bold' }}>
                       {assetDisplayLabel}
                     </span>
-                    <span className="contract-tag">
+                    <span className="contract-tag" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#374151', color: '#e0e0e0' }}>
                       {contractDisplayLabel}
                     </span>
-                    <span className="engine-tag">
+                    <span className="engine-tag" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#1f2937', color: '#ffb300', fontStyle: 'italic' }}>
                       {item.profile.coreEngine}
                     </span>
                   </div>
@@ -348,7 +349,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     </div>
                   </div>
 
-                  <div className="action-buttons-wrapper">
+                  <div className="action-buttons-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
                     <button className="inner-drawer-load-btn" onClick={() => handleLoadBot(item.metrics.direction, item)}>
                       📥 Load Strategy Parameters
                     </button>
