@@ -1,3 +1,5 @@
+// risk-disclaimer.tsx - Completed Space-Optimized Implementation
+
 import React, { useEffect, useState } from 'react';
 import './RiskDisclaimer.css';
 
@@ -14,8 +16,11 @@ const RiskDisclaimer = () => {
                                     textContent.includes('Contracts won') || 
                                     textContent.includes('Total profit/loss');
 
-            // If those statistics blocks are visible, hide the disclaimer completely
-            if (hasSummaryStats) {
+            // FIXED: Dynamically identifies your scanner title text to vanish the button instantly
+            const isAiScannerOpen = textContent.includes('AI Multi-Asset Scanner');
+
+            // Self-destruct and clear screen if conditions match to avoid overlapping on small mobile screens
+            if (hasSummaryStats || isAiScannerOpen) {
                 setShouldRender(false);
             } else {
                 setShouldRender(true);
@@ -25,7 +30,7 @@ const RiskDisclaimer = () => {
         // Run immediately when component paints
         checkActivePanels();
 
-        // Dynamically monitor layout tree mutations to toggle instantly on clicks
+        // Dynamically monitor layout tree mutations to toggle instantly on clicks and component updates
         const observer = new MutationObserver(checkActivePanels);
         observer.observe(document.body, { childList: true, subtree: true });
 
@@ -67,7 +72,7 @@ const RiskDisclaimer = () => {
         }  
     };  
 
-    // Self-destruct and clear screen if conditions are matched
+    // Return completely null to clean up mobile screen viewports when scanner or summary panels mount
     if (!shouldRender) return null;  
 
     return (  
