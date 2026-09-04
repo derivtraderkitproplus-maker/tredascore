@@ -1,4 +1,4 @@
-// scannerBridge.ts - PART 1: Core Definitions & Module State Registry
+// scannerBridge.ts - PART 1: Core Definitions & State Registries
 
 export type TickCallback = (symbol: string, tick: number) => void;
 
@@ -136,12 +136,13 @@ export class DerivScannerBridge {
       console.warn("Web Audio Context not permitted or fully initialized yet:", error);
     }
   }
-// scannerBridge.ts - PART 4: Premium White-Labeled UI Overlay Modal (tredascore.pro)
+// scannerBridge.ts - PART 4: Premium UI Overlay (tredascore.pro Branding & Auto-Builder Tab Redirect)
 
   /**
    * INJECTS A HIGH-END CUSTOM UI MODAL DIALOG CONTAINER DIRECTLY INTO THE INTERFACE DOM
    */
   private triggerTopTierAlertOverlay(type: 'PROFIT' | 'LOSS', balance: number, limit: number): void {
+    // Prevent duplicate modals from rendering concurrently
     const existingModal = document.getElementById('treda-circuit-breaker-modal');
     if (existingModal) existingModal.remove();
 
@@ -210,7 +211,7 @@ export class DerivScannerBridge {
       </p>
 
       <button id="close-breaker-modal-btn" style="width: 100%; background: #1c2035; border: 1px solid #2d3450; color: #ffffff; padding: 12px; font-size: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; transition: background 0.15s ease;">
-        Acknowledge & Dismiss
+        ACKNOWLEDGE & DISMISS
       </button>
 
       <style>
@@ -225,13 +226,25 @@ export class DerivScannerBridge {
 
     const dismissModal = () => {
       backdrop.style.opacity = '0'; card.style.transform = 'scale(0.9)';
-      setTimeout(() => backdrop.remove(), 250);
+      
+      // FIXED AUTOMATED AUTO-REDIRECT TAB SWITCHER 
+      setTimeout(() => {
+        backdrop.remove();
+        
+        const allDashboardTabs = Array.from(document.querySelectorAll('div, span, li, a, p, button'));
+        const botBuilderTab = allDashboardTabs.find(tab => tab.textContent?.trim() === 'Bot Builder');
+        
+        if (botBuilderTab) {
+          (botBuilderTab as HTMLElement).click(); // Clicks tab instantly to focus builder workspace grid views
+          console.log("🎯 [TAB ROUTER] Redirected layout tab focus back onto the active Blockly workspace builder.");
+        }
+      }, 250);
     };
 
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) dismissModal(); });
     card.querySelector('#close-breaker-modal-btn')?.addEventListener('click', dismissModal);
   }
-// scannerBridge.ts - PART 5: High-Frequency Mutation Watcher, Martingale Recovery Loop & Data Injections
+// scannerBridge.ts - PART 5: High-Frequency Mutation Watcher, Bulletproof Button Target Selectors & Variable Injectors
 
   /**
    * AUTOMATED PERFORMANCE WATCHER & DYNAMIC MARTINGALE ENGINE
@@ -278,12 +291,25 @@ export class DerivScannerBridge {
           }
 
           if (shouldTriggerStop) {
-            const allButtons = Array.from(document.querySelectorAll('button'));
-            const stopButton = allButtons.find(btn => btn.innerText.trim().toLowerCase() === 'stop' || btn.textContent?.includes('Stop'));
+            // BULLETPROOF POSITION HALTING ACTION SELECTOR
+            // Extends lookup matrices across multiple native tag variants to secure the "Stop" button hook
+            const allElements = Array.from(document.querySelectorAll('button, div, span, .bot-control-btn'));
+            const stopButton = allElements.find(el => {
+              const text = el.textContent?.trim() || "";
+              return text === 'Stop' || text === 'STOP' || text.includes('Stop') || el.classList.contains('btn-stop');
+            });
             
             if (stopButton) {
-              (stopButton as HTMLButtonElement).click(); 
+              (stopButton as HTMLElement).click(); // Press the stop button instantly
+              console.log("className [CIRCUIT BREAKER] Target button activated.");
               this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
+            } else {
+              // Core fallback path executes directly into the hidden blockly workspace runtime methods
+              const globalWin = window as any;
+              if (globalWin.Blockly?.derivWorkspace?.stopBot) {
+                globalWin.Blockly.derivWorkspace.stopBot();
+                this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
+              }
             }
 
             this.monitoredTakeProfit = 0;
