@@ -430,3 +430,19 @@
 .scan-again-btn:active {
   background: #2b314d !important;
 }
+/* FloatingAI.css - Automated Background Banner Hider Layer */
+
+/* Targets the underlying platform container layout to drop visibility while scanner is active */
+:global(body:has(.ai-strategy-scanner)) .risk-disclaimer,
+:global(body:has(.ai-strategy-scanner)) [class*="risk-disclaimer"],
+:global(body:has(.ai-strategy-scanner)) [id*="risk-disclaimer"],
+.ai-strategy-scanner ~ .risk-disclaimer,
+.ai-strategy-scanner ~ [class*="risk-disclaimer"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
