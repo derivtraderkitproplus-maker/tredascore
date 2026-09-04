@@ -241,7 +241,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
-// FloatingAI.tsx - PART 5: Visual Strategy List, Interactive Expansion Drawers, & Global Controls
 
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
