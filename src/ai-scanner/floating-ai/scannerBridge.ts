@@ -1,4 +1,4 @@
-// scannerBridge.ts
+// scannerBridge.ts - PART 1: Core Definitions, Network Listeners & Pipeline Handlers
 
 export type TickCallback = (symbol: string, tick: number) => void;
 
@@ -46,12 +46,10 @@ export class DerivScannerBridge {
   }
 
   public initPipeline(symbols: string[], onTick: TickCallback): void {
-    // 💥 FIX 2: Prevent memory leaks and lagging UIs by clearing old listeners first
     this.closePipeline();
 
     this.onTickCallback = onTick;
     this.activeSymbols = symbols;
-
     this.extractSystemSocket();
 
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -80,6 +78,7 @@ export class DerivScannerBridge {
       this.boundMessageHandler = null;
     }
   }
+// scannerBridge.ts - PART 2: Workspace Parameter Injector Logic
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
@@ -95,12 +94,11 @@ export class DerivScannerBridge {
       let blockInjectionCounter = 0;
 
       allBlocks.forEach((block: any) => {
-        // 1. FIXED ASSET INJECTION (Keeps variable names consistent for clean commission routing)
+        // 1. FIXED ASSET INJECTION
         if (block.type === 'trade_definition_market') {
           const symbolField = block.getField('SYMBOL_LIST');
           if (symbolField) {
             let systemSymbol = params.targetSymbol.toUpperCase().trim();
-            // Fallback checking to keep data formats aligned across platforms
             if (systemSymbol === 'R_10') systemSymbol = '1HZ10V';
             if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
             if (systemSymbol === 'R_50') systemSymbol = '1HZ50V';
@@ -157,7 +155,6 @@ export class DerivScannerBridge {
             if (targetBlock) {
               const numField = targetBlock.getField('NUM');
               if (numField) {
-                // Force clean 2-decimal strings to prevent server rejection errors
                 numField.setValue(Number(params.stake).toFixed(2));
                 blockInjectionCounter++;
               }
@@ -165,7 +162,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 5. AUTO-FALLBACK VARIABLE MAPPING (Secures Risk Controls)
+        // 5. AUTO-FALLBACK VARIABLE MAPPING (Robust Search and Validation Layer)
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -179,16 +176,21 @@ export class DerivScannerBridge {
                 if (numField) {
                   const normalizedVar = variableName.toLowerCase().trim();
                   
-                  if (normalizedVar === 'maxstake' || normalizedVar.includes('stake') || normalizedVar === 'initialstake') {
+                  // STAKE FIELD VARIANT CHECKS
+                  if (normalizedVar === 'maxstake' || normalizedVar.includes('stake') || normalizedVar === 'initialstake' || normalizedVar === 'defaultstake') {
                     numField.setValue(Number(params.stake).toFixed(2));
                     blockInjectionCounter++;
                   }
-                  if (normalizedVar.includes('loss') || normalizedVar.includes('threshold') || normalizedVar.includes('stop')) {
-                    numField.setValue(params.stopLoss.toString());
+                  
+                  // STOP LOSS VARIANT CHECKS (Catches text variants like 'loss limit', 'sl', or 'stop')
+                  else if (normalizedVar.includes('loss') || normalizedVar.includes('threshold') || normalizedVar.includes('stop') || normalizedVar === 'sl') {
+                    numField.setValue(Number(params.stopLoss).toFixed(2));
                     blockInjectionCounter++;
                   }
-                  if (normalizedVar.includes('profit') || normalizedVar.includes('target') || normalizedVar.includes('take')) {
-                    numField.setValue(params.takeProfit.toString());
+                  
+                  // TAKE PROFIT VARIANT CHECKS (Catches text variants like 'target profit', 'tp', or 'profit ceiling')
+                  else if (normalizedVar.includes('profit') || normalizedVar.includes('target') || normalizedVar.includes('take') || normalizedVar === 'tp') {
+                    numField.setValue(Number(params.takeProfit).toFixed(2));
                     blockInjectionCounter++;
                   }
                 }
@@ -202,9 +204,9 @@ export class DerivScannerBridge {
         workspace.render();
       }
 
-      // Operational success validation modal
+      // Operational success validation confirmation modal
       if (blockInjectionCounter > 0) {
-        alert(`✅ Parameters Optimized Successfully!\nAsset Pool: ${params.targetSymbol.replace('R_', 'Volatility ')}\nTrading Mode: ${params.contractType}`);
+        alert(`✅ Strategy Configuration Loaded!\n\n• Asset Pool: ${params.targetSymbol.replace('R_', 'Volatility ')}\n• Active Stake: $${Number(params.stake).toFixed(2)}\n• Stop Loss: $${Number(params.stopLoss).toFixed(2)}\n• Take Profit: $${Number(params.takeProfit).toFixed(2)}`);
       } else {
         console.warn("Blockly Injection alert: Parsed structural workspace blocks without matching parameter selectors.");
       }
