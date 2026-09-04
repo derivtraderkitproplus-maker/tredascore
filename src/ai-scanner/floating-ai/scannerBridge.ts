@@ -383,3 +383,5 @@ export class DerivScannerBridge {
     const metricsObserver = new MutationObserver(evaluateSessionMetrics);
     metricsObserver.observe(document.body, { childList: true, subtree: true });
   }
+// Add this single bracket at the absolute end of scannerBridge.ts
+}
