@@ -1,4 +1,4 @@
-// FloatingAI.tsx - PART 1: Module Initializers & Dynamic State Architecture
+// FloatingAI.tsx - PART 1: Draggable Sphere State Initialization & Drag Math Handlers
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { DerivScannerBridge } from './scannerBridge';
@@ -21,6 +21,16 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
   // INPUT FOCUS TRACKER - Freezes data streaming calculation frames mid-keystroke to stop visual jumping
   const [isTypingFocused, setIsTypingFocused] = useState<boolean>(false);
 
+  // NEW INTERACTIVE STATE INITIALIZERS FOR THE SPHERE WIDGET
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [shouldDisplaySphere, setShouldDisplaySphere] = useState<boolean>(true);
+  const [spherePosition, setSpherePosition] = useState({ x: window.innerWidth - 76, y: window.innerHeight - 150 });
+
+  // Draggable mechanical ref parameters
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const widgetNodeRef = useRef<HTMLDivElement>(null);
+
   // Instantiates persistent core engine layers to preserve calculations cross-renders
   const logicEngine = useMemo(() => new ScannerLogicEngine(), []);
   const networkBridge = useMemo(() => new DerivScannerBridge(derivContext), [derivContext]);
@@ -31,183 +41,72 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
   // Supported synthetic index ticker keys matching your global asset engine registry
   const trackingSymbols = useMemo(() => ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'], []);
 
-  // --- DYNAMIC DRAGGABLE SPHERE CORE ENGINE STATE MATRIX ---
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [spherePosition, setSpherePosition] = useState({ x: typeof window !== 'undefined' ? window.innerWidth - 76 : 300, y: typeof window !== 'undefined' ? window.innerHeight - 150 : 500 });
-  const isDraggingActive = useRef(false);
-  const touchOffsetVector = useRef({ x: 0, y: 0 });
-  const widgetNodeRef = useRef<HTMLDivElement>(null);
-  const [shouldDisplaySphere, setShouldDisplaySphere] = useState<boolean>(true);
+  // NEW TOUCH/MOUSE DRAG EVENT HANDLERS
+  const initiateDragTracking = (clientX: number, clientY: number) => {
+    isDragging.current = false; // Assume a clean tap first
+    dragStart.current = { x: clientX - spherePosition.x, y: clientY - spherePosition.y };
+  };
 
-  // MONITOR PANELS DETECTOR: Self-destruct trigger when running statistics render on dashboard
+  const executeDragMovement = (clientX: number, clientY: number) => {
+    isDragging.current = true; // Movement confirmed, switch to active drag state
+    
+    // Bounds clamping: prevents the neon sphere from sliding completely off mobile screen edges
+    const maxBoundaryX = window.innerWidth - 64;
+    const maxBoundaryY = window.innerHeight - 64;
+    
+    const constrainedX = Math.min(maxBoundaryX, Math.max(16, clientX - dragStart.current.x));
+    const constrainedY = Math.min(maxBoundaryY, Math.max(16, clientY - dragStart.current.y));
+    
+    setSpherePosition({ x: constrainedX, y: constrainedY });
+  };
+
+  const terminateDragTracking = () => {
+    // If the touch sequence finished without dragging, treat it as a click and open the scanner modal
+    if (!isDragging.current) {
+      setIsModalOpen(true);
+    }
+    isDragging.current = false;
+  };
+
+  // 1. AUTO-HIDE OBSERVER PIPELINE: Hides the sphere completely when your dashboard panels load
   useEffect(() => {
-    const checkActiveDashboardText = () => {
-      const plainTextContent = document.body.innerText;
-      const isSummaryDashboardActive = plainTextContent.includes('Contracts lost') || 
-                                        plainTextContent.includes('Contracts won') || 
-                                        plainTextContent.includes('Total stake') ||
-                                        textContent.includes('Total payout');
-      if (isSummaryDashboardActive) {
+    const inspectDashboardPanels = () => {
+      const screenText = document.body.innerText;
+      const isDashboardActive = screenText.includes('Contracts lost') || 
+                                 screenText.includes('Contracts won') || 
+                                 screenText.includes('Total stake') ||
+                                 screenText.includes('Total payout');
+
+      if (isDashboardActive) {
         setShouldDisplaySphere(false);
       } else {
         setShouldDisplaySphere(true);
       }
     };
-    checkActiveDashboardText();
-    const mutationObserverInstance = new MutationObserver(checkActiveDashboardText);
-    mutationObserverInstance.observe(document.body, { childList: true, subtree: true });
-    return () => mutationObserverInstance.disconnect();
+
+    inspectDashboardPanels();
+    const dynamicObserver = new MutationObserver(inspectDashboardPanels);
+    dynamicObserver.observe(document.body, { childList: true, subtree: true });
+
+    return () => dynamicObserver.disconnect();
   }, []);
 
-  // TOUCH/MOUSE DRAG MOTION CONTROLLERS
-  const initiateDragTracking = (clientX: number, clientY: number) => {
-    isDraggingActive.current = false; 
-    touchOffsetVector.current = { x: clientX - spherePosition.x, y: clientY - spherePosition.y };
-  };
-
-  const executeDragMovement = (clientX: number, clientY: number) => {
-    isDraggingActive.current = true;
-    const boundaryCeilingX = window.innerWidth - 64;
-    const boundaryCeilingY = window.innerHeight - 64;
-    const boundedLocationX = Math.min(boundaryCeilingX, Math.max(16, clientX - touchOffsetVector.current.x));
-    const boundedLocationY = Math.min(boundaryCeilingY, Math.max(16, clientY - touchOffsetVector.current.y));
-    setSpherePosition({ x: boundedLocationX, y: boundedLocationY });
-  };
-
-  const terminateDragTracking = () => {
-    if (!isDraggingActive.current) {
-      setIsModalOpen(true);
-    }
-    isDraggingActive.current = false;
-  };
-
+  // Secure alignment variables if user changes screen orientation
   useEffect(() => {
-    const handleViewportOrientationShift = () => {
+    const recalibrateLayout = () => {
       setSpherePosition({ x: window.innerWidth - 76, y: window.innerHeight - 150 });
     };
-    window.addEventListener('resize', handleViewportOrientationShift);
-    return () => window.removeEventListener('resize', handleViewportOrientationShift);
+    window.addEventListener('resize', recalibrateLayout);
+    return () => window.removeEventListener('resize', recalibrateLayout);
   }, []);
-// FloatingAI.tsx - PART 2: Core Lifecycles & Interactive Draggable Sphere Integration
-
-  // Synchronize component input editing focus states down to the calculation core logic instance
-  useEffect(() => {
-    const shouldFreezeBackend = activeTab !== null || isTypingFocused;
-    logicEngine.setEditingState(shouldFreezeBackend);
-  }, [activeTab, isTypingFocused, logicEngine]);
-
-  useEffect(() => {
-    setRawPipelineData([]);
-    setFrozenDisplayList([]);
-
-    // 1. DYNAMIC PRE-SEED GENERATION LAYER: Hydrate array buffers to satisfy indicator thresholds
-    trackingSymbols.forEach(symbol => {
-      let baseMockPrice = 845.20;
-      if (symbol === 'R_10') baseMockPrice = 45.10;
-      if (symbol === 'R_25') baseMockPrice = 192.40;
-      if (symbol === 'R_50') baseMockPrice = 310.85;
-      if (symbol === 'R_75') baseMockPrice = 525.60;
-      
-      for (let i = 0; i < 115; i++) {
-        const noise = (Math.random() - 0.5) * 0.45;
-        baseMockPrice += noise;
-        logicEngine.injectTick(symbol, baseMockPrice);
-      }
-    });
-    
-    const initialFrame = logicEngine.runScannerPipeline();
-    setRawPipelineData(initialFrame);
-
-    // 2. BACKGROUND TICK MONITOR PIPELINE: Simulates active tracking shifts sequentially
-    const liveSimulationInterval = setInterval(() => {
-      trackingSymbols.forEach(symbol => {
-        const currentNoiseBase = 0.60;
-        const noise = (Math.random() - 0.5) * currentNoiseBase;
-        
-        const previousTicks = (logicEngine as any).tickRegistry[symbol] || [845.20];
-        const lastPrice = previousTicks[previousTicks.length - 1];
-        
-        logicEngine.injectTick(symbol, lastPrice + noise);
-      });
-
-      // Maintain rendering loop integrity if fields are actively receiving user edits
-      if (activeTab || isTypingFocused) return;
-
-      const updatedFrame = logicEngine.runScannerPipeline();
-      setRawPipelineData(updatedFrame);
-    }, 1000);
-
-    // 3. MULTIPLEXING NETWORK LISTENER PIPELINE
-    networkBridge.initPipeline(trackingSymbols, (symbol, price) => {
-      logicEngine.injectTick(symbol, price);
-      
-      if (activeTab || isTypingFocused) return; 
-      const frameAnalysis = logicEngine.runScannerPipeline();
-      setRawPipelineData(frameAnalysis);
-    });
-
-    return () => {
-      clearInterval(liveSimulationInterval);
-      networkBridge.closePipeline();
-    };
-  }, [logicEngine, networkBridge, activeTab, isTypingFocused, trackingSymbols]);
-
-  // Handle baseline sorting actions linking directly to the isolated status markers
-  const liveSortedProfiles = useMemo(() => {
-    if (rawPipelineData.length === 0) return [];
-    return [...rawPipelineData].sort((a, b) => {
-      const rankWeightA = a.metrics.status === 'HIGH' ? 2 : (a.metrics.status === 'MEDIUM' ? 1 : 0);
-      const rankWeightB = b.metrics.status === 'HIGH' ? 2 : (b.metrics.status === 'MEDIUM' ? 1 : 0);
-      
-      if (rankWeightB !== rankWeightA) return rankWeightB - rankWeightA;
-      return b.metrics.finalConfidence - a.metrics.finalConfidence;
-    });
-  }, [rawPipelineData]);
-
-  // Cache configuration layers before drawers expand to keep user text views from shifting
-  useEffect(() => {
-    if (!activeTab && liveSortedProfiles.length > 0) {
-      setFrozenDisplayList(liveSortedProfiles);
-    }
-  }, [liveSortedProfiles, activeTab]);
-
-  // Isolated matrix display layer rules
-  const visualDisplayList = useMemo(() => {
-    if (activeTab && frozenDisplayList.length > 0) {
-      return frozenDisplayList;
-    }
-    if (liveSortedProfiles.length > 0) return liveSortedProfiles;
-
-    return STRATEGY_PROFILES.map(profile => ({
-      profile,
-      metrics: {
-        profileId: profile.id,
-        ticksLoaded: 0,
-        marketState: 'INSUFFICIENT_DATA',
-        direction: 'FLAT',
-        scannerScore: 0,
-        marketCompatibility: 0,
-        finalConfidence: 0,
-        status: 'LOW',
-        tierOverride: profile.tier
-      }
-    }));
-  }, [liveSortedProfiles, frozenDisplayList, activeTab]);
-
-  // Pulls global display indicators safely using fallback metrics
-  const globalSummary = useMemo(() => {
-    if (visualDisplayList && visualDisplayList.length > 0 && visualDisplayList[0]?.metrics) {
-      return visualDisplayList[0].metrics;
-    }
-    return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
-  }, [visualDisplayList]);
+// FloatingAI.tsx - PART 2 (B): Draggable Pink Sphere Core Widget Template
 
   // Render logic blocks dynamically targeting the toggle open switch states
   if (!isModalOpen) {
     if (!shouldDisplaySphere) return null;
     return (
       <>
-        {/* SCOPED INJECTED WIDGET STYLES */}
+        {/* SCOPED INJECTED WIDGET ANIMATIONS AND GLOW STYLES */}
         <style>{`
           .premium-ai-sphere-widget {
             position: fixed !important;
@@ -263,7 +162,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         <div
           ref={widgetNodeRef}
           className="premium-ai-sphere-widget"
-          style={{ left: `${spherePosition.x}px`, top: `${spherePosition.y}px` }}
+          style={{ left: spherePosition.x + "px", top: spherePosition.y + "px" }}
           onTouchStart={(e) => initiateDragTracking(e.touches[0].clientX, e.touches[0].clientY)}
           onTouchMove={(e) => executeDragMovement(e.touches[0].clientX, e.touches[0].clientY)}
           onTouchEnd={terminateDragTracking}
@@ -276,80 +175,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       </>
     );
   }
-// FloatingAI.tsx - PART 3: Operational Strategy Actions & Template Layout Render
-
-  // Load configuration settings isolated explicitly by profile ID into Blockly
-  const handleLoadBot = (targetDirection: string, frame: EvaluationFrame) => {
-    const strategyId = frame.profile.id;
-    
-    const currentSettings = customStrategySettings[strategyId] || { 
-      stake: (frame.profile.runtimeSettings?.defaultStake || 3.00).toString(), 
-      stopLoss: (frame.profile.runtimeSettings?.stopLossLimit || 4.00).toString(), 
-      takeProfit: (frame.profile.runtimeSettings?.takeProfitLimit || 8.00).toString() 
-    };
-
-    networkBridge.injectDataToBlockly({
-      direction: targetDirection,
-      stake: parseFloat(currentSettings.stake) || 3.00,
-      stopLoss: parseFloat(currentSettings.stopLoss) || 4.00,
-      takeProfit: parseFloat(currentSettings.takeProfit) || 8.00,
-      contractType: frame.profile.contractType,   
-      targetSymbol: frame.profile.targetSymbol    
-    });
-
-    if (typeof onCloseScanner === 'function') {
-      onCloseScanner();
-    }
-    setIsModalOpen(false); // Snap back to floating widget mode cleanly
-  };
-
-  const handleManualTelegramShare = (frame: EvaluationFrame) => {
-    if (!frame) return;
-    logicEngine.forceManualTelegramBroadcast(frame);
-    alert(`📢 Manual Broadcast Sent!\nPushed ${frame.profile.name} directly to your channel.`);
-  };
-
-  const updateSettingsValue = (strategyId: string, inputField: 'stake' | 'stopLoss' | 'takeProfit', val: string) => {
-    setCustomStrategySettings(prev => {
-      const freshMap = {
-        ...prev,
-        [strategyId]: {
-          ...(prev[strategyId] || { stake: '3.00', stopLoss: '4.00', takeProfit: '8.00' }),
-          [inputField]: val
-        }
-      };
-
-      const targetProfile = STRATEGY_PROFILES.find(p => p.id === strategyId);
-      if (targetProfile) {
-        if (!targetProfile.runtimeSettings) {
-          targetProfile.runtimeSettings = { defaultStake: 3.0, stopLossLimit: 4.0, takeProfitLimit: 8.0 };
-        }
-        if (inputField === 'stake') targetProfile.runtimeSettings.defaultStake = parseFloat(val) || 3.0;
-        if (inputField === 'stopLoss') targetProfile.runtimeSettings.stopLossLimit = parseFloat(val) || 4.0;
-        if (inputField === 'takeProfit') targetProfile.runtimeSettings.takeProfitLimit = parseFloat(val) || 8.0;
-      }
-
-      return freshMap;
-    });
-  };
-
-  const handleResetMetrics = () => {
-    setActiveTab(null);
-    setRawPipelineData([]);
-    setFrozenDisplayList([]);
-    
-    trackingSymbols.forEach(symbol => {
-      let basePrice = 845.20;
-      for (let i = 0; i < 115; i++) {
-        const noise = (Math.random() - 0.5) * 0.45;
-        basePrice += noise;
-        logicEngine.injectTick(symbol, basePrice);
-      }
-    });
-
-    const resetFrame = logicEngine.runScannerPipeline();
-    setRawPipelineData(resetFrame);
-  };
+// FloatingAI.tsx - PART 2 (C): Full-Screen Modal Containers & Header Highlights Banner
 
   return (
     <div className="ai-strategy-scanner">
@@ -364,10 +190,11 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         <div className="header-controls-block" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="profile-counter">30/30</span>
           <button 
+            type="button"
             className="scanner-close-x-btn"
             onClick={() => {
               if (typeof onCloseScanner === 'function') onCloseScanner();
-              setIsModalOpen(false); // Closes modal interface securely
+              setIsModalOpen(false); // Snap back to floating pink widget mode cleanly
             }}
           >
             ✕
@@ -389,7 +216,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
-// FloatingAI.tsx - PART 4: Strategy Scroll-List Mapping & Expandable Parameters Panel
+
 
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
@@ -398,7 +225,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           const assetDisplayLabel = item.profile.targetSymbol.replace('R_', 'Volatility ');
           const contractDisplayLabel = item.profile.contractType.replace(/_/g, ' ');
 
-          // Fallback settings metrics update natively from profile definitions
+          // Dynamic structural fallback pulling directly from strategy configuration records
           const rowSettings = customStrategySettings[item.profile.id] || { 
             stake: (item.profile.runtimeSettings?.defaultStake || 3.00).toString(), 
             stopLoss: (item.profile.runtimeSettings?.stopLossLimit || 4.00).toString(), 
@@ -406,26 +233,26 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           };
 
           return (
-            <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
+            <div key={item.profile.id} className={"strategy-card-node " + (isExpanded ? 'card-node--frozen' : '')}>
               <div className="card-summary" onClick={() => setActiveTab(isExpanded ? null : item.profile.id)}>
                 <div className="rank-badge">#{index + 1}</div>
                 <div className="meta-details">
                   <h4>{item.profile.name}</h4>
-                  <div className="strategy-tags-row" style={{ display: 'flex', gap: '6px', margin: '4px 0', flexWrap: 'wrap' }}>
-                    <span className={`asset-tag symbol-${item.profile.targetSymbol.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#2a3243', color: '#00e676', fontWeight: 'bold' }}>
+                  <div className="strategy-tags-row">
+                    <span className={"asset-tag symbol-" + item.profile.targetSymbol.toLowerCase()}>
                       {assetDisplayLabel}
                     </span>
-                    <span className="contract-tag" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#374151', color: '#e0e0e0' }}>
+                    <span className="contract-tag">
                       {contractDisplayLabel}
                     </span>
-                    <span className="engine-tag" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#1f2937', color: '#ffb300', fontStyle: 'italic' }}>
+                    <span className="engine-tag">
                       {item.profile.coreEngine}
                     </span>
                   </div>
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
                 <div className="badge-column">
-                  <span className={`tier-badge ${currentStatus.toLowerCase()}`}>{currentStatus}</span>
+                  <span className={"tier-badge " + currentStatus.toLowerCase()}>{currentStatus}</span>
                 </div>
                 <div className="arrow-toggle">{isExpanded ? '▲' : '▼'}</div>
               </div>
@@ -481,7 +308,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     </div>
                   </div>
 
-                  <div className="action-buttons-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                  <div className="action-buttons-wrapper">
                     <button className="inner-drawer-load-btn" onClick={() => handleLoadBot(item.metrics.direction, item)}>
                       📥 Load Strategy Parameters
                     </button>
