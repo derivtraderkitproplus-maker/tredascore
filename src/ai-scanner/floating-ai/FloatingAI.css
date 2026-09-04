@@ -446,3 +446,17 @@
   padding: 0 !important;
   margin: 0 !important;
 }
+/* FloatingAI.css - Automated Trigger Button Hider Layer */
+
+/* If the dashboard analytics text block mounts onto the screen DOM, forcefully drop the trigger button visibility */
+body:has(:contains("Contracts lost")) button[class*="scanner"],
+body:has(:contains("Total stake")) button:contains("AI Scanner"),
+body:has(:contains("Total stake")) [class*="scanner-btn"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  padding: 0 !important;
+}
