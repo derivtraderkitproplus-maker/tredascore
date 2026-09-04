@@ -1,4 +1,4 @@
-// scannerBridge.ts - PART 1: Core Definitions, Network Pipes & Live Profit Watcher
+// scannerBridge.ts - PART 1: Automated Script-Level Circuit Breaker
 
 export type TickCallback = (symbol: string, tick: number) => void;
 
@@ -17,7 +17,6 @@ export class DerivScannerBridge {
   private activeSymbols: string[] = [];
   private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
   
-  // High-frequency tracker memories to ensure performance notifications trigger only once per session
   private isPerformanceWatcherActive: boolean = false;
   private monitoredStopLoss: number = 0;
   private monitoredTakeProfit: number = 0;
@@ -53,7 +52,6 @@ export class DerivScannerBridge {
 
   public initPipeline(symbols: string[], onTick: TickCallback): void {
     this.closePipeline();
-
     this.onTickCallback = onTick;
     this.activeSymbols = symbols;
     this.extractSystemSocket();
@@ -86,55 +84,61 @@ export class DerivScannerBridge {
   }
 
   /**
-   * ADDED NEW: REAL-TIME TERMINATION AND PERFORMANCE ALERT WATCHER
-   * Hooks into the global workspace layout mutations to intercept when the execution runs end.
+   * AUTOMATED PERFORMANCE WATCHER & AUTO-STOP TRIGGER
+   * Tracks total profit/loss strings on screen and forcefully triggers the UI "Stop" button.
    */
   private initializeAutomatedPerformanceWatcher(): void {
     if (this.isPerformanceWatcherActive) return;
     this.isPerformanceWatcherActive = true;
 
-    console.log("🛡️ [PERFORMANCE OBSERVER] Risk mitigation surveillance listener running...");
-
     const evaluateSessionMetrics = () => {
       const globalTextContent = document.body.innerText;
       
-      // Catches the exact moment the active position terminal transitions into a stopped state
-      const isBotStopped = globalTextContent.includes('Bot is not running');
-      const hasSessionHistory = globalTextContent.includes('Total profit/loss');
+      // Look for the "Total profit/loss" label on your dashboard panel
+      const profitLossMatch = globalTextContent.match(/Total profit\/loss\s+(-?[\d.]+)/i);
+      
+      if (profitLossMatch && profitLossMatch[1]) {
+        const sessionNetBalance = parseFloat(profitLossMatch[1]);
 
-      if (isBotStopped && hasSessionHistory) {
-        // Scrapes your exact screen analytics matrix numbers cleanly via regex patterns
-        const profitLossMatch = globalTextContent.match(/Total profit\/loss\s+(-?[\d.]+)/i);
-        
-        if (profitLossMatch && profitLossMatch[1]) {
-          const sessionNetBalance = parseFloat(profitLossMatch[1]);
+        if (sessionNetBalance !== 0) {
+          let shouldTriggerStop = false;
+          let alertMessage = "";
 
-          // Verify metrics limits exist and prevent alert flooding by validating thresholds
-          if (sessionNetBalance !== 0) {
+          // Check if Take Profit limit is reached
+          if (this.monitoredTakeProfit > 0 && sessionNetBalance >= this.monitoredTakeProfit) {
+            shouldTriggerStop = true;
+            alertMessage = `🎉 [TAKE PROFIT ACHIEVED]\n\n🏆 Target Smashed!\n💰 Profit: +$${sessionNetBalance.toFixed(2)}\n🎯 Target: +$${this.monitoredTakeProfit.toFixed(2)}`;
+          } 
+          
+          // Check if Stop Loss limit is reached
+          else if (this.monitoredStopLoss > 0 && sessionNetBalance <= -Math.abs(this.monitoredStopLoss)) {
+            shouldTriggerStop = true;
+            alertMessage = `⚠ [STOP LOSS TRIGGERED]\n\n🛑 Drawdown Limit Reached!\n📉 Loss: -$${Math.abs(sessionNetBalance).toFixed(2)}\n🛡 Max Allowed: -$${Math.abs(this.monitoredStopLoss).toFixed(2)}`;
+          }
+
+          if (shouldTriggerStop) {
+            // FIXED: Find and physically click the blue "Stop" button on your screen automatically
+            const allButtons = Array.from(document.querySelectorAll('button'));
+            const stopButton = allButtons.find(btn => btn.innerText.trim().toLowerCase() === 'stop' || btn.textContent?.includes('Stop'));
             
-            // A. TAKE PROFIT TARGET HIT CELEBRATION DISPATCHER
-            if (this.monitoredTakeProfit > 0 && sessionNetBalance >= this.monitoredTakeProfit) {
-              alert(`🎉 [TAKE PROFIT TARGET ACHIEVED]\n\n🏆 Performance Target Smashed!\n💰 Session Net Growth: +$${sessionNetBalance.toFixed(2)}\n🎯 Target Limit Ceiling: +$${this.monitoredTakeProfit.toFixed(2)}\n\nTrading loop terminated safely to secure returns.`);
-              this.monitoredTakeProfit = 0; // Clear bounds states to preserve tracking balances
-              this.monitoredStopLoss = 0;
-            } 
-            
-            // B. STOP LOSS MAX EXPOSURE PROTECTION DISPATCHER
-            else if (this.monitoredStopLoss > 0 && sessionNetBalance <= -Math.abs(this.monitoredStopLoss)) {
-              alert(`⚠ [STOP LOSS EXPOSURE LIMIT TRIGGERED]\n\n🛑 Risk Drawdown Threshold Breach!\n📉 Session Net Balance: -$${Math.abs(sessionNetBalance).toFixed(2)}\n🛡 Max Permitted Slip: -$${Math.abs(this.monitoredStopLoss).toFixed(2)}\n\nCircuit breaker deployed. Capital protected successfully.`);
-              this.monitoredTakeProfit = 0; // Clear bounds states to preserve tracking balances
-              this.monitoredStopLoss = 0;
+            if (stopButton) {
+              (stopButton as HTMLButtonElement).click(); // Press the stop button instantly
+              alert(`${alertMessage}\n\n🛑 Bot halted automatically to secure your account.`);
             }
+
+            // Reset monitoring states until the next scan injection
+            this.monitoredTakeProfit = 0;
+            this.monitoredStopLoss = 0;
           }
         }
       }
     };
 
-    // Instantiate high-frequency DOM observation filters to catch metrics mutations instantly
+    // Keep checking the page layout continuously for updates
     const metricsObserver = new MutationObserver(evaluateSessionMetrics);
     metricsObserver.observe(document.body, { childList: true, subtree: true });
   }
-// scannerBridge.ts - PART 2: Verified Parameters Injector Engine (With Core Variable ID Fixes)
+// scannerBridge.ts - PART 2: Parameter Seeding Layer & Core Injections
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
@@ -146,7 +150,7 @@ export class DerivScannerBridge {
     }
 
     try {
-      // Seed target parameters into background memory to fuel performance notifications
+      // Seed target values directly into the script monitor to trigger the button click rules automatically
       this.monitoredStopLoss = parseFloat(params.stopLoss as any) || 0;
       this.monitoredTakeProfit = parseFloat(params.takeProfit as any) || 0;
 
@@ -154,7 +158,7 @@ export class DerivScannerBridge {
       let blockInjectionCounter = 0;
 
       allBlocks.forEach((block: any) => {
-        // 1. VERIFIED ORIGINAL WORKING FIXED ASSET INJECTION
+        // 1. YOUR VERIFIED WORKING FIXED ASSET INJECTION
         if (block.type === 'trade_definition_market') {
           const symbolField = block.getField('SYMBOL_LIST');
           if (symbolField) {
@@ -170,7 +174,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 2. VERIFIED ORIGINAL WORKING DYNAMIC CONTRACT TYPE MAPPING LAYER
+        // 2. YOUR VERIFIED ORIGINAL WORKING DYNAMIC CONTRACT TYPE MAPPING LAYER
         if (block.type === 'trade_definition_contracttype') {
           const contractTypeField = block.getField('CONTRACT_TYPE_LIST');
           if (contractTypeField) {
@@ -186,7 +190,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 3. VERIFIED ORIGINAL WORKING PURCHASE CALL / PUT ORDER SIGNALS
+        // 3. YOUR VERIFIED ORIGINAL WORKING PURCHASE CALL / PUT ORDER SIGNALS
         if (block.type === 'purchase') {
           const purchaseField = block.getField('PURCHASE_LIST');
           if (purchaseField) {
@@ -202,7 +206,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 4. VERIFIED ORIGINAL WORKING DURATIONS & STAKE RE-WRITER
+        // 4. YOUR VERIFIED ORIGINAL WORKING DURATIONS & STAKE RE-WRITER
         if (block.type === 'trade_definition_tradeoptions') {
           const durationField = block.getField('DURATION');
           if (durationField) {
@@ -222,40 +226,34 @@ export class DerivScannerBridge {
           }
         }
 
-        // 5. EXTENDED VARIABLE MAPPING LAYER (Original Stake updates + new dynamic Variable ID bindings)
+        // 5. AUTO-FALLBACK VARIABLE SETTINGS MATCHERS
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
             const variableName = fieldVar.getText();
-            const normalizedVar = variableName.toLowerCase().trim();
             const valueInput = block.getInput('VALUE');
             
-            // Query the central database object grid to fetch the true workspace model ID reference
-            const targetWorkspaceVarModel = workspace.getVariable(variableName);
-            
-            if (targetWorkspaceVarModel && valueInput && valueInput.connection) {
+            if (valueInput && valueInput.connection) {
               const targetBlock = valueInput.connection.targetBlock();
               if (targetBlock) {
                 const numField = targetBlock.getField('NUM');
                 if (numField) {
+                  const normalizedVar = variableName.toLowerCase().trim();
                   
-                  // STAKE FIELD CONTROLS (Your original working logic)
+                  // STAKE VARIANT TRACKING RE-WRITES
                   if (normalizedVar === 'maxstake' || normalizedVar.includes('stake') || normalizedVar === 'initialstake' || normalizedVar === 'defaultstake') {
-                    block.setFieldValue(targetWorkspaceVarModel.getId(), 'VAR'); // Lock in true reference tracking hash
                     numField.setValue(Number(params.stake).toFixed(2));
                     blockInjectionCounter++;
                   }
                   
-                  // STOP LOSS CONTROLS (Binds your custom input to matching variables securely via IDs)
+                  // STOP LOSS VARIANT RE-WRITES
                   else if (normalizedVar.includes('loss') || normalizedVar.includes('threshold') || normalizedVar.includes('stop') || normalizedVar === 'sl') {
-                    block.setFieldValue(targetWorkspaceVarModel.getId(), 'VAR'); // Lock in true reference tracking hash
                     numField.setValue(Number(params.stopLoss).toFixed(2));
                     blockInjectionCounter++;
                   }
                   
-                  // TAKE PROFIT CONTROLS (Binds your custom input to matching variables securely via IDs)
+                  // TAKE PROFIT VARIANT RE-WRITES
                   else if (normalizedVar.includes('profit') || normalizedVar.includes('target') || normalizedVar.includes('take') || normalizedVar === 'tp') {
-                    block.setFieldValue(targetWorkspaceVarModel.getId(), 'VAR'); // Lock in true reference tracking hash
                     numField.setValue(Number(params.takeProfit).toFixed(2));
                     blockInjectionCounter++;
                   }
@@ -270,9 +268,9 @@ export class DerivScannerBridge {
         workspace.render();
       }
 
-      // Action validation confirmation pop-up banner
+      // Operational injection confirmation panel
       if (blockInjectionCounter > 0) {
-        alert(`✅ Strategy Configuration Loaded!\n\n• Asset Pool: ${params.targetSymbol.replace('R_', 'Volatility ')}\n• Active Stake: $${Number(params.stake).toFixed(2)}\n• Stop Loss: $${Number(params.stopLoss).toFixed(2)}\n• Take Profit: $${Number(params.takeProfit).toFixed(2)}`);
+        alert(`✅ Parameters Synchronized Successfully!\n\n• Asset Pool: ${params.targetSymbol.replace('R_', 'Volatility ')}\n• Active Stake: $${Number(params.stake).toFixed(2)}\n• Stop Loss: $${Number(params.stopLoss).toFixed(2)}\n• Take Profit: $${Number(params.takeProfit).toFixed(2)}`);
       } else {
         console.warn("Blockly Injection alert: Parsed structural workspace blocks without matching parameter selectors.");
       }
