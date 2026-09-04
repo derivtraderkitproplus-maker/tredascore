@@ -136,7 +136,7 @@ export class DerivScannerBridge {
       console.warn("Web Audio Context not permitted or fully initialized yet:", error);
     }
   }
-// scannerBridge.ts - PART 4: Premium UI Overlay (tredascore.pro Branding & Auto-Builder Tab Redirect)
+// scannerBridge.ts - PART 4 (A): Branded UI Overlay Card Template (tredascore.pro)
 
   /**
    * INJECTS A HIGH-END CUSTOM UI MODAL DIALOG CONTAINER DIRECTLY INTO THE INTERFACE DOM
@@ -149,6 +149,7 @@ export class DerivScannerBridge {
     const primaryColor = isProfit ? '#2ed479' : '#ff4a62';
     const glowColor = isProfit ? 'rgba(46, 212, 121, 0.2)' : 'rgba(255, 74, 98, 0.2)';
     
+    // Play the premium synchronized synthesized note trigger
     this.playPremiumSynthesizerChime(isProfit ? 'SUCCESS_RISE' : 'ALERT_ECHO');
 
     const backdrop = document.createElement('div');
@@ -170,7 +171,7 @@ export class DerivScannerBridge {
 
     const textContent = document.body.innerText;
     const totalRunsMatch = textContent.match(/No\.\s+of\s+runs\s+(\d+)/i);
-    const activeRunsCount = totalRunsMatch ? totalRunsMatch[1] : '14';
+    const activeRunsCount = totalRunsMatch ? totalRunsMatch[1] : '8';
 
     card.innerHTML = `
       <div style="color: #6c718c; font-size: 10px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;">
@@ -218,6 +219,7 @@ export class DerivScannerBridge {
 
     backdrop.appendChild(card);
     document.body.appendChild(backdrop);
+// scannerBridge.ts - PART 4 (B): Premium Dismiss Listener & Precision Tab Router Redirect
 
     setTimeout(() => { backdrop.style.opacity = '1'; card.style.transform = 'scale(1)'; }, 10);
 
@@ -227,12 +229,40 @@ export class DerivScannerBridge {
       setTimeout(() => {
         backdrop.remove();
         
-        const allDashboardTabs = Array.from(document.querySelectorAll('div, span, li, a, p, button'));
-        const botBuilderTab = allDashboardTabs.find(tab => tab.textContent?.trim() === 'Bot Builder');
+        // STRENGTHENED TAB ROUTER ROUTING PARSER
+        const tabSelectors = [
+          '#id-bot-builder', 
+          '.dbot-tab__bot-builder',
+          '[data-testid="dt_bot_builder_tab"]',
+          '#db-animation__bot-builder'
+        ];
         
-        if (botBuilderTab) {
-          (botBuilderTab as HTMLElement).click(); 
-          console.log("🎯 [TAB ROUTER] Redirected layout tab focus back onto the active Blockly workspace builder.");
+        let foundTabElement: HTMLElement | null = null;
+        
+        for (const selector of tabSelectors) {
+          const el = document.querySelector(selector);
+          if (el) {
+            foundTabElement = el as HTMLElement;
+            break;
+          }
+        }
+        
+        if (!foundTabElement) {
+          const elementsList = Array.from(document.querySelectorAll('div, span, li, a, p, button, slot'));
+          foundTabElement = elementsList.find(el => {
+            const labelText = el.textContent?.trim() || "";
+            return labelText === 'Bot Builder' || el.classList.contains('bot-builder-tab-active-trigger');
+          }) as HTMLElement || null;
+        }
+        
+        if (foundTabElement) {
+          foundTabElement.click();
+          console.log("🎯 [TAB ROUTER] Redirect successfully fired onto main builder dashboard container row.");
+        } else {
+          const globalWin = window as any;
+          if (globalWin.DerivBotApp?.routeTo) {
+            globalWin.DerivBotApp.routeTo('bot-builder');
+          }
         }
       }, 250);
     };
@@ -240,22 +270,24 @@ export class DerivScannerBridge {
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) dismissModal(); });
     card.querySelector('#close-breaker-modal-btn')?.addEventListener('click', dismissModal);
   }
-// scannerBridge.ts - PART 5: Universal Tab Balance Observer & Circuit Breaker Engine
+// scannerBridge.ts - PART 5 (A): Universal Tab Balance Observer & Native Engine Circuit Breaker
 
   /**
-   * AUTOMATED PERFORMANCE WATCHER & DYNAMIC MARTINGALE ENGINE
-   * Tracks total profit/loss on ALL dashboard tabs seamlessly by scraping Payout vs Stake totals natively.
+   * HIGH-PERFORMANCE SCREEN SCRAPER CIRCUIT BREAKER
+   * Works on ALL tabs by tracking Payout vs Stake numbers and bypassing UI button element names completely.
    */
   private initializeAutomatedPerformanceWatcher(): void {
     if (this.isPerformanceWatcherActive) return;
     this.isPerformanceWatcherActive = true;
+
+    console.log("🛡️ [CIRCUIT BREAKER] Absolute tab surveillance active...");
 
     const evaluateSessionMetrics = () => {
       const globalTextContent = document.body.innerText;
       let sessionNetBalance = 0;
       let hasMetrics = false;
 
-      // UNIVERSAL TAB BALANCE SCRAPER (Works natively on Summary, Transactions, and Journal tabs)
+      // UNIVERSAL BALANCE CALCULATOR (Works perfectly on Transactions & Summary tabs)
       const stakeMatch = globalTextContent.match(/Total stake\s+([\d.]+)/i);
       const payoutMatch = globalTextContent.match(/Total payout\s+([\d.]+)/i);
 
@@ -271,17 +303,16 @@ export class DerivScannerBridge {
           hasMetrics = true;
         }
       }
-      
-      // MONITOR WIN/LOSS TRANSITIONS TO CALCULATE THE NEXT MARTINGALE STEP ON THE FLY
+
+      // MARTINGALE EXECUTOR ENGINE LOOP
       const contractsLostMatch = globalTextContent.match(/Contracts lost\s+(\d+)/i);
       if (contractsLostMatch) {
         const structuralLossCount = parseInt(contractsLostMatch[1]) || 0;
-        
         if (structuralLossCount > this.consecutiveLossesCount) {
           this.consecutiveLossesCount = structuralLossCount;
           if (this.consecutiveLossesCount <= this.maximumRecoveryStepsAllowed) {
             const calculatedNextRecoveryStake = this.baseStake * Math.pow(this.currentMartingaleMultiplier, this.consecutiveLossesCount);
-            console.log(`📈 [MARTINGALE MULTIPLIER] Next dynamic stake computed: $${calculatedNextRecoveryStake.toFixed(2)}`);
+            console.log(`📈 [MARTINGALE MULTIPLIER] Next stake calculated: $${calculatedNextRecoveryStake.toFixed(2)}`);
           }
         }
       }
@@ -303,27 +334,48 @@ export class DerivScannerBridge {
         }
 
         if (shouldTriggerStop) {
-          // BULLETPROOF POSITION HALTING ACTION SELECTOR (Scans native DOM layouts for the active Stop option)
-          const allElements = Array.from(document.querySelectorAll('button, div, span, .bot-control-btn'));
-          const stopButton = allElements.find(el => {
-            const text = el.textContent?.trim() || "";
-            return text === 'Stop' || text === 'STOP' || text.includes('Stop') || el.classList.contains('btn-stop');
-          });
-          
-          if (stopButton) {
-            (stopButton as HTMLElement).click(); 
-            this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
-          } else {
-            const globalWin = window as any;
-            if (globalWin.Blockly?.derivWorkspace?.stopBot) {
-              globalWin.Blockly.derivWorkspace.stopBot();
-              this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
+          console.log(`🚨 [BREACH DETECTED] Net: $${sessionNetBalance.toFixed(2)}. Deploying circuit breaker...`);
+
+          const globalWin = window as any;
+          let engineStopped = false;
+
+          // METHOD A: DIRECT NATIVE TRADING ENGINE OVERRIDE TERMINATOR
+          // Tells the core background runner software to freeze natively, ignoring visual buttons completely
+          try {
+            const dbotCore = globalWin.derivRunner || globalWin.DBot || globalWin.Blockly?.derivWorkspace;
+            if (dbotCore && typeof dbotCore.stopBot === 'function') {
+              dbotCore.stopBot();
+              engineStopped = true;
+              console.log("🎯 [CIRCUIT BREAKER] Halted natively via global platform API context.");
+            } else if (globalWin.interpreter && globalWin.interpreter.stop) {
+              globalWin.interpreter.stop();
+              engineStopped = true;
+            }
+          } catch (e) {
+            console.error("Direct engine stop failed, falling back to UI click...", e);
+          }
+
+          // METHOD B: HARD CLASS LOOKUP FALLBACK (If engine core context is protected)
+          if (!engineStopped) {
+            const trueStopButtons = Array.from(document.querySelectorAll('button.dc-btn--danger, button.btn-stop, .bot-builder-stop-btn, button'));
+            const actualButton = trueStopButtons.find(btn => {
+              const text = btn.textContent?.trim() || "";
+              return text === 'Stop' || text === 'STOP' || btn.classList.contains('dc-btn--danger');
+            });
+
+            if (actualButton) {
+              (actualButton as HTMLElement).click();
+              console.log("🎯 [CIRCUIT BREAKER] Physical class button clicked successfully.");
             }
           }
 
+          // Injects the custom branded overlay modal instantly
+          this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
+
+          // Lock boundaries until next strategic parameter injection sequence
           this.monitoredTakeProfit = 0;
           this.monitoredStopLoss = 0;
-          this.consecutiveLossesCount = 0; 
+          this.consecutiveLossesCount = 0;
         }
       }
     };
@@ -331,132 +383,3 @@ export class DerivScannerBridge {
     const metricsObserver = new MutationObserver(evaluateSessionMetrics);
     metricsObserver.observe(document.body, { childList: true, subtree: true });
   }
-// scannerBridge.ts - PART 6: Block Parameter Mapping & Automated Injector Core
-
-  public injectDataToBlockly(params: BotParameters): void {
-    const globalWin = window as any;
-    const workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
-    
-    if (!workspace) {
-      alert("⚠️ Blockly canvas loading. Please make sure the Bot Builder tab is fully active.");
-      return;
-    }
-
-    try {
-      this.monitoredStopLoss = parseFloat(params.stopLoss as any) || 0;
-      this.monitoredTakeProfit = parseFloat(params.takeProfit as any) || 0;
-      this.baseStake = parseFloat(params.stake as any) || 3.00;
-
-      const allBlocks = workspace.getAllBlocks(false);
-      let blockInjectionCounter = 0;
-
-      allBlocks.forEach((block: any) => {
-        if (block.type === 'trade_definition_market') {
-          const symbolField = block.getField('SYMBOL_LIST');
-          if (symbolField) {
-            let systemSymbol = params.targetSymbol.toUpperCase().trim();
-            if (systemSymbol === 'R_10') systemSymbol = '1HZ10V';
-            if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
-            if (systemSymbol === 'R_50') systemSymbol = '1HZ50V';
-            if (systemSymbol === 'R_75') systemSymbol = '1HZ75V';
-            if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
-            
-            symbolField.setValue(systemSymbol);
-            blockInjectionCounter++;
-          }
-        }
-
-        if (block.type === 'trade_definition_contracttype') {
-          const contractTypeField = block.getField('CONTRACT_TYPE_LIST');
-          if (contractTypeField) {
-            let mappedValue = 'both'; 
-            const normalizedType = params.contractType.toUpperCase().trim();
-            if (normalizedType === 'RISE_FALL') mappedValue = 'risefall';
-            if (normalizedType === 'OVER_UNDER') mappedValue = 'digits';
-            if (normalizedType === 'TOUCH_NO_TOUCH') mappedValue = 'touchnotouch';
-            if (normalizedType === 'ACCUMULATOR') mappedValue = 'accumulator';
-            
-            contractTypeField.setValue(mappedValue);
-            blockInjectionCounter++;
-          }
-        }
-
-        if (block.type === 'purchase') {
-          const purchaseField = block.getField('PURCHASE_LIST');
-          if (purchaseField) {
-            const normalizedType = params.contractType.toUpperCase().trim();
-            if (normalizedType === 'OVER_UNDER') {
-              purchaseField.setValue('DIGITUNDER'); 
-            } else if (normalizedType === 'TOUCH_NO_TOUCH') {
-              purchaseField.setValue('ONETOUCH');
-            } else {
-              purchaseField.setValue(params.direction.toUpperCase() === 'UP' ? 'CALL' : 'PUT');
-            }
-            blockInjectionCounter++;
-          }
-        }
-
-        if (block.type === 'trade_definition_tradeoptions') {
-          const durationField = block.getField('DURATION');
-          if (durationField) {
-            durationField.setValue("1"); 
-          }
-          
-          const amountInput = block.getInput('AMOUNT');
-          if (amountInput && amountInput.connection) {
-            const targetBlock = amountInput.connection.targetBlock();
-            if (targetBlock) {
-              const numField = targetBlock.getField('NUM');
-              if (numField) {
-                numField.setValue(Number(params.stake).toFixed(2));
-                blockInjectionCounter++;
-              }
-            }
-          }
-        }
-
-        if (block.type === 'variables_set') {
-          const fieldVar = block.getField('VAR');
-          if (fieldVar) {
-            const variableName = fieldVar.getText();
-            const valueInput = block.getInput('VALUE');
-            
-            if (valueInput && valueInput.connection) {
-              const targetBlock = valueInput.connection.targetBlock();
-              if (targetBlock) {
-                const numField = targetBlock.getField('NUM');
-                if (numField) {
-                  const normalizedVar = variableName.toLowerCase().trim();
-                  
-                  if (normalizedVar === 'maxstake' || normalizedVar.includes('stake') || normalizedVar === 'initialstake' || normalizedVar === 'defaultstake') {
-                    numField.setValue(Number(params.stake).toFixed(2));
-                    blockInjectionCounter++;
-                  }
-                  else if (normalizedVar.includes('loss') || normalizedVar.includes('threshold') || normalizedVar.includes('stop') || normalizedVar === 'sl') {
-                    numField.setValue(Number(params.stopLoss).toFixed(2));
-                    blockInjectionCounter++;
-                  }
-                  else if (normalizedVar.includes('profit') || normalizedVar.includes('target') || normalizedVar.includes('take') || normalizedVar === 'tp') {
-                    numField.setValue(Number(params.takeProfit).toFixed(2));
-                    blockInjectionCounter++;
-                  }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      if (workspace && typeof workspace.render === 'function') {
-        workspace.render();
-      }
-
-      if (blockInjectionCounter > 0) {
-        console.log(`[TREDASCORE SYSTEM SYNC] Variables seeded: Stake $${params.stake}, SL $${params.stopLoss}, TP $${params.takeProfit}`);
-      }
-
-    } catch (err) {
-      console.error("Blockly Input Mapping Failure:", err);
-    }
-  }
-}
