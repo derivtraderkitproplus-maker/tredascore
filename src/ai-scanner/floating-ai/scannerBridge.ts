@@ -1,4 +1,4 @@
-// scannerBridge.ts - PART 1: Core Definitions & State Registries
+// scannerBridge.ts - PART 1: Module Initializers & Core Variables Map
 
 export type TickCallback = (symbol: string, tick: number) => void;
 
@@ -17,12 +17,12 @@ export class DerivScannerBridge {
   private activeSymbols: string[] = [];
   private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
   
-  // Real-time circuit breaker tracking states
+  // High-frequency automated circuit breaker memory registers
   private isPerformanceWatcherActive: boolean = false;
   private monitoredStopLoss: number = 0;
   private monitoredTakeProfit: number = 0;
 
-  // DYNAMIC RISK COMPOUNDING MEMORY MATRIX
+  // DYNAMIC RISK COMPOUNDING MEMORY LAYER
   private baseStake: number = 3.00;
   private currentMartingaleMultiplier: number = 2.0; 
   private consecutiveLossesCount: number = 0;
@@ -142,7 +142,6 @@ export class DerivScannerBridge {
    * INJECTS A HIGH-END CUSTOM UI MODAL DIALOG CONTAINER DIRECTLY INTO THE INTERFACE DOM
    */
   private triggerTopTierAlertOverlay(type: 'PROFIT' | 'LOSS', balance: number, limit: number): void {
-    // Prevent duplicate modals from rendering concurrently
     const existingModal = document.getElementById('treda-circuit-breaker-modal');
     if (existingModal) existingModal.remove();
 
@@ -150,7 +149,6 @@ export class DerivScannerBridge {
     const primaryColor = isProfit ? '#2ed479' : '#ff4a62';
     const glowColor = isProfit ? 'rgba(46, 212, 121, 0.2)' : 'rgba(255, 74, 98, 0.2)';
     
-    // Play the premium synchronized synthesized note trigger
     this.playPremiumSynthesizerChime(isProfit ? 'SUCCESS_RISE' : 'ALERT_ECHO');
 
     const backdrop = document.createElement('div');
@@ -170,7 +168,6 @@ export class DerivScannerBridge {
       transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)', fontFamily: '-apple-system, sans-serif'
     });
 
-    // Dynamically query runs counter to show total session speed variables
     const textContent = document.body.innerText;
     const totalRunsMatch = textContent.match(/No\.\s+of\s+runs\s+(\d+)/i);
     const activeRunsCount = totalRunsMatch ? totalRunsMatch[1] : '14';
@@ -227,7 +224,6 @@ export class DerivScannerBridge {
     const dismissModal = () => {
       backdrop.style.opacity = '0'; card.style.transform = 'scale(0.9)';
       
-      // FIXED AUTOMATED AUTO-REDIRECT TAB SWITCHER 
       setTimeout(() => {
         backdrop.remove();
         
@@ -235,7 +231,7 @@ export class DerivScannerBridge {
         const botBuilderTab = allDashboardTabs.find(tab => tab.textContent?.trim() === 'Bot Builder');
         
         if (botBuilderTab) {
-          (botBuilderTab as HTMLElement).click(); // Clicks tab instantly to focus builder workspace grid views
+          (botBuilderTab as HTMLElement).click(); 
           console.log("🎯 [TAB ROUTER] Redirected layout tab focus back onto the active Blockly workspace builder.");
         }
       }, 250);
@@ -244,10 +240,11 @@ export class DerivScannerBridge {
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) dismissModal(); });
     card.querySelector('#close-breaker-modal-btn')?.addEventListener('click', dismissModal);
   }
-// scannerBridge.ts - PART 5: High-Frequency Mutation Watcher, Bulletproof Button Target Selectors & Variable Injectors
+// scannerBridge.ts - PART 5: Universal Tab Balance Observer & Circuit Breaker Engine
 
   /**
    * AUTOMATED PERFORMANCE WATCHER & DYNAMIC MARTINGALE ENGINE
+   * Tracks total profit/loss on ALL dashboard tabs seamlessly by scraping Payout vs Stake totals natively.
    */
   private initializeAutomatedPerformanceWatcher(): void {
     if (this.isPerformanceWatcherActive) return;
@@ -255,7 +252,25 @@ export class DerivScannerBridge {
 
     const evaluateSessionMetrics = () => {
       const globalTextContent = document.body.innerText;
-      const profitLossMatch = globalTextContent.match(/Total profit\/loss\s+(-?[\d.]+)/i);
+      let sessionNetBalance = 0;
+      let hasMetrics = false;
+
+      // UNIVERSAL TAB BALANCE SCRAPER (Works natively on Summary, Transactions, and Journal tabs)
+      const stakeMatch = globalTextContent.match(/Total stake\s+([\d.]+)/i);
+      const payoutMatch = globalTextContent.match(/Total payout\s+([\d.]+)/i);
+
+      if (stakeMatch && payoutMatch) {
+        const totalStake = parseFloat(stakeMatch[1]);
+        const totalPayout = parseFloat(payoutMatch[1]);
+        sessionNetBalance = totalPayout - totalStake; 
+        hasMetrics = true;
+      } else {
+        const combinedMatch = globalTextContent.match(/Total profit\/loss\s+(-?[\d.]+)/i);
+        if (combinedMatch) {
+          sessionNetBalance = parseFloat(combinedMatch[1]);
+          hasMetrics = true;
+        }
+      }
       
       // MONITOR WIN/LOSS TRANSITIONS TO CALCULATE THE NEXT MARTINGALE STEP ON THE FLY
       const contractsLostMatch = globalTextContent.match(/Contracts lost\s+(\d+)/i);
@@ -271,51 +286,44 @@ export class DerivScannerBridge {
         }
       }
 
-      if (profitLossMatch && profitLossMatch[1]) {
-        const sessionNetBalance = parseFloat(profitLossMatch[1]);
+      if (hasMetrics && sessionNetBalance !== 0) {
+        let shouldTriggerStop = false;
+        let breakerType: 'PROFIT' | 'LOSS' = 'PROFIT';
+        let activeLimit = 0;
 
-        if (sessionNetBalance !== 0) {
-          let shouldTriggerStop = false;
-          let breakerType: 'PROFIT' | 'LOSS' = 'PROFIT';
-          let activeLimit = 0;
+        if (this.monitoredTakeProfit > 0 && sessionNetBalance >= this.monitoredTakeProfit) {
+          shouldTriggerStop = true;
+          breakerType = 'PROFIT';
+          activeLimit = this.monitoredTakeProfit;
+        } 
+        else if (this.monitoredStopLoss > 0 && sessionNetBalance <= -Math.abs(this.monitoredStopLoss)) {
+          shouldTriggerStop = true;
+          breakerType = 'LOSS';
+          activeLimit = this.monitoredStopLoss;
+        }
 
-          if (this.monitoredTakeProfit > 0 && sessionNetBalance >= this.monitoredTakeProfit) {
-            shouldTriggerStop = true;
-            breakerType = 'PROFIT';
-            activeLimit = this.monitoredTakeProfit;
-          } 
-          else if (this.monitoredStopLoss > 0 && sessionNetBalance <= -Math.abs(this.monitoredStopLoss)) {
-            shouldTriggerStop = true;
-            breakerType = 'LOSS';
-            activeLimit = this.monitoredStopLoss;
-          }
-
-          if (shouldTriggerStop) {
-            // BULLETPROOF POSITION HALTING ACTION SELECTOR
-            // Extends lookup matrices across multiple native tag variants to secure the "Stop" button hook
-            const allElements = Array.from(document.querySelectorAll('button, div, span, .bot-control-btn'));
-            const stopButton = allElements.find(el => {
-              const text = el.textContent?.trim() || "";
-              return text === 'Stop' || text === 'STOP' || text.includes('Stop') || el.classList.contains('btn-stop');
-            });
-            
-            if (stopButton) {
-              (stopButton as HTMLElement).click(); // Press the stop button instantly
-              console.log("className [CIRCUIT BREAKER] Target button activated.");
+        if (shouldTriggerStop) {
+          // BULLETPROOF POSITION HALTING ACTION SELECTOR (Scans native DOM layouts for the active Stop option)
+          const allElements = Array.from(document.querySelectorAll('button, div, span, .bot-control-btn'));
+          const stopButton = allElements.find(el => {
+            const text = el.textContent?.trim() || "";
+            return text === 'Stop' || text === 'STOP' || text.includes('Stop') || el.classList.contains('btn-stop');
+          });
+          
+          if (stopButton) {
+            (stopButton as HTMLElement).click(); 
+            this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
+          } else {
+            const globalWin = window as any;
+            if (globalWin.Blockly?.derivWorkspace?.stopBot) {
+              globalWin.Blockly.derivWorkspace.stopBot();
               this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
-            } else {
-              // Core fallback path executes directly into the hidden blockly workspace runtime methods
-              const globalWin = window as any;
-              if (globalWin.Blockly?.derivWorkspace?.stopBot) {
-                globalWin.Blockly.derivWorkspace.stopBot();
-                this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
-              }
             }
-
-            this.monitoredTakeProfit = 0;
-            this.monitoredStopLoss = 0;
-            this.consecutiveLossesCount = 0; // Clear recovery session memory registers cleanly
           }
+
+          this.monitoredTakeProfit = 0;
+          this.monitoredStopLoss = 0;
+          this.consecutiveLossesCount = 0; 
         }
       }
     };
@@ -323,6 +331,7 @@ export class DerivScannerBridge {
     const metricsObserver = new MutationObserver(evaluateSessionMetrics);
     metricsObserver.observe(document.body, { childList: true, subtree: true });
   }
+// scannerBridge.ts - PART 6: Block Parameter Mapping & Automated Injector Core
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
