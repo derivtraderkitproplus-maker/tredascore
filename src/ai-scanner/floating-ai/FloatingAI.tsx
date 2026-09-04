@@ -1,4 +1,4 @@
-// FloatingAI.tsx - PART 1: Core Setup, Lifecycles & State Management Handlers
+// FloatingAI.tsx - PART 1: Core Imports, Type Interfaces, & Component Initializers
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { DerivScannerBridge } from './scannerBridge';
@@ -15,22 +15,24 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
   const [rawPipelineData, setRawPipelineData] = useState<EvaluationFrame[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  // 🛠️ CRITICAL LOGIC FIX: Maintain a singular dynamic map object to isolate settings parameters by profile ID
+  // Dynamic dictionary map separating user input parameters strictly by individual strategy profile ID
   const [customStrategySettings, setCustomStrategySettings] = useState<Record<string, { stake: string; stopLoss: string; takeProfit: string }>>({});
 
-  // INPUT FOCUS TRACKER - Freezes data streaming calculation frames mid-keystroke
+  // Input typing tracker: flags when an input field is focused to safely pause background ranking updates
   const [isTypingFocused, setIsTypingFocused] = useState<boolean>(false);
 
+  // Instantiates persistent memoized core engine layers to preserve state cross-renders
   const logicEngine = useMemo(() => new ScannerLogicEngine(), []);
   const networkBridge = useMemo(() => new DerivScannerBridge(derivContext), [derivContext]);
 
-  // Persistent ranking memory caches configuration layout trees
+  // Dedicated buffer memory to freeze active list items when parameters are expanding
   const [frozenDisplayList, setFrozenDisplayList] = useState<EvaluationFrame[]>([]);
 
-  // Track the multi-volatility symbol array definitions cleanly
+  // Supported synthetic index ticker keys matching your global asset engine registry
   const trackingSymbols = useMemo(() => ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'], []);
+// FloatingAI.tsx - PART 2: System Lifecycles & Synthetic Tick Pre-Seeding Layers
 
-  // Synchronize dynamic input focus states directly into the logic processor instance
+  // Synchronize component editing focus states down to the calculation core layer
   useEffect(() => {
     const shouldFreezeBackend = activeTab !== null || isTypingFocused;
     logicEngine.setEditingState(shouldFreezeBackend);
@@ -40,7 +42,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     setRawPipelineData([]);
     setFrozenDisplayList([]);
 
-    // 1. DYNAMIC PRE-SEED GENERATION LAYER: Initialize synthetic micro ticks for all assets
+    // 1. DYNAMIC PRE-SEED GENERATION LAYER: Hydrate array buffers to satisfy indicator thresholds
     trackingSymbols.forEach(symbol => {
       let baseMockPrice = 845.20;
       if (symbol === 'R_10') baseMockPrice = 45.10;
@@ -58,10 +60,10 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     const initialFrame = logicEngine.runScannerPipeline();
     setRawPipelineData(initialFrame);
 
-    // 2. BACKGROUND MULTI-ASSET GENERATOR TICK PIPELINE
+    // 2. BACKGROUND TICK MONITOR PIPELINE: Simulates active tracking shifts sequentially
     const liveSimulationInterval = setInterval(() => {
       trackingSymbols.forEach(symbol => {
-        let currentNoiseBase = 0.60;
+        const currentNoiseBase = 0.60;
         const noise = (Math.random() - 0.5) * currentNoiseBase;
         
         const previousTicks = (logicEngine as any).tickRegistry[symbol] || [845.20];
@@ -70,12 +72,13 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         logicEngine.injectTick(symbol, lastPrice + noise);
       });
 
-      // Only skip rendering state propagation if user is interacting with editor fields
+      // Maintain display integrity if drawer parameters are receiving focus changes
       if (activeTab || isTypingFocused) return;
 
       const updatedFrame = logicEngine.runScannerPipeline();
       setRawPipelineData(updatedFrame);
     }, 1000);
+// FloatingAI.tsx - PART 3: Network Listener Multiplexers & Memoized Sorting Pipelines
 
     // 3. MULTIPLEXING NETWORK LISTENER PIPELINE
     networkBridge.initPipeline(trackingSymbols, (symbol, price) => {
@@ -110,7 +113,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       setFrozenDisplayList(liveSortedProfiles);
     }
   }, [liveSortedProfiles, activeTab]);
-// FloatingAI.tsx - PART 2: Parameter Action Handlers & Clean Visual Metric Banners
 
   // Isolated matrix display layer rules
   const visualDisplayList = useMemo(() => {
@@ -135,15 +137,16 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     }));
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
-  // Pulls metrics safely using fallback evaluations
+  // Pulls global display indicators safely using fallback metrics
   const globalSummary = useMemo(() => {
     if (visualDisplayList && visualDisplayList.length > 0 && visualDisplayList[0].metrics) {
       return visualDisplayList[0].metrics;
     }
     return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
   }, [visualDisplayList]);
+// FloatingAI.tsx - PART 4: Parameter Actions, State Synchronization, & Core Banner Render Layout
 
-  // 🛠️ HANDLER FIX: Pull configuration settings isolated explicitly by their strategy profile ID
+  // Load target configuration settings isolated explicitly by their strategy profile ID into Blockly
   const handleLoadBot = (targetDirection: string, frame: EvaluationFrame) => {
     const strategyId = frame.profile.id;
     const currentSettings = customStrategySettings[strategyId] || { stake: '1', stopLoss: '500', takeProfit: '1500' };
@@ -168,7 +171,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     alert(`📢 Manual Broadcast Sent!\nPushed ${frame.profile.name} directly to your channel.`);
   };
 
-  // 🛠️ STATE UPDATE RUNTIME SYNC: Save input fields directly to active runtime metrics profile instances
+  // State update runtime synchronization handler for user field forms
   const updateSettingsValue = (strategyId: string, inputField: 'stake' | 'stopLoss' | 'takeProfit', val: string) => {
     setCustomStrategySettings(prev => {
       const freshMap = {
@@ -186,7 +189,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           targetProfile.runtimeSettings = { defaultStake: 3.0, stopLossLimit: 4.0, takeProfitLimit: 8.0 };
         }
         
-        const targetConfig = freshMap[strategyId];
         if (inputField === 'stake') targetProfile.runtimeSettings.defaultStake = parseFloat(val) || 3.0;
         if (inputField === 'stopLoss') targetProfile.runtimeSettings.stopLossLimit = parseFloat(val) || 4.0;
         if (inputField === 'takeProfit') targetProfile.runtimeSettings.takeProfitLimit = parseFloat(val) || 8.0;
@@ -221,7 +223,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         <span className="profile-counter">30/30</span>
       </div>
 
-      {/* 🛠️ GRAPHICAL INJECTION FIX: Completely removed the markdown block text comment line so it breaks out of your layout */}
       <div className="scanner-subheader-text">
         {activeTab ? "🔒 Metrics Locked for Editing Parameters" : "Balanced strategies rank below. Tap to lock & edit parameters."}
       </div>
@@ -240,6 +241,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
+// FloatingAI.tsx - PART 5: Visual Strategy List, Interactive Expansion Drawers, & Global Controls
 
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
@@ -248,7 +250,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           const assetDisplayLabel = item.profile.targetSymbol.replace('R_', 'Volatility ');
           const contractDisplayLabel = item.profile.contractType.replace(/_/g, ' ');
 
-          // 🛠️ ISOLATION FIX: Fetch unique local settings mapping parameters for this specific row profile ID
+          // Fetch isolated custom configuration state mapping explicitly by this strategy's specific profile ID
           const rowSettings = customStrategySettings[item.profile.id] || { stake: '1', stopLoss: '500', takeProfit: '1500' };
 
           return (
@@ -274,7 +276,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     </span>
                   </div>
 
-                  {/* 🛠️ BINDING FIX: Pull metrics numbers directly from calculation outputs, NOT unmutated profile structures */}
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
 
@@ -293,7 +294,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                 <div className="card-expanded-drawer">
                   <p className="desc">{item.profile.description}</p>
                   
-                  {/* REACTIVE INPUT FORMS MATRIX: Values link directly to specific strategy state maps */}
                   <div className="ai-input-parameter-grid">
                     <div className="input-cell">
                       <label>STAKE (USD)</label>
