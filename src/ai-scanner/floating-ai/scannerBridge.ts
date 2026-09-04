@@ -1,4 +1,4 @@
-// scannerBridge.ts - PART 1: Module Initializers & Core Variables Map
+// scannerBridge.ts - PART 1: Core Interfaces & Base Class Declarations
 
 export type TickCallback = (symbol: string, tick: number) => void;
 
@@ -17,12 +17,12 @@ export class DerivScannerBridge {
   private activeSymbols: string[] = [];
   private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
   
-  // High-frequency automated circuit breaker memory registers
+  // High-frequency automated circuit breaker tracking states
   private isPerformanceWatcherActive: boolean = false;
   private monitoredStopLoss: number = 0;
   private monitoredTakeProfit: number = 0;
 
-  // DYNAMIC RISK COMPOUNDING MEMORY LAYER
+  // DYNAMIC RISK COMPOUNDING MEMORY MATRIX
   private baseStake: number = 3.00;
   private currentMartingaleMultiplier: number = 2.0; 
   private consecutiveLossesCount: number = 0;
@@ -136,7 +136,7 @@ export class DerivScannerBridge {
       console.warn("Web Audio Context not permitted or fully initialized yet:", error);
     }
   }
-// scannerBridge.ts - PART 4 (A): Branded UI Overlay Card Template (tredascore.pro)
+// scannerBridge.ts - PART 4: Premium UI Overlay (tredascore.pro Branding & Auto-Builder Tab Redirect)
 
   /**
    * INJECTS A HIGH-END CUSTOM UI MODAL DIALOG CONTAINER DIRECTLY INTO THE INTERFACE DOM
@@ -149,7 +149,6 @@ export class DerivScannerBridge {
     const primaryColor = isProfit ? '#2ed479' : '#ff4a62';
     const glowColor = isProfit ? 'rgba(46, 212, 121, 0.2)' : 'rgba(255, 74, 98, 0.2)';
     
-    // Play the premium synchronized synthesized note trigger
     this.playPremiumSynthesizerChime(isProfit ? 'SUCCESS_RISE' : 'ALERT_ECHO');
 
     const backdrop = document.createElement('div');
@@ -219,7 +218,6 @@ export class DerivScannerBridge {
 
     backdrop.appendChild(card);
     document.body.appendChild(backdrop);
-// scannerBridge.ts - PART 4 (B): Premium Dismiss Listener & Precision Tab Router Redirect
 
     setTimeout(() => { backdrop.style.opacity = '1'; card.style.transform = 'scale(1)'; }, 10);
 
@@ -270,24 +268,22 @@ export class DerivScannerBridge {
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) dismissModal(); });
     card.querySelector('#close-breaker-modal-btn')?.addEventListener('click', dismissModal);
   }
-// scannerBridge.ts - PART 5 (A): Universal Tab Balance Observer & Native Engine Circuit Breaker
+// scannerBridge.ts - PART 5: Universal Tab Balance Observer & Native Engine Circuit Breaker
 
   /**
-   * HIGH-PERFORMANCE SCREEN SCRAPER CIRCUIT BREAKER
-   * Works on ALL tabs by tracking Payout vs Stake numbers and bypassing UI button element names completely.
+   * AUTOMATED PERFORMANCE WATCHER & DYNAMIC MARTINGALE ENGINE
+   * Tracks total profit/loss on ALL dashboard tabs seamlessly by scraping Payout vs Stake totals natively.
    */
   private initializeAutomatedPerformanceWatcher(): void {
     if (this.isPerformanceWatcherActive) return;
     this.isPerformanceWatcherActive = true;
-
-    console.log("🛡️ [CIRCUIT BREAKER] Absolute tab surveillance active...");
 
     const evaluateSessionMetrics = () => {
       const globalTextContent = document.body.innerText;
       let sessionNetBalance = 0;
       let hasMetrics = false;
 
-      // UNIVERSAL BALANCE CALCULATOR (Works perfectly on Transactions & Summary tabs)
+      // UNIVERSAL TAB BALANCE SCRAPER (Works natively on Summary, Transactions, and Journal tabs)
       const stakeMatch = globalTextContent.match(/Total stake\s+([\d.]+)/i);
       const payoutMatch = globalTextContent.match(/Total payout\s+([\d.]+)/i);
 
@@ -303,16 +299,17 @@ export class DerivScannerBridge {
           hasMetrics = true;
         }
       }
-
-      // MARTINGALE EXECUTOR ENGINE LOOP
+      
+      // MONITOR WIN/LOSS TRANSITIONS TO CALCULATE THE NEXT MARTINGALE STEP ON THE FLY
       const contractsLostMatch = globalTextContent.match(/Contracts lost\s+(\d+)/i);
       if (contractsLostMatch) {
         const structuralLossCount = parseInt(contractsLostMatch[1]) || 0;
+        
         if (structuralLossCount > this.consecutiveLossesCount) {
           this.consecutiveLossesCount = structuralLossCount;
           if (this.consecutiveLossesCount <= this.maximumRecoveryStepsAllowed) {
             const calculatedNextRecoveryStake = this.baseStake * Math.pow(this.currentMartingaleMultiplier, this.consecutiveLossesCount);
-            console.log(`📈 [MARTINGALE MULTIPLIER] Next stake calculated: $${calculatedNextRecoveryStake.toFixed(2)}`);
+            console.log(`📈 [MARTINGALE MULTIPLIER] Next dynamic stake computed: $${calculatedNextRecoveryStake.toFixed(2)}`);
           }
         }
       }
@@ -369,13 +366,11 @@ export class DerivScannerBridge {
             }
           }
 
-          // Injects the custom branded overlay modal instantly
           this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
 
-          // Lock boundaries until next strategic parameter injection sequence
           this.monitoredTakeProfit = 0;
           this.monitoredStopLoss = 0;
-          this.consecutiveLossesCount = 0;
+          this.consecutiveLossesCount = 0; 
         }
       }
     };
@@ -383,5 +378,162 @@ export class DerivScannerBridge {
     const metricsObserver = new MutationObserver(evaluateSessionMetrics);
     metricsObserver.observe(document.body, { childList: true, subtree: true });
   }
-// Add this single bracket at the absolute end of scannerBridge.ts
-}
+// scannerBridge.ts - PART 6: Block Parameter Mapping & Automated Injector Core
+
+  public injectDataToBlockly(params: BotParameters): void {
+    const globalWin = window as any;
+    
+    this.monitoredStopLoss = parseFloat(params.stopLoss as any) || 0;
+    this.monitoredTakeProfit = parseFloat(params.takeProfit as any) || 0;
+    this.baseStake = parseFloat(params.stake as any) || 3.00;
+
+    globalWin.tredaPendingParams = {
+      targetSymbol: params.targetSymbol,
+      contractType: params.contractType,
+      direction: params.direction,
+      stake: params.stake,
+      stopLoss: params.stopLoss,
+      takeProfit: params.takeProfit
+    };
+
+    let workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
+    
+    // FOOLPROOF CROSS-TAB CANVAS HANDSHAKE
+    // Natively forces the Bot Builder workspace back to life instantly if hidden under the scanner menu card
+    if (!workspace || workspace.getAllBlocks(false).length === 0) {
+      console.warn("⚠️ [INJECTOR] Blockly layout workspace out of focus. Deploying tab switcher fallback...");
+      const allDashboardTabs = Array.from(document.querySelectorAll('div, span, li, a, p, button'));
+      const botBuilderTab = allDashboardTabs.find(tab => tab.textContent?.trim() === 'Bot Builder');
+      if (botBuilderTab) {
+        (botBuilderTab as HTMLElement).click(); 
+      }
+    }
+
+    // Wrap inside a micro-timeout delay to give the mobile device plenty of time to mount the blocks cleanly
+    setTimeout(() => {
+      workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
+      
+      if (!workspace) {
+        alert("⚠️ Blockly canvas is loading. Please select the Bot Builder tab manually to finish injection.");
+        return;
+      }
+
+      try {
+        const cachedParams = globalWin.tredaPendingParams || params;
+        const allBlocks = workspace.getAllBlocks(false);
+        let blockInjectionCounter = 0;
+
+        allBlocks.forEach((block: any) => {
+          if (block.type === 'trade_definition_market') {
+            const symbolField = block.getField('SYMBOL_LIST');
+            if (symbolField) {
+              let systemSymbol = cachedParams.targetSymbol.toUpperCase().trim();
+              if (systemSymbol === 'R_10') systemSymbol = '1HZ10V';
+              if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
+              if (systemSymbol === 'R_50') systemSymbol = '1HZ50V';
+              if (systemSymbol === 'R_75') systemSymbol = '1HZ75V';
+              if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
+              
+              symbolField.setValue(systemSymbol);
+              blockInjectionCounter++;
+            }
+          }
+
+          if (block.type === 'trade_definition_contracttype') {
+            const contractTypeField = block.getField('CONTRACT_TYPE_LIST');
+            if (contractTypeField) {
+              let mappedValue = 'both'; 
+              const normalizedType = cachedParams.contractType.toUpperCase().trim();
+              if (normalizedType === 'RISE_FALL' || normalizedType === 'RISE FALL') mappedValue = 'risefall';
+              if (normalizedType === 'OVER_UNDER' || normalizedType === 'OVER UNDER') mappedValue = 'digits';
+              if (normalizedType === 'TOUCH_NO_TOUCH' || normalizedType === 'TOUCH NO TOUCH') mappedValue = 'touchnotouch';
+              if (normalizedType === 'ACCUMULATOR') mappedValue = 'accumulator';
+              
+              contractTypeField.setValue(mappedValue);
+              blockInjectionCounter++;
+            }
+          }
+
+          if (block.type === 'purchase') {
+            const purchaseField = block.getField('PURCHASE_LIST');
+            if (purchaseField) {
+              const normalizedType = cachedParams.contractType.toUpperCase().trim();
+              if (normalizedType === 'OVER_UNDER' || normalizedType === 'OVER UNDER') {
+                purchaseField.setValue('DIGITUNDER'); 
+              } else if (normalizedType === 'TOUCH_NO_TOUCH' || normalizedType === 'TOUCH NO TOUCH') {
+                purchaseField.setValue('ONETOUCH');
+              } else {
+                purchaseField.setValue(cachedParams.direction.toUpperCase() === 'UP' ? 'CALL' : 'PUT');
+              }
+              blockInjectionCounter++;
+            }
+          }
+
+          if (block.type === 'trade_definition_tradeoptions') {
+            const durationField = block.getField('DURATION');
+            if (durationField) {
+              durationField.setValue("1"); 
+            }
+            
+            const amountInput = block.getInput('AMOUNT');
+            if (amountInput && amountInput.connection) {
+              const targetBlock = amountInput.connection.targetBlock();
+              if (targetBlock) {
+                const numField = targetBlock.getField('NUM');
+                if (numField) {
+                  numField.setValue(Number(cachedParams.stake).toFixed(2));
+                  blockInjectionCounter++;
+                }
+              }
+            }
+          }
+
+          if (block.type === 'variables_set') {
+            const fieldVar = block.getField('VAR');
+            if (fieldVar) {
+              const variableName = fieldVar.getText();
+              const valueInput = block.getInput('VALUE');
+              
+              if (valueInput && valueInput.connection) {
+                const targetBlock = valueInput.connection.targetBlock();
+                if (targetBlock) {
+                  const numField = targetBlock.getField('NUM');
+                  if (numField) {
+                    const normalizedVar = variableName.toLowerCase().trim();
+                    
+                    if (normalizedVar === 'maxstake' || normalizedVar.includes('stake') || normalizedVar === 'initialstake' || normalizedVar === 'defaultstake') {
+                      numField.setValue(Number(cachedParams.stake).toFixed(2));
+                      blockInjectionCounter++;
+                    }
+                    else if (normalizedVar.includes('loss') || normalizedVar.includes('threshold') || normalizedVar.includes('stop') || normalizedVar === 'sl') {
+                      numField.setValue(Number(cachedParams.stopLoss).toFixed(2));
+                      blockInjectionCounter++;
+                    }
+                    else if (normalizedVar.includes('profit') || normalizedVar.includes('target') || normalizedVar.includes('take') || normalizedVar === 'tp') {
+                      numField.setValue(Number(cachedParams.takeProfit).toFixed(2));
+                      blockInjectionCounter++;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (workspace && typeof workspace.render === 'function') {
+          workspace.render();
+        }
+
+        if (blockInjectionCounter > 0) {
+          alert(`✅ Strategy Configuration Loaded!\n\n• Domain Ref: tredascore.pro\n• Asset Pool: ${cachedParams.targetSymbol.replace('R_', 'Volatility ')}\n• Active Stake: $${Number(cachedParams.stake).toFixed(2)}\n• Stop Loss: $${Number(cachedParams.stopLoss).toFixed(2)}\n• Take Profit: $${Number(cachedParams.takeProfit).toFixed(2)}`);
+          globalWin.tredaPendingParams = null;
+        } else {
+          console.warn("Blockly Injection alert: Parsed structural workspace blocks without matching parameter selectors.");
+        }
+
+      } catch (err) {
+        console.error("Blockly Input Mapping Failure:", err);
+      }
+    }, 300); 
+  }
+} // Final structural wrapper bracket closing the primary class tree safely!
