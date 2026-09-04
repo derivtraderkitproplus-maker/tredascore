@@ -1,6 +1,6 @@
 // FloatingAI.tsx - PART 1: Module Initializers & Dynamic State Architecture
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { DerivScannerBridge } from './scannerBridge';
 import { ScannerLogicEngine, EvaluationFrame } from './scannerLogic';
 import { STRATEGY_PROFILES } from './strategies';
@@ -30,7 +30,65 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
 
   // Supported synthetic index ticker keys matching your global asset engine registry
   const trackingSymbols = useMemo(() => ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'], []);
-// FloatingAI.tsx - PART 2: Lifecycles, Active Editing Lock Synchronization, & Tick Pre-Seeding Arrays
+
+  // --- DYNAMIC DRAGGABLE SPHERE CORE ENGINE STATE MATRIX ---
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [spherePosition, setSpherePosition] = useState({ x: typeof window !== 'undefined' ? window.innerWidth - 76 : 300, y: typeof window !== 'undefined' ? window.innerHeight - 150 : 500 });
+  const isDraggingActive = useRef(false);
+  const touchOffsetVector = useRef({ x: 0, y: 0 });
+  const widgetNodeRef = useRef<HTMLDivElement>(null);
+  const [shouldDisplaySphere, setShouldDisplaySphere] = useState<boolean>(true);
+
+  // MONITOR PANELS DETECTOR: Self-destruct trigger when running statistics render on dashboard
+  useEffect(() => {
+    const checkActiveDashboardText = () => {
+      const plainTextContent = document.body.innerText;
+      const isSummaryDashboardActive = plainTextContent.includes('Contracts lost') || 
+                                        plainTextContent.includes('Contracts won') || 
+                                        plainTextContent.includes('Total stake') ||
+                                        textContent.includes('Total payout');
+      if (isSummaryDashboardActive) {
+        setShouldDisplaySphere(false);
+      } else {
+        setShouldDisplaySphere(true);
+      }
+    };
+    checkActiveDashboardText();
+    const mutationObserverInstance = new MutationObserver(checkActiveDashboardText);
+    mutationObserverInstance.observe(document.body, { childList: true, subtree: true });
+    return () => mutationObserverInstance.disconnect();
+  }, []);
+
+  // TOUCH/MOUSE DRAG MOTION CONTROLLERS
+  const initiateDragTracking = (clientX: number, clientY: number) => {
+    isDraggingActive.current = false; 
+    touchOffsetVector.current = { x: clientX - spherePosition.x, y: clientY - spherePosition.y };
+  };
+
+  const executeDragMovement = (clientX: number, clientY: number) => {
+    isDraggingActive.current = true;
+    const boundaryCeilingX = window.innerWidth - 64;
+    const boundaryCeilingY = window.innerHeight - 64;
+    const boundedLocationX = Math.min(boundaryCeilingX, Math.max(16, clientX - touchOffsetVector.current.x));
+    const boundedLocationY = Math.min(boundaryCeilingY, Math.max(16, clientY - touchOffsetVector.current.y));
+    setSpherePosition({ x: boundedLocationX, y: boundedLocationY });
+  };
+
+  const terminateDragTracking = () => {
+    if (!isDraggingActive.current) {
+      setIsModalOpen(true);
+    }
+    isDraggingActive.current = false;
+  };
+
+  useEffect(() => {
+    const handleViewportOrientationShift = () => {
+      setSpherePosition({ x: window.innerWidth - 76, y: window.innerHeight - 150 });
+    };
+    window.addEventListener('resize', handleViewportOrientationShift);
+    return () => window.removeEventListener('resize', handleViewportOrientationShift);
+  }, []);
+// FloatingAI.tsx - PART 2: Core Lifecycles & Interactive Draggable Sphere Integration
 
   // Synchronize component input editing focus states down to the calculation core logic instance
   useEffect(() => {
@@ -78,7 +136,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       const updatedFrame = logicEngine.runScannerPipeline();
       setRawPipelineData(updatedFrame);
     }, 1000);
-// FloatingAI.tsx - PART 3: Network Bridging, Dynamic Target Fallbacks, & Optimization Filters
 
     // 3. MULTIPLEXING NETWORK LISTENER PIPELINE
     networkBridge.initPipeline(trackingSymbols, (symbol, price) => {
@@ -144,13 +201,87 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     }
     return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
   }, [visualDisplayList]);
-// FloatingAI.tsx - PART 4: Parameter Routers & State Synchronization
+
+  // Render logic blocks dynamically targeting the toggle open switch states
+  if (!isModalOpen) {
+    if (!shouldDisplaySphere) return null;
+    return (
+      <>
+        {/* SCOPED INJECTED WIDGET STYLES */}
+        <style>{`
+          .premium-ai-sphere-widget {
+            position: fixed !important;
+            width: 52px !important;
+            height: 52px !important;
+            border-radius: 50% !important;
+            background: radial-gradient(circle at 30% 30%, #ff4081 0%, #d81b60 60%, #880e4f 100%) !important;
+            box-shadow: 0 0 15px rgba(255, 64, 129, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -4px 8px rgba(0, 0, 0, 0.4) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: grab !important;
+            z-index: 9998 !important;
+            user-select: none !important;
+            touch-action: none !important;
+            animation: sphereFloatingDance 3.5s ease-in-out infinite !important;
+          }
+          .premium-ai-sphere-widget:active {
+            cursor: grabbing !important;
+            animation-play-state: paused !important;
+          }
+          .premium-ai-sphere-widget::before {
+            content: '' !important;
+            position: absolute !important;
+            top: -6px !important;
+            left: -6px !important;
+            right: -6px !important;
+            bottom: -6px !important;
+            border-radius: 50% !important;
+            border: 2px solid #ff4081 !important;
+            opacity: 0 !important;
+            animation: neonPulseRing 2s cubic-bezier(0.25, 0, 0, 1) infinite !important;
+          }
+          .sphere-inner-label {
+            color: #ffffff !important;
+            font-family: -apple-system, sans-serif !important;
+            font-size: 13px !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.5px !important;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6) !important;
+            pointer-events: none !important;
+          }
+          @keyframes sphereFloatingDance {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+            100% { transform: translateY(0px); }
+          }
+          @keyframes neonPulseRing {
+            0% { transform: scale(0.85); opacity: 0.7; }
+            100% { transform: scale(1.22); opacity: 0; }
+          }
+        `}</style>
+        <div
+          ref={widgetNodeRef}
+          className="premium-ai-sphere-widget"
+          style={{ left: `${spherePosition.x}px`, top: `${spherePosition.y}px` }}
+          onTouchStart={(e) => initiateDragTracking(e.touches[0].clientX, e.touches[0].clientY)}
+          onTouchMove={(e) => executeDragMovement(e.touches[0].clientX, e.touches[0].clientY)}
+          onTouchEnd={terminateDragTracking}
+          onMouseDown={(e) => initiateDragTracking(e.clientX, e.clientY)}
+          onMouseMove={(e) => { if (e.buttons === 1) executeDragMovement(e.clientX, e.clientY); }}
+          onMouseUp={terminateDragTracking}
+        >
+          <span className="sphere-inner-label">AI</span>
+        </div>
+      </>
+    );
+  }
+// FloatingAI.tsx - PART 3: Operational Strategy Actions & Template Layout Render
 
   // Load configuration settings isolated explicitly by profile ID into Blockly
   const handleLoadBot = (targetDirection: string, frame: EvaluationFrame) => {
     const strategyId = frame.profile.id;
     
-    // FIXED: Swapped out hardcoded strings for true dynamic strategy runtime configuration metrics
     const currentSettings = customStrategySettings[strategyId] || { 
       stake: (frame.profile.runtimeSettings?.defaultStake || 3.00).toString(), 
       stopLoss: (frame.profile.runtimeSettings?.stopLossLimit || 4.00).toString(), 
@@ -169,6 +300,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     if (typeof onCloseScanner === 'function') {
       onCloseScanner();
     }
+    setIsModalOpen(false); // Snap back to floating widget mode cleanly
   };
 
   const handleManualTelegramShare = (frame: EvaluationFrame) => {
@@ -229,13 +361,13 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           </div>
         </div>
         
-        {/* FIXED: Modal interface close actions gateway container */}
         <div className="header-controls-block" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="profile-counter">30/30</span>
           <button 
             className="scanner-close-x-btn"
             onClick={() => {
               if (typeof onCloseScanner === 'function') onCloseScanner();
+              setIsModalOpen(false); // Closes modal interface securely
             }}
           >
             ✕
@@ -257,7 +389,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
-
+// FloatingAI.tsx - PART 4: Strategy Scroll-List Mapping & Expandable Parameters Panel
 
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
@@ -266,7 +398,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           const assetDisplayLabel = item.profile.targetSymbol.replace('R_', 'Volatility ');
           const contractDisplayLabel = item.profile.contractType.replace(/_/g, ' ');
 
-          // FIXED: Fallback paths pull directly from strategy configuration layers safely
+          // Fallback settings metrics update natively from profile definitions
           const rowSettings = customStrategySettings[item.profile.id] || { 
             stake: (item.profile.runtimeSettings?.defaultStake || 3.00).toString(), 
             stopLoss: (item.profile.runtimeSettings?.stopLossLimit || 4.00).toString(), 
