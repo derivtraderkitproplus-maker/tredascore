@@ -1,17 +1,25 @@
-/* FloatingAI.css - PART 1: Main Wrapper Framework & Top Metrics Grid */
+/* FloatingAI.css - PART 1: Full-Screen Viewport Setup & Compact Header Structures */
 
 .ai-strategy-scanner {
   background: #0b0d17 !important;
   color: #ffffff !important;
-  padding: 16px !important;
-  border-radius: 12px !important;
-  max-width: 100% !important;
+  padding: 12px 14px !important; /* Compressed to give scrolling list maximum screen room */
   box-sizing: border-box !important;
   display: flex !important;
   flex-direction: column !important;
-  max-height: 75vh !important; /* Strict bounding height prevents viewport spilling and clipping */
-  position: relative !important;
-  border: 1px solid #1c2035 !important;
+  
+  /* FIXED: Opens up to absolute 100% full-screen immersive view layer */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  
+  border: none !important;
+  z-index: 99999 !important;
+  overflow: hidden !important; /* Locks external boundary framework completely */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
@@ -20,11 +28,12 @@
   justify-content: space-between !important;
   align-items: center !important;
   flex-shrink: 0 !important;
+  padding-bottom: 4px !important;
 }
 
 .scanner-header h3 {
   margin: 0 !important;
-  font-size: 18px !important;
+  font-size: 16px !important; /* Moderated font footprint for small mobile viewports */
   font-weight: bold !important;
   color: #ffffff !important;
   line-height: 1.2 !important;
@@ -33,38 +42,38 @@
 .profile-counter {
   background: #1c1836 !important;
   color: #7c5dfa !important;
-  padding: 4px 12px !important;
+  padding: 4px 10px !important;
   border-radius: 6px !important;
-  font-size: 13px !important;
+  font-size: 12px !important;
   font-weight: bold !important;
   flex-shrink: 0 !important;
 }
 
 .scanner-subheader-text {
-  font-size: 12px !important;
+  font-size: 11px !important;
   color: #72768d !important;
-  margin-top: 4px !important;
+  margin-top: 2px !important;
   flex-shrink: 0 !important;
 }
 
 .metrics-banner-grid {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
-  gap: 8px !important;
-  margin-top: 16px !important;
+  gap: 6px !important;
+  margin-top: 10px !important;
   flex-shrink: 0 !important;
 }
 
 .metric-box {
   background: #141724 !important;
-  padding: 10px !important;
-  border-radius: 8px !important;
+  padding: 6px 8px !important; /* Thinned layout buffers to reduce tracking row heights */
+  border-radius: 6px !important;
   border: 1px solid #1e2235 !important;
   box-sizing: border-box !important;
 }
 
 .metric-box label {
-  font-size: 9px !important;
+  font-size: 8px !important;
   color: #6a6e85 !important;
   display: block !important;
   font-weight: 600 !important;
@@ -72,9 +81,9 @@
 }
 
 .metric-box .val {
-  font-size: 13px !important;
+  font-size: 12px !important;
   font-weight: bold !important;
-  margin-top: 4px !important;
+  margin-top: 2px !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -82,17 +91,18 @@
 
 .highlight-yellow { color: #f5a623 !important; }
 .highlight-purple { color: #9064ff !important; }
-/* FloatingAI.css - PART 2: Strategy Cards, Fixed Right Badge Columns, Drawers, and Buttons */
+/* FloatingAI.css - PART 2: Compact Strategy Cards, Space-Optimized Drawers, & Scrolling Lists */
 
 .strategy-scroll-list {
   display: flex !important;
   flex-direction: column !important;
-  gap: 12px !important;
+  gap: 8px !important; /* Tightened gap spacing between vertical row node blocks */
   flex-grow: 1 !important;
-  overflow-y: auto !important; /* Confines list container scrolling inside specified limits */
-  padding-right: 4px !important;
-  margin-top: 14px !important;
-  margin-bottom: 4px !important;
+  overflow-y: auto !important; /* Strictly confines dynamic rows within scrolling limits */
+  padding-right: 2px !important;
+  margin-top: 10px !important;
+  margin-bottom: 2px !important;
+  -webkit-overflow-scrolling: touch !important; /* Provides fast native momentum deceleration */
 }
 
 .strategy-scroll-list::-webkit-scrollbar {
@@ -109,20 +119,19 @@
 .strategy-card-node {
   background: #131622 !important;
   border: 1px solid #1d2134 !important;
-  border-radius: 10px !important;
-  padding: 12px !important; /* RESTORED: Fixed the height collapsing layout error instantly */
+  border-radius: 8px !important;
+  padding: 8px 10px !important; /* Lowered inner vertical grid boundaries to drop asset room footprint */
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
   position: relative !important;
-  transition: all 0.38s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  will-change: transform, opacity, background-color, border-color !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease !important;
 }
 
 .strategy-card-node:first-child {
   border-color: #5078ff !important;
   background: linear-gradient(135deg, #131622 0%, #171b30 100%) !important;
-  box-shadow: 0 4px 20px rgba(80, 120, 255, 0.08) !important;
+  box-shadow: 0 4px 15px rgba(80, 120, 255, 0.06) !important;
 }
 
 .strategy-card-node:first-child::before {
@@ -133,7 +142,7 @@
   bottom: 0 !important;
   width: 4px !important;
   background: #5078ff !important;
-  border-radius: 10px 0 0 10px !important;
+  border-radius: 8px 0 0 8px !important;
 }
 
 .card-summary {
@@ -147,15 +156,15 @@
 .rank-badge {
   color: #5078ff !important;
   font-weight: bold !important;
-  font-size: 14px !important;
-  margin-right: 12px !important;
+  font-size: 12px !important;
+  margin-right: 10px !important;
   background: rgba(80, 120, 255, 0.1) !important;
-  width: 32px !important;
-  height: 32px !important;
+  width: 26px !important;
+  height: 26px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  border-radius: 6px !important;
+  border-radius: 5px !important;
   flex-shrink: 0 !important;
 }
 
@@ -167,12 +176,12 @@
 .meta-details { 
   flex: 1 !important; 
   text-align: left !important;
-  min-width: 0 !important; /* Forces ellipsis text truncation on overflow */
+  min-width: 0 !important;
 }
 
 .meta-details h4 { 
   margin: 0 !important; 
-  font-size: 14px !important; 
+  font-size: 13px !important; 
   font-weight: 600 !important; 
   color: #ffffff !important;
   white-space: nowrap !important;
@@ -181,170 +190,135 @@
 }
 
 .meta-details p { 
-  margin: 4px 0 0 0 !important; 
-  font-size: 11px !important; 
+  margin: 2px 0 0 0 !important; 
+  font-size: 10px !important; 
   color: #6c718c !important; 
 }
 
-/* --- FIXED BADGE WRAPPER ARCHITECTURE STOPS CLIPPING --- */
 .badge-column {
-  margin-left: auto !important; /* Secure placement anchoring on the right column */
+  margin-left: auto !important;
   display: flex !important;
   align-items: center !important;
   justify-content: flex-end !important;
-  min-width: 68px !important; /* Locked boundaries protect character widths */
+  min-width: 60px !important;
   flex-shrink: 0 !important;
 }
 
 .tier-badge {
-  font-size: 10px !important;
+  font-size: 9px !important;
   font-weight: bold !important;
-  padding: 4px 8px !important;
+  padding: 2px 6px !important;
   border-radius: 4px !important;
   text-transform: uppercase !important;
-  white-space: nowrap !important; /* Prevents status terms splitting into vertical lines */
+  white-space: nowrap !important;
   text-align: center !important;
   width: 100% !important;
   box-sizing: border-box !important;
 }
 
 .tier-badge.high { 
-  background: rgba(255, 74, 98, 0.15) !important; 
+  background: rgba(255, 74, 98, 0.12) !important; 
   color: #ff4a62 !important; 
-  border: 1px solid rgba(255, 74, 98, 0.25) !important;
+  border: 1px solid rgba(255, 74, 98, 0.2) !important;
 }
 .tier-badge.medium { 
-  background: rgba(245, 166, 35, 0.15) !important; 
+  background: rgba(245, 166, 35, 0.12) !important; 
   color: #f5a623 !important; 
-  border: 1px solid rgba(245, 166, 35, 0.25) !important;
+  border: 1px solid rgba(245, 166, 35, 0.2) !important;
 }
 .tier-badge.low { 
-  background: rgba(46, 212, 121, 0.15) !important; 
+  background: rgba(46, 212, 121, 0.12) !important; 
   color: #2ed479 !important; 
-  border: 1px solid rgba(46, 212, 121, 0.25) !important;
+  border: 1px solid rgba(46, 212, 121, 0.2) !important;
 }
 
 .arrow-toggle { 
   color: #555975 !important; 
-  font-size: 11px !important; 
+  font-size: 10px !important; 
   flex-shrink: 0 !important;
-  margin-left: 8px !important;
+  margin-left: 6px !important;
 }
 
 .card-node--frozen {
   border-color: #7c5dfa !important;
-  box-shadow: 0 4px 25px rgba(124, 93, 250, 0.12) !important;
+  box-shadow: 0 4px 15px rgba(124, 93, 250, 0.08) !important;
 }
 
+/* ANTI-SCROLL COMPRESSION FOR EXPANDED PARAMETERS PANEL */
 .card-expanded-drawer {
   border-top: 1px solid #1a1e30 !important;
   background: #0f121d !important;
-  margin-top: 10px !important;
-  padding-top: 12px !important;
+  margin-top: 6px !important;
+  padding-top: 8px !important;
   display: flex !important;
   flex-direction: column !important;
 }
 
 .card-expanded-drawer .desc {
-  font-size: 12px !important;
+  font-size: 11px !important;
   color: #7b7f99 !important;
-  margin: 0 0 12px 0 !important;
-  line-height: 1.4 !important;
-  text-align: left !important;
+  margin: 0 0 8px 0 !important;
+  line-height: 1.3 !important;
+  text-align: left;
 }
 
 .ai-input-parameter-grid {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
-  gap: 6px !important;
-  margin-bottom: 12px !important;
+  gap: 4px !important; /* Minimizes lateral separation rules */
+  margin-bottom: 8px !important;
   width: 100% !important;
   box-sizing: border-box !important;
-}
-
-.input-cell {
-  display: flex !important;
-  flex-direction: column !important;
-  text-align: left !important;
 }
 
 .input-cell label {
   font-size: 8px !important;
   color: #6c718c !important;
   font-weight: bold !important;
-  margin-bottom: 4px !important;
-  text-transform: uppercase !important;
+  margin-bottom: 2px !important;
 }
 
 .input-cell input {
   background: #141724 !important;
   border: 1px solid #1e2235 !important;
   color: #ffffff !important;
-  padding: 6px 8px !important;
-  border-radius: 6px !important;
-  font-size: 11px !important;
+  padding: 4px 6px !important; /* Lowers form padding limits dynamically */
+  border-radius: 4px !important;
+  font-size: 10px !important;
   font-weight: bold !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.input-cell input:focus {
-  border-color: #5078ff !important;
-  outline: none !important;
 }
 
 .live-metrics-data-row {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
-  gap: 12px !important;
+  gap: 6px !important;
   background: #0b0d17 !important;
-  padding: 10px !important;
-  border-radius: 6px !important;
+  padding: 6px 8px !important;
+  border-radius: 4px !important;
   border: 1px solid #161a29 !important;
-  box-sizing: border-box !important;
-}
-
-.data-cell {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
 }
 
 .data-cell .lbl { 
-  font-size: 9px !important; 
+  font-size: 8px !important; 
   color: #595d75 !important; 
-  font-weight: bold !important; 
-  text-transform: uppercase !important; 
 }
 
 .data-cell .txt-bold { 
-  font-size: 12px !important; 
-  font-weight: bold !important; 
-  margin-top: 4px !important; 
-  color: #e2e4eb !important; 
-  white-space: nowrap !important;
+  font-size: 11px !important; 
+  margin-top: 2px !important; 
 }
 
-.inner-drawer-load-btn {
-  width: 100% !important;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-  border: 1px solid #3b82f6 !important;
-  color: #ffffff !important;
-  padding: 10px 14px !important;
-  border-radius: 6px !important;
-  margin-top: 14px !important;
-  cursor: pointer !important;
-  font-weight: bold !important;
-  font-size: 12px !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.5px !important;
-  transition: opacity 0.2s ease !important;
-  flex-shrink: 0 !important;
-  box-sizing: border-box !important;
+.action-buttons-wrapper {
+  margin-top: 8px !important; /* Highly condensed control buttons wrap */
+  gap: 6px !important;
 }
 
-.inner-drawer-load-btn:active {
-  opacity: 0.85 !important;
+.inner-drawer-load-btn,
+.inner-drawer-telegram-btn {
+  padding: 8px 10px !important; /* Reduced vertical grid button tracking size */
+  font-size: 11px !important;
+  margin-top: 0 !important; /* Eliminates unnecessary vertical margin spaces */
+  border-radius: 4px !important;
 }
 
 .scan-again-btn {
@@ -352,19 +326,12 @@
   background: #21263c !important;
   border: 1px solid #2d3350 !important;
   color: #ffffff !important;
-  padding: 14px !important;
-  border-radius: 8px !important;
+  padding: 10px !important; /* Highly compressed footer dashboard refresh switch */
+  border-radius: 6px !important;
   cursor: pointer !important;
   font-weight: 600 !important;
-  font-size: 13px !important;
-  margin-top: 14px !important;
-  height: auto !important;
-  line-height: 1.2 !important;
+  font-size: 12px !important;
+  margin-top: 6px !important;
   flex-shrink: 0 !important; 
-  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.3) !important;
-  box-sizing: border-box !important;
-}
-
-.scan-again-btn:hover {
-  background: #2b314d !important;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2) !important;
 }
