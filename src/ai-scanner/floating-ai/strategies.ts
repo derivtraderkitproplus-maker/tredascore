@@ -42,14 +42,13 @@ export interface StrategyResult {
 }
 
 /**
- * PRODUCTION-READY EXPONENTIAL MOVING AVERAGE (EMA)
+ * HIGH-PERFORMANCE EXPONENTIAL MOVING AVERAGE (EMA)
  * Extracts pricing variables sequentially from oldest to newest to provide true market alignment.
  */
 export function calculateEMA(prices: number[], period: number): number {
   if (!prices || prices.length === 0) return 0;
   
   const k = 2 / (period + 1);
-  // 🛠️ CRITICAL FIX: Extract the first numerical point explicitly as a number, NOT an array reference
   let emaValue = prices[0]; 
   
   for (let i = 1; i < prices.length; i++) {
@@ -60,7 +59,7 @@ export function calculateEMA(prices: number[], period: number): number {
 }
 
 /**
- * PRODUCTION-READY RELATIVE STRENGTH INDEX (RSI)
+ * HIGH-PERFORMANCE RELATIVE STRENGTH INDEX (RSI)
  * Measures genuine directional change vectors across your exact parameter lookback window.
  */
 export function calculateRSI(prices: number[], period: number = 14): number {
@@ -128,7 +127,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
   { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' }
 ];
-// strategies.ts - PART 3: Dynamic Fallback Calculations & Synchronized Settings Engine
+// strategies.ts - PART 3: Mathematical Scoring Engine & Contract Evaluation
 
 export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
   const currentCount = ticks.length;
@@ -156,10 +155,13 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   const rsiValue = calculateRSI(ticks, 14);
   const volatility = calculateVolatility(ticks.slice(-30));
 
-  // Determine actual real-time market trend direction based on live data
+  // Determine actual real-time market trend direction based on true indicator data
   let marketDirection = 'FLAT';
-  if (fastEma > slowEma + 0.02) marketDirection = 'UP';
-  else if (fastEma < slowEma - 0.02) marketDirection = 'DOWN';
+  const priceSpread = fastEma - slowEma;
+  const threshold = 0.02;
+
+  if (priceSpread > threshold) marketDirection = 'UP';
+  else if (priceSpread < -threshold) marketDirection = 'DOWN';
 
   let scannerScore = 50;
   let marketCompatibility = 50;
@@ -167,60 +169,74 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   // --- DIVERSIFIED CONTRACT MATHEMATICAL SCORING MODIFIERS ---
   if (profile.contractType === 'RISE_FALL') {
     
-    // Explicit strategy isolation branches by unique ID to prevent identical cloned statistics
+    // THE BREAKOUT MOMENTUM PRINTER ENGINE
     if (profile.id === 'AI_TREND_PRINTER') {
-      const emaSpread = Math.abs(fastEma - slowEma);
-      scannerScore = marketDirection !== 'FLAT' && rsiValue > 40 && rsiValue < 60 ? 88 : 35;
-      marketCompatibility = emaSpread > volatility * 0.2 ? 82 : 45;
+      const strongTrendMomentum = Math.abs(priceSpread) > (volatility * 0.4);
+      const stableRsiRange = rsiValue >= 45 && rsiValue <= 65;
+
+      scannerScore = strongTrendMomentum && stableRsiRange ? 92 : 40;
+      marketCompatibility = stableRsiRange ? 88 : 42;
       
+    // DEEP CLASSIFICATION TREND FOLLOWING
     } else if (profile.id === 'AI_ALPHA_V19') {
-      scannerScore = marketDirection === 'UP' && rsiValue < 65 ? 85 : (marketDirection === 'DOWN' && rsiValue > 35 ? 85 : 40);
-      marketCompatibility = rsiValue > 55 || rsiValue < 45 ? 84 : 48;
+      const isCleanUpwardRun = marketDirection === 'UP' && rsiValue < 60;
+      const isCleanDownwardRun = marketDirection === 'DOWN' && rsiValue > 40;
       
+      scannerScore = isCleanUpwardRun || isCleanDownwardRun ? 88 : 35;
+      marketCompatibility = volatility > 0.8 ? 85 : 55;
+      
+    // EXHAUSTION REVERSAL RECOVERY MATRIX
     } else if (profile.id === 'MARTINGALE_CLASSIC' || profile.id === 'REVERSE_MARTINGALE') {
-      const isExplosiveVolume = volatility > 1.25;
-      scannerScore = marketDirection !== 'FLAT' && isExplosiveVolume ? 89 : 30;
-      marketCompatibility = rsiValue >= 42 && rsiValue <= 58 ? 80 : 42;
+      const isOverextendedOverbought = rsiValue >= 75 && marketDirection === 'UP';
+      const isOverextendedOversold = rsiValue <= 25 && marketDirection === 'DOWN';
+      const highMeanReversionProbability = isOverextendedOverbought || isOverextendedOversold;
+
+      scannerScore = highMeanReversionProbability && volatility > 1.1 ? 90 : 35;
+      marketCompatibility = volatility > 1.5 ? 85 : 50;
       
+    // GENERAL ADAPTIVE BASELINE
     } else {
-      // 🛠️ CRITICAL LOGIC FIX: Replaced hardcoded fallback numbers with true indicator deviations
-      const rsiDistanceFactor = Math.abs(rsiValue - 50); 
-      const uniqueVelocityWeight = Math.min(12, Math.floor(volatility * 4));
+      const rsiDistanceFactor = Math.abs(rsiValue - 50);
+      const structuralTrendStrength = Math.min(15, Math.floor((Math.abs(priceSpread) / (volatility || 1)) * 100));
       
-      // Forces every row card score to separate dynamically based on asset volatility scales
-      scannerScore = marketDirection === 'UP' 
-        ? Math.floor(82 - rsiDistanceFactor + uniqueVelocityWeight) 
-        : Math.floor(76 - rsiDistanceFactor + uniqueVelocityWeight);
-        
-      marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 84 : 72;
+      if (marketDirection !== 'FLAT') {
+        scannerScore = Math.floor(75 - rsiDistanceFactor + structuralTrendStrength);
+        marketCompatibility = rsiValue >= 40 && rsiValue <= 60 ? 85 : 60;
+      } else {
+        scannerScore = 40;
+        marketCompatibility = 40;
+      }
     }
     
   } else if (profile.contractType === 'OVER_UNDER') {
     if (profile.id === 'DALEMBERT_CLASSIC') {
-      scannerScore = marketDirection === 'FLAT' && volatility < 0.7 ? 86 : 40;
-      marketCompatibility = rsiValue >= 48 && rsiValue <= 52 ? 88 : 45;
+      scannerScore = marketDirection === 'FLAT' && volatility < 0.6 ? 88 : 35;
+      marketCompatibility = rsiValue >= 48 && rsiValue <= 52 ? 90 : 40;
     } else {
-      scannerScore = marketDirection === 'FLAT' && volatility < 0.9 ? 82 : 45;
-      marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 80 : 45;
+      scannerScore = marketDirection === 'FLAT' && volatility < 0.8 ? 84 : 40;
+      marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 82 : 45;
     }
     
   } else if (profile.contractType === 'TOUCH_NO_TOUCH') {
-    scannerScore = volatility > 1.4 && (rsiValue > 70 || rsiValue < 30) ? 88 : 38;
-    marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 82 : 48;
+    const isExtremeVolatilitySpike = volatility > 1.45 && (rsiValue > 72 || rsiValue < 28);
+    scannerScore = isExtremeVolatilitySpike ? 92 : 35;
+    marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 86 : 45;
     
   } else if (profile.contractType === 'ACCUMULATOR') {
+    // THE SAFE EQUILIBRIUM CRADLE FOR ACCUMULATORS
     const isSideways = marketDirection === 'FLAT';
-    const isCalmRange = rsiValue >= 45 && rsiValue <= 55;
-    const isLowRiskVol = volatility <= 0.8;
+    const withinTightRange = rsiValue >= 48 && rsiValue <= 52; 
+    const lowCrashingRisk = volatility < 0.50; 
 
-    if (isSideways && isCalmRange && isLowRiskVol) {
-      scannerScore = 85; 
-      marketCompatibility = 85;
+    if (isSideways && withinTightRange && lowCrashingRisk) {
+      scannerScore = 95; 
+      marketCompatibility = 90;
     } else {
-      scannerScore = 30; 
-      marketCompatibility = 30;
+      scannerScore = 35; 
+      marketCompatibility = 35;
     }
   }
+// strategies.ts - PART 4: Risk Optimization & UI Bounds Clamping
 
   // Clamping metrics cleanly within UI visualization limits
   scannerScore = Math.min(96, Math.max(35, scannerScore));
