@@ -1,4 +1,4 @@
-// scannerBridge.ts - PART 1: Core Definitions, Network Listeners & Pipeline Handlers
+// scannerBridge.ts - PART 1: Socket Pipelines & Core Data Definitions
 
 export type TickCallback = (symbol: string, tick: number) => void;
 
@@ -78,7 +78,7 @@ export class DerivScannerBridge {
       this.boundMessageHandler = null;
     }
   }
-// scannerBridge.ts - PART 2: Workspace Parameter Injector Logic
+// scannerBridge.ts - PART 2: Unified Container Injection Engine
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
@@ -94,7 +94,40 @@ export class DerivScannerBridge {
       let blockInjectionCounter = 0;
 
       allBlocks.forEach((block: any) => {
-        // 1. FIXED ASSET INJECTION
+        // --- 1. FIXED UNIFIED CONTAINER TARGETING ---
+        // Accesses the parent block containing your asset selection and trade criteria fields directly
+        if (block.type === 'trade_definition') {
+          
+          // A. Asset Volatility Selection Dropdown Integration
+          const symbolField = block.getField('SYMBOL_LIST');
+          if (symbolField) {
+            let systemSymbol = params.targetSymbol.toUpperCase().trim();
+            if (systemSymbol === 'R_10') systemSymbol = '1HZ10V';
+            if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
+            if (systemSymbol === 'R_50') systemSymbol = '1HZ50V';
+            if (systemSymbol === 'R_75') systemSymbol = '1HZ75V';
+            if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
+            
+            symbolField.setValue(systemSymbol);
+            blockInjectionCounter++;
+          }
+
+          // B. Trade Category Selection Integration
+          const tradeTypeField = block.getField('TRADETYPE_LIST');
+          if (tradeTypeField) {
+            let typeVal = 'risefall';
+            const normType = params.contractType.toUpperCase().trim();
+            if (normType === 'OVER_UNDER') typeVal = 'digits';
+            if (normType === 'TOUCH_NO_TOUCH') typeVal = 'touchnotouch';
+            if (normType === 'ACCUMULATOR') typeVal = 'accumulator';
+            
+            tradeTypeField.setValue(typeVal);
+            blockInjectionCounter++;
+          }
+        }
+
+        // --- 2. LEGACY COMPATIBILITY FALLBACK TARGETING ---
+        // Preserves support if individual market strategy selection rows exist in target logic arrays
         if (block.type === 'trade_definition_market') {
           const symbolField = block.getField('SYMBOL_LIST');
           if (symbolField) {
@@ -110,7 +143,6 @@ export class DerivScannerBridge {
           }
         }
 
-        // 2. DYNAMIC CONTRACT TYPE MAPPING LAYER
         if (block.type === 'trade_definition_contracttype') {
           const contractTypeField = block.getField('CONTRACT_TYPE_LIST');
           if (contractTypeField) {
@@ -126,7 +158,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 3. PURCHASE CALL / PUT ORDER SIGNALS
+        // --- 3. PURCHASE ORDER SIGNALS DIRECTION ---
         if (block.type === 'purchase') {
           const purchaseField = block.getField('PURCHASE_LIST');
           if (purchaseField) {
@@ -142,7 +174,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 4. DURATIONS & FLOATING POINT STAKE RE-WRITER
+        // --- 4. DURATIONS & FLOATING POINT STAKE RE-WRITER ---
         if (block.type === 'trade_definition_tradeoptions') {
           const durationField = block.getField('DURATION');
           if (durationField) {
@@ -162,7 +194,7 @@ export class DerivScannerBridge {
           }
         }
 
-        // 5. AUTO-FALLBACK VARIABLE MAPPING (Robust Search and Validation Layer)
+        // --- 5. AUTOMATED VARIABLE SYNCHRONIZER (RISK CONTROLS MANAGER) ---
         if (block.type === 'variables_set') {
           const fieldVar = block.getField('VAR');
           if (fieldVar) {
@@ -176,19 +208,19 @@ export class DerivScannerBridge {
                 if (numField) {
                   const normalizedVar = variableName.toLowerCase().trim();
                   
-                  // STAKE FIELD VARIANT CHECKS
+                  // STAKE METRICS
                   if (normalizedVar === 'maxstake' || normalizedVar.includes('stake') || normalizedVar === 'initialstake' || normalizedVar === 'defaultstake') {
                     numField.setValue(Number(params.stake).toFixed(2));
                     blockInjectionCounter++;
                   }
                   
-                  // STOP LOSS VARIANT CHECKS (Catches text variants like 'loss limit', 'sl', or 'stop')
+                  // STOP LOSS METRICS
                   else if (normalizedVar.includes('loss') || normalizedVar.includes('threshold') || normalizedVar.includes('stop') || normalizedVar === 'sl') {
                     numField.setValue(Number(params.stopLoss).toFixed(2));
                     blockInjectionCounter++;
                   }
                   
-                  // TAKE PROFIT VARIANT CHECKS (Catches text variants like 'target profit', 'tp', or 'profit ceiling')
+                  // TAKE PROFIT METRICS
                   else if (normalizedVar.includes('profit') || normalizedVar.includes('target') || normalizedVar.includes('take') || normalizedVar === 'tp') {
                     numField.setValue(Number(params.takeProfit).toFixed(2));
                     blockInjectionCounter++;
@@ -204,7 +236,7 @@ export class DerivScannerBridge {
         workspace.render();
       }
 
-      // Operational success validation confirmation modal
+      // Operational success notification verification panel
       if (blockInjectionCounter > 0) {
         alert(`✅ Strategy Configuration Loaded!\n\n• Asset Pool: ${params.targetSymbol.replace('R_', 'Volatility ')}\n• Active Stake: $${Number(params.stake).toFixed(2)}\n• Stop Loss: $${Number(params.stopLoss).toFixed(2)}\n• Take Profit: $${Number(params.takeProfit).toFixed(2)}`);
       } else {
