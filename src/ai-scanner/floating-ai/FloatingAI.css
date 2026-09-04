@@ -1,14 +1,14 @@
-/* FloatingAI.css - PART 1: Full-Screen Viewport Setup & Compact Header Structures */
+/* FloatingAI.css - PART 1: Full-Screen Viewport Framework & Fixed Close Controls */
 
 .ai-strategy-scanner {
   background: #0b0d17 !important;
   color: #ffffff !important;
-  padding: 12px 14px !important; /* Compressed to give scrolling list maximum screen room */
+  padding: 10px 12px !important; /* Compressed margins to give vertical rows maximum visibility */
   box-sizing: border-box !important;
   display: flex !important;
   flex-direction: column !important;
   
-  /* FIXED: Opens up to absolute 100% full-screen immersive view layer */
+  /* FIXED: Configured layout container to open into a absolute full-screen immersive view */
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
@@ -19,7 +19,7 @@
   
   border: none !important;
   z-index: 99999 !important;
-  overflow: hidden !important; /* Locks external boundary framework completely */
+  overflow: hidden !important; /* Locks background boundary frameworks completely */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
@@ -28,23 +28,56 @@
   justify-content: space-between !important;
   align-items: center !important;
   flex-shrink: 0 !important;
-  padding-bottom: 4px !important;
+  padding-bottom: 2px !important;
 }
 
 .scanner-header h3 {
   margin: 0 !important;
-  font-size: 16px !important; /* Moderated font footprint for small mobile viewports */
+  font-size: 16px !important; /* Mobile balanced title sizing scales */
   font-weight: bold !important;
   color: #ffffff !important;
   line-height: 1.2 !important;
 }
+
+/* FIXED: Top bar alignment blocks to contain manual closing inputs */
+.header-controls-block {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+.scanner-close-x-btn {
+  background: #1c2035 !important;
+  color: #ffffff !important;
+  border: 1px solid #2d3350 !important;
+  font-size: 13px !important;
+  font-weight: bold !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.scanner-close-x-btn:active {
+  background: #ff4a62 !important; /* Clear touch-tap interaction confirmation feedback */
+  border-color: #ff4a62 !important;
+}
+/* FloatingAI.css - PART 2: Compact Subheaders & Space-Optimized Global Statistics Banner */
 
 .profile-counter {
   background: #1c1836 !important;
   color: #7c5dfa !important;
   padding: 4px 10px !important;
   border-radius: 6px !important;
-  font-size: 12px !important;
+  font-size: 11px !important;
   font-weight: bold !important;
   flex-shrink: 0 !important;
 }
@@ -60,7 +93,7 @@
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
   gap: 6px !important;
-  margin-top: 10px !important;
+  margin-top: 8px !important;
   flex-shrink: 0 !important;
 }
 
@@ -91,7 +124,7 @@
 
 .highlight-yellow { color: #f5a623 !important; }
 .highlight-purple { color: #9064ff !important; }
-/* FloatingAI.css - PART 2: Compact Strategy Cards, Space-Optimized Drawers, & Scrolling Lists */
+/* FloatingAI.css - PART 3: High-Frequency Scrolling Lists & Compact Strategy Nodes */
 
 .strategy-scroll-list {
   display: flex !important;
@@ -102,7 +135,7 @@
   padding-right: 2px !important;
   margin-top: 10px !important;
   margin-bottom: 2px !important;
-  -webkit-overflow-scrolling: touch !important; /* Provides fast native momentum deceleration */
+  -webkit-overflow-scrolling: touch !important; /* Fast native momentum mobile scrolling */
 }
 
 .strategy-scroll-list::-webkit-scrollbar {
@@ -120,12 +153,12 @@
   background: #131622 !important;
   border: 1px solid #1d2134 !important;
   border-radius: 8px !important;
-  padding: 8px 10px !important; /* Lowered inner vertical grid boundaries to drop asset room footprint */
+  padding: 8px 10px !important; /* Lowers card footprint to fit more rows on mobile */
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
   position: relative !important;
-  transition: background-color 0.2s ease, border-color 0.2s ease !important;
+  transition: all 0.2s ease !important;
 }
 
 .strategy-card-node:first-child {
@@ -194,6 +227,7 @@
   font-size: 10px !important; 
   color: #6c718c !important; 
 }
+/* FloatingAI.css - PART 4: Space-Optimized Parameters Panel, Badges, & Action Buttons */
 
 .badge-column {
   margin-left: auto !important;
@@ -259,7 +293,7 @@
   color: #7b7f99 !important;
   margin: 0 0 8px 0 !important;
   line-height: 1.3 !important;
-  text-align: left;
+  text-align: left !important;
 }
 
 .ai-input-parameter-grid {
@@ -271,11 +305,18 @@
   box-sizing: border-box !important;
 }
 
+.input-cell {
+  display: flex !important;
+  flex-direction: column !important;
+  text-align: left !important;
+}
+
 .input-cell label {
   font-size: 8px !important;
   color: #6c718c !important;
   font-weight: bold !important;
   margin-bottom: 2px !important;
+  text-transform: uppercase !important;
 }
 
 .input-cell input {
@@ -286,6 +327,13 @@
   border-radius: 4px !important;
   font-size: 10px !important;
   font-weight: bold !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.input-cell input:focus {
+  border-color: #5078ff !important;
+  outline: none !important;
 }
 
 .live-metrics-data-row {
@@ -296,29 +344,69 @@
   padding: 6px 8px !important;
   border-radius: 4px !important;
   border: 1px solid #161a29 !important;
+  box-sizing: border-box !important;
+}
+
+.data-cell {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
 }
 
 .data-cell .lbl { 
   font-size: 8px !important; 
   color: #595d75 !important; 
+  font-weight: bold !important;
+  text-transform: uppercase !important;
 }
 
 .data-cell .txt-bold { 
   font-size: 11px !important; 
+  font-weight: bold !important;
   margin-top: 2px !important; 
+  color: #e2e4eb !important;
 }
 
 .action-buttons-wrapper {
   margin-top: 8px !important; /* Highly condensed control buttons wrap */
+  display: flex !important;
+  flex-direction: column !important;
   gap: 6px !important;
 }
 
-.inner-drawer-load-btn,
-.inner-drawer-telegram-btn {
+.inner-drawer-load-btn {
+  width: 100% !important;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
   padding: 8px 10px !important; /* Reduced vertical grid button tracking size */
   font-size: 11px !important;
   margin-top: 0 !important; /* Eliminates unnecessary vertical margin spaces */
   border-radius: 4px !important;
+  cursor: pointer !important;
+  font-weight: bold !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  transition: opacity 0.2s ease !important;
+  box-sizing: border-box !important;
+}
+
+.inner-drawer-load-btn:active {
+  opacity: 0.85 !important;
+}
+
+.inner-drawer-telegram-btn {
+  width: 100% !important;
+  background: #0088cc !important;
+  border: none !important;
+  color: #ffffff !important;
+  padding: 8px 10px !important;
+  font-size: 11px !important;
+  margin-top: 0 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-weight: bold !important;
+  box-sizing: border-box !important;
 }
 
 .scan-again-btn {
@@ -332,6 +420,13 @@
   font-weight: 600 !important;
   font-size: 12px !important;
   margin-top: 6px !important;
+  height: auto !important;
+  line-height: 1.2 !important;
   flex-shrink: 0 !important; 
   box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2) !important;
+  box-sizing: border-box !important;
+}
+
+.scan-again-btn:active {
+  background: #2b314d !important;
 }
