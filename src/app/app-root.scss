@@ -10,3 +10,121 @@
         margin-top: 6rem;
     }
 }
+/* ==========================================================================
+   COMMERCIAL SAAS PRELOADER INTERFACE (TRADERSCHEME PREMIUM STYLE)
+   ========================================================================== */
+
+/* Full-screen backdrop featuring deep neon grid lines and synapses */
+.saas-boot-preloader-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #04060d url('https://unsplash.com') no-repeat center center !important;
+  background-size: cover !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 999999 !important; /* Forces it over absolutely everything during boot */
+  padding: 24px !important;
+  box-sizing: border-box !important;
+}
+
+/* Glassmorphism Centered Branding Card Window */
+.saas-boot-card-window {
+  width: 100% !important;
+  max-width: 380px !important;
+  background: rgba(15, 20, 35, 0.65) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(124, 93, 250, 0.25) !important;
+  border-radius: 12px !important;
+  padding: 30px 24px !important;
+  box-sizing: border-box !important;
+  text-align: center !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(124, 93, 250, 0.1) !important;
+}
+
+.saas-boot-card-window h2 {
+  margin: 0 !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  letter-spacing: 0.5px !important;
+}
+
+.saas-boot-card-window p {
+  margin: 4px 0 0 0 !important;
+  font-size: 11px !important;
+  color: rgba(124, 93, 250, 0.8) !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+}
+
+/* Three-Dot Pulsing Loading Sub-Indicator */
+.saas-boot-dots-row {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  margin: 20px 0 !important;
+}
+
+.saas-boot-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #00e676 !important; /* Vibrant cyber green dots */
+  box-shadow: 0 0 8px #00e676 !important;
+  animation: bootDotPulse 1.4s infinite ease-in-out !important;
+}
+
+.saas-boot-dot:nth-child(2) { animation-delay: 0.2s !important; }
+.saas-boot-dot:nth-child(3) { animation-delay: 0.4s !important; }
+
+.saas-boot-status-msg {
+  font-size: 12px !important;
+  color: #e2e8f0 !important;
+  font-weight: 600 !important;
+  margin-bottom: 24px !important;
+  height: 18px !important;
+}
+
+/* Linear Tracking Progress Grid System */
+.saas-boot-progress-wrapper {
+  width: 100% !important;
+  text-align: left !important;
+}
+
+.saas-boot-progress-track {
+  width: 100% !important;
+  height: 4px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+.saas-boot-progress-bar-fill {
+  height: 100% !important;
+  background: linear-gradient(90deg, #7c5dfa 0%, #00e676 100%) !important;
+  box-shadow: 0 0 8px #00e676 !important;
+  transition: width 0.1s linear !important; /* Liquid horizontal tracking */
+}
+
+.saas-boot-progress-meta-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-top: 8px !important;
+  font-family: monospace !important;
+  font-size: 10px !important;
+  color: #64748b !important;
+}
+
+@keyframes bootDotPulse {
+  0%, 100% { transform: scale(0.8); opacity: 0.4; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
