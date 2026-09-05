@@ -459,16 +459,13 @@ body:has(:contains("Total stake")) [class*="scanner-btn"] {
   height: 0 !important;
   width: 0 !important;
   padding: 0 !important;
-   }
-/* ==========================================================================
-   PRODUCTION READY: Premium Interactive Floating AI Sphere Engine
+  }/* ==========================================================================
+   PRODUCTION READY: Premium Interactive Floating AI Sphere Dashboard Overrides
    ========================================================================== */
 
-/* The floating base arena container that holds the sphere over your workspace */
-.floating-ai-trigger-container {
+/* The interactive bounding layer that handles the floating drag position hooks */
+.floating-ai-trigger-wrapper {
   position: fixed !important;
-  bottom: 95px !important;
-  right: 20px !important;
   width: 70px !important;
   height: 70px !important;
   display: flex !important;
@@ -478,29 +475,30 @@ body:has(:contains("Total stake")) [class*="scanner-btn"] {
   overflow: visible !important;
 }
 
-/* Beautifully Pulsing Background Radar Waves */
-.floating-radar-ring {
+/* Beautifully Pulsing Background Radar Waves (Signals Live System Feeds) */
+.floating-radar-pulse-ring {
   position: absolute !important;
   border-radius: 50% !important;
   border: 1px solid rgba(80, 120, 255, 0.3) !important;
   background: rgba(80, 120, 255, 0.02) !important;
   pointer-events: none !important;
+  transform-origin: center center !important;
 }
 
-.radar-wave-outer {
+.radar-ring-outer {
   width: 110px !important;
   height: 110px !important;
-  animation: radarBreathingLoop 3.5s infinite ease-in-out !important;
+  animation: radarBreathingMotion 3.5s infinite ease-in-out !important;
 }
 
-.radar-wave-inner {
+.radar-ring-inner {
   width: 80px !important;
   height: 80px !important;
-  animation: radarBreathingLoop 2.2s infinite ease-in-out 0.4s !important;
+  animation: radarBreathingMotion 2.2s infinite ease-in-out 0.4s !important;
 }
 
-/* Smoothly Draggable Outer Sphere Framework Button Shell */
-.premium-ai-sphere-button {
+/* Smoothly Draggable Outer Shell Sphere Button Frame */
+.premium-ai-sphere-trigger {
   position: relative !important;
   width: 64px !important;
   height: 64px !important;
@@ -512,17 +510,19 @@ body:has(:contains("Total stake")) [class*="scanner-btn"] {
   align-items: center !important;
   justify-content: center !important;
   cursor: grab !important;
-  touch-action: none !important; /* Fixes mobile drag-free conflict */
+  touch-action: none !important; /* Locks out mobile scroll conflicts when dragging free */
   padding: 0 !important;
   margin: 0 !important;
+  border-style: solid !important;
 }
 
-.premium-ai-sphere-button:active {
+.premium-ai-sphere-trigger:active {
   cursor: grabbing !important;
   transform: scale(1.05) !important;
+  box-shadow: 0 6px 20px rgba(80, 120, 255, 0.25) !important;
 }
 
-/* Circular Inside AI Core Sphere Base Window */
+/* Circular Inside AI Core Sphere Window Base */
 .circular-inside-ai-core {
   width: 42px !important;
   height: 42px !important;
@@ -534,36 +534,49 @@ body:has(:contains("Total stake")) [class*="scanner-btn"] {
   justify-content: center !important;
   overflow: hidden !important;
   box-shadow: inset 0 0 8px rgba(80, 120, 255, 0.2) !important;
-  animation: coreGlowLoop 2.8s infinite ease-in-out !important;
+  animation: coreGlowMotion 2.8s infinite ease-in-out !important;
 }
 
-/* Toggle Dance Up/Down Signal Light Indicator Element */
+/* Toggle Dance Up/Down Signal Light Indicator Node */
 .toggle-dance-node {
   width: 6px !important;
   height: 6px !important;
   border-radius: 50% !important;
   background: #5078ff !important;
   box-shadow: 0 0 6px #5078ff, 0 0 12px #5078ff !important;
-  animation: verticalDanceLoop 1.4s infinite ease-in-out !important;
+  animation: verticalDanceMotion 1.4s infinite ease-in-out !important;
+}
+
+/* Static Guidance Subtext Anchor */
+.scanner-anchor-label {
+  position: absolute !important;
+  bottom: -16px !important;
+  font-size: 7px !important;
+  font-family: monospace !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  color: rgba(80, 120, 255, 0.5) !important;
+  pointer-events: none !important;
+  white-space: nowrap !important;
 }
 
 /* ==========================================================================
-   ANIMATION TIME-LOOPS (HIGH-ACCURACY / STABLE RESPONSIVE RENDERS)
+   ANIMATION KEYFRAMES (ZERO LAG MATHEMATICAL RENDERING TUNES)
    ========================================================================== */
 
-@keyframes radarBreathingLoop {
+@keyframes radarBreathingMotion {
   0% { transform: scale(1); opacity: 0.15; }
   50% { transform: scale(1.25); opacity: 0.55; }
   100% { transform: scale(1); opacity: 0.15; }
 }
 
-@keyframes coreGlowLoop {
+@keyframes coreGlowMotion {
   0% { box-shadow: inset 0 0 5px rgba(80, 120, 255, 0.25); border-color: rgba(80, 120, 255, 0.35); }
   50% { box-shadow: inset 0 0 14px rgba(80, 120, 255, 0.6); border-color: rgba(80, 120, 255, 0.7); }
   100% { box-shadow: inset 0 0 5px rgba(80, 120, 255, 0.25); border-color: rgba(80, 120, 255, 0.35); }
 }
 
-@keyframes verticalDanceLoop {
+@keyframes verticalDanceMotion {
   0% { transform: translateY(-8px); }
   50% { transform: translateY(8px); }
   100% { transform: translateY(-8px); }
