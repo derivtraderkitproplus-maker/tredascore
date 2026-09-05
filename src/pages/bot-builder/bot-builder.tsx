@@ -37,7 +37,6 @@ const BotBuilder = observer(() => {
 
         return () => onUnmount();
     }, [onMount, onUnmount]);
-
     React.useEffect(() => {
         const workspace = window.Blockly?.derivWorkspace;
 
@@ -53,6 +52,7 @@ const BotBuilder = observer(() => {
                 removeBlockChangeListener();
             }
         };
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_running]);
 
@@ -79,8 +79,10 @@ const BotBuilder = observer(() => {
             is_blockly_delete_listener_registered.current = true;
             workspace.addChangeListener(handleBlockDelete);
         }
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_loading]);
+
     const handleBlockDelete = (e: TBlocklyEvents) => {
         const { is_reset_button_clicked, setResetButtonState } = toolbar;
 
@@ -117,7 +119,6 @@ const BotBuilder = observer(() => {
             },
         });
     };
-
     return (
         <>
             <div
@@ -134,76 +135,67 @@ const BotBuilder = observer(() => {
 
             {active_tab === 1 && <BotBuilderTourHandler is_mobile={!isDesktop} />}
 
-            {/* removed this outside from toolbar because it needs to be loaded separately without dependency */}
             <LoadModal />
             <SaveModal />
             {is_open && <QuickStrategy1 />}
 
-            {/* FIXED INJECTION: LIQUID-SMOOTH TOUCH GESTURE DRAGGABLE SPHERE ENCLOSURE */}
+            {/* INJECTED ARTIFACT: SMOOTH-DRAG SLOW-DANCE PURPLE AI SPHERE TRIGGER MODULE */}
             {active_tab === 1 && !is_preview_on_popup && (
                 <div 
                     className='floating-ai-trigger-wrapper'
                     style={{
-                        position: 'fixed',
-                        bottom: '95px',
-                        right: '25px',
-                        transform: 'translate(var(--ai-drag-x, 0px), var(--ai-drag-y, 0px))',
-                        zIndex: 99999
+                        display: isAiScannerOpen ? 'none' : 'flex'
                     }}
                     onTouchStart={(e) => {
-                        const targetNode = e.currentTarget;
-                        const initialTouchFrame = e.touches[0];
+                        const targetElement = e.currentTarget;
+                        const touchStartFrame = e.touches[0];
                         
-                        // Parse existing active CSS transform style variables accurately
-                        const activeComputedStyles = window.getComputedStyle(targetNode).transform;
+                        const currentMatrixStyle = window.getComputedStyle(targetElement).transform;
                         let initialXOffset = 0;
                         let initialYOffset = 0;
                         
-                        if (activeComputedStyles && activeComputedStyles !== 'none') {
-                            const matrixArrayValues = activeComputedStyles.split('(')[1].split(')')[0].split(',');
-                            initialXOffset = parseFloat(matrixArrayValues[4]) || 0;
-                            initialYOffset = parseFloat(matrixArrayValues[5]) || 0;
+                        if (currentMatrixStyle && currentMatrixStyle !== 'none') {
+                            const matrixValues = currentMatrixStyle.match(/matrix\((.+)\)/);
+                            if (matrixValues) {
+                                const parts = matrixValues[1].split(', ');
+                                initialXOffset = parseFloat(parts[4]) || 0;
+                                initialYOffset = parseFloat(parts[5]) || 0;
+                            }
                         }
 
-                        const handleTouchMoveGesture = (moveEvent: TouchEvent) => {
+                        const handleTouchMove = (moveEvent: TouchEvent) => {
                             const movingTouchFrame = moveEvent.touches[0];
-                            const rawDeltaX = movingTouchFrame.clientX - initialTouchFrame.clientX + initialXOffset;
-                            const rawDeltaY = movingTouchFrame.clientY - initialTouchFrame.clientY + initialYOffset;
+                            const calculatedDeltaX = movingTouchFrame.clientX - touchStartFrame.clientX + initialXOffset;
+                            const calculatedDeltaY = movingTouchFrame.clientY - touchStartFrame.clientY + initialYOffset;
                             
-                            targetNode.style.setProperty('--ai-drag-x', `${rawDeltaX}px`);
-                            targetNode.style.setProperty('--ai-drag-y', `${rawDeltaY}px`);
+                            targetElement.style.setProperty('--ai-drag-x', `${calculatedDeltaX}px`);
+                            targetElement.style.setProperty('--ai-drag-y', `${calculatedDeltaY}px`);
                         };
 
-                        const handleTouchEndGesture = () => {
-                            window.removeEventListener('touchmove', handleTouchMoveGesture);
-                            window.removeEventListener('touchend', handleTouchEndGesture);
+                        const handleTouchEnd = () => {
+                            window.removeEventListener('touchmove', handleTouchMove);
+                            window.removeEventListener('touchend', handleTouchEnd);
                         };
 
-                        window.addEventListener('touchmove', handleTouchMoveGesture, { passive: false });
-                        window.addEventListener('touchend', handleTouchEndGesture);
+                        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+                        window.addEventListener('touchend', handleTouchEnd);
                     }}
                 >
-                    {/* The double pulsing radar rings signifying data activity */}
                     <div className="floating-radar-pulse-ring radar-ring-outer"></div>
                     <div className="floating-radar-pulse-ring radar-ring-inner"></div>
 
-                    {/* Premium outer core sphere trigger container mapped securely to your active tab hooks */}
                     <button 
                         className="premium-ai-sphere-trigger"
-                        onClick={() => setIsAiScannerOpen(!isAiScannerOpen)}
+                        onClick={() => setIsAiScannerOpen(true)}
                     >
                         <div className="circular-inside-ai-core">
-                            <div className="toggle-dance-node"></div>
+                            <span className="ai-core-text-brand">AI</span>
                         </div>
                     </button>
-                    
-                    {/* Dynamic text anchor synchronization text tracking seamlessly underneath */}
-                    <span className="scanner-anchor-label">
-                        {isAiScannerOpen ? localize('Close') : localize('AI Scanner')}
-                    </span>
                 </div>
             )}
-            {/* Centered Modal Backdrop Layer Overlay containing the 30 profile engine modules */}
+
+            {/* Modal Backdrop Layer containing the multi-asset strategy scanner matrix */}
             {active_tab === 1 && !is_preview_on_popup && isAiScannerOpen && (
                 <div 
                     className='ai-scanner-floating-overlay-container'
@@ -236,7 +228,6 @@ const BotBuilder = observer(() => {
                         }}
                     />
                     <div style={{ width: '100%', maxWidth: '450px' }}>
-                        {/* Pass active onCloseScanner hooks straight down into the child strategy matrix sheet layout */}
                         <FloatingAI 
                             derivContext={{ websocketInstance: window.Blockly?.derivWorkspace?.socket || window.ws || app }} 
                             selectedMarket='1HZ100V' 
