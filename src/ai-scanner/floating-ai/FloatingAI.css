@@ -1,14 +1,14 @@
-/* ==========================================================================
-   PART 1: Full-Screen Viewport Framework & Fixed Close Controls
-   ========================================================================== */
+/* FloatingAI.css - PART 1: Full-Screen Viewport Framework & Fixed Close Controls */
 
 .ai-strategy-scanner {
   background: #0b0d17 !important;
   color: #ffffff !important;
-  padding: 10px 12px !important;
+  padding: 10px 12px !important; /* Compressed margins to give vertical rows maximum visibility */
   box-sizing: border-box !important;
   display: flex !important;
   flex-direction: column !important;
+  
+  /* FIXED: Configured layout container to open into a absolute full-screen immersive view */
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
@@ -16,9 +16,10 @@
   height: 100vh !important;
   max-width: 100vw !important;
   max-height: 100vh !important;
+  
   border: none !important;
   z-index: 99999 !important;
-  overflow: hidden !important;
+  overflow: hidden !important; /* Locks background boundary frameworks completely */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
@@ -32,12 +33,13 @@
 
 .scanner-header h3 {
   margin: 0 !important;
-  font-size: 16px !important;
+  font-size: 16px !important; /* Mobile balanced title sizing scales */
   font-weight: bold !important;
   color: #ffffff !important;
   line-height: 1.2 !important;
 }
 
+/* FIXED: Top bar alignment blocks to contain manual closing inputs */
 .header-controls-block {
   display: flex !important;
   align-items: center !important;
@@ -65,9 +67,10 @@
 }
 
 .scanner-close-x-btn:active {
-  background: #ff4a62 !important;
+  background: #ff4a62 !important; /* Clear touch-tap interaction confirmation feedback */
   border-color: #ff4a62 !important;
 }
+/* FloatingAI.css - PART 2: Compact Subheaders & Space-Optimized Global Statistics Banner */
 
 .profile-counter {
   background: #1c1836 !important;
@@ -96,7 +99,7 @@
 
 .metric-box {
   background: #141724 !important;
-  padding: 6px 8px !important;
+  padding: 6px 8px !important; /* Thinned layout buffers to reduce tracking row heights */
   border-radius: 6px !important;
   border: 1px solid #1e2235 !important;
   box-sizing: border-box !important;
@@ -121,20 +124,18 @@
 
 .highlight-yellow { color: #f5a623 !important; }
 .highlight-purple { color: #9064ff !important; }
-/* ==========================================================================
-   PART 2: High-Frequency Scrolling Lists & Compact Strategy Nodes
-   ========================================================================== */
+/* FloatingAI.css - PART 3: High-Frequency Scrolling Lists & Compact Strategy Nodes */
 
 .strategy-scroll-list {
   display: flex !important;
   flex-direction: column !important;
-  gap: 8px !important;
+  gap: 8px !important; /* Tightened gap spacing between vertical row node blocks */
   flex-grow: 1 !important;
-  overflow-y: auto !important;
+  overflow-y: auto !important; /* Strictly confines dynamic rows within scrolling limits */
   padding-right: 2px !important;
   margin-top: 10px !important;
   margin-bottom: 2px !important;
-  -webkit-overflow-scrolling: touch !important;
+  -webkit-overflow-scrolling: touch !important; /* Fast native momentum mobile scrolling */
 }
 
 .strategy-scroll-list::-webkit-scrollbar {
@@ -152,7 +153,7 @@
   background: #131622 !important;
   border: 1px solid #1d2134 !important;
   border-radius: 8px !important;
-  padding: 8px 10px !important;
+  padding: 8px 10px !important; /* Lowers card footprint to fit more rows on mobile */
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
@@ -226,6 +227,7 @@
   font-size: 10px !important; 
   color: #6c718c !important; 
 }
+/* FloatingAI.css - PART 4: Space-Optimized Parameters Panel, Badges, & Action Buttons */
 
 .badge-column {
   margin-left: auto !important;
@@ -276,6 +278,7 @@
   box-shadow: 0 4px 15px rgba(124, 93, 250, 0.08) !important;
 }
 
+/* ANTI-SCROLL COMPRESSION FOR EXPANDED PARAMETERS PANEL */
 .card-expanded-drawer {
   border-top: 1px solid #1a1e30 !important;
   background: #0f121d !important;
@@ -296,7 +299,7 @@
 .ai-input-parameter-grid {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
-  gap: 4px !important;
+  gap: 4px !important; /* Minimizes lateral separation rules */
   margin-bottom: 8px !important;
   width: 100% !important;
   box-sizing: border-box !important;
@@ -320,7 +323,7 @@
   background: #141724 !important;
   border: 1px solid #1e2235 !important;
   color: #ffffff !important;
-  padding: 4px 6px !important;
+  padding: 4px 6px !important; /* Lowers form padding limits dynamically */
   border-radius: 4px !important;
   font-size: 10px !important;
   font-weight: bold !important;
@@ -365,7 +368,7 @@
 }
 
 .action-buttons-wrapper {
-  margin-top: 8px !important;
+  margin-top: 8px !important; /* Highly condensed control buttons wrap */
   display: flex !important;
   flex-direction: column !important;
   gap: 6px !important;
@@ -376,9 +379,9 @@
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
   border: 1px solid #3b82f6 !important;
   color: #ffffff !important;
-  padding: 8px 10px !important;
+  padding: 8px 10px !important; /* Reduced vertical grid button tracking size */
   font-size: 11px !important;
-  margin-top: 0 !important;
+  margin-top: 0 !important; /* Eliminates unnecessary vertical margin spaces */
   border-radius: 4px !important;
   cursor: pointer !important;
   font-weight: bold !important;
@@ -411,7 +414,7 @@
   background: #21263c !important;
   border: 1px solid #2d3350 !important;
   color: #ffffff !important;
-  padding: 10px !important;
+  padding: 10px !important; /* Highly compressed footer dashboard refresh switch */
   border-radius: 6px !important;
   cursor: pointer !important;
   font-weight: 600 !important;
@@ -427,121 +430,9 @@
 .scan-again-btn:active {
   background: #2b314d !important;
 }
-/* ==========================================================================
-   PART 3: AI Scanner Visual Alignment, Drag Pulse & DOM Hider Layers
-   ========================================================================== */
+/* FloatingAI.css - Automated Background Banner Hider Layer */
 
-.ai-scanner-canvas-area {
-  position: relative !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 100% !important;
-  height: 130px !important;
-  background: #0f121d !important;
-  border: 1px dashed #1e2235 !important;
-  border-radius: 8px !important;
-  margin-top: 6px !important;
-  flex-shrink: 0 !important;
-  overflow: hidden !important;
-}
-
-.pulsing-life-ring {
-  position: absolute !important;
-  border-radius: 50% !important;
-  border: 1px solid rgba(80, 120, 255, 0.2) !important;
-  background: rgba(80, 120, 255, 0.01) !important;
-  pointer-events: none !important;
-  transform-origin: center center !important;
-}
-
-.ring-tier-1 {
-  width: 110px !important;
-  height: 110px !important;
-  animation: ringPulseMotion 3.5s infinite ease-in-out !important;
-}
-
-.ring-tier-2 {
-  width: 80px !important;
-  height: 80px !important;
-  animation: ringPulseMotion 2.2s infinite ease-in-out 0.4s !important;
-}
-
-.draggable-ai-sphere {
-  position: relative !important;
-  z-index: 20 !important;
-  width: 64px !important;
-  height: 64px !important;
-  border-radius: 50% !important;
-  background: linear-gradient(135deg, #17224d 0%, #0d1124 100%) !important;
-  border: 1px solid #2d3b75 !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), inset 0 1px 3px rgba(255, 255, 255, 0.1) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: grab !important;
-  touch-action: none !important;
-  transition: transform 0.15s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-}
-
-.draggable-ai-sphere:active {
-  cursor: grabbing !important;
-  transform: scale(1.05) !important;
-  box-shadow: 0 6px 20px rgba(80, 120, 255, 0.25) !important;
-}
-
-.circular-inside-ai-core {
-  width: 42px !important;
-  height: 42px !important;
-  border-radius: 50% !important;
-  background: #07090e !important;
-  border: 1px solid rgba(80, 120, 255, 0.4) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  overflow: hidden !important;
-  box-shadow: inset 0 0 8px rgba(80, 120, 255, 0.2) !important;
-  animation: coreGlowLoop 2.8s infinite ease-in-out !important;
-}
-
-.toggle-dance-node {
-  width: 6px !important;
-  height: 6px !important;
-  border-radius: 50% !important;
-  background: #5078ff !important;
-  box-shadow: 0 0 6px #5078ff, 0 0 12px #5078ff !important;
-  animation: verticalDanceLoop 1.4s infinite ease-in-out !important;
-}
-
-.scanner-anchor-text {
-  position: absolute !important;
-  bottom: 4px !important;
-  font-size: 7px !important;
-  font-family: monospace !important;
-  letter-spacing: 1.5px !important;
-  color: rgba(80, 120, 255, 0.4) !important;
-  text-transform: uppercase !important;
-  pointer-events: none !important;
-}
-
-@keyframes ringPulseMotion {
-  0% { transform: scale(1); opacity: 0.15; }
-  50% { transform: scale(1.25); opacity: 0.55; }
-  100% { transform: scale(1); opacity: 0.15; }
-}
-
-@keyframes coreGlowLoop {
-  0% { box-shadow: inset 0 0 5px rgba(80, 120, 255, 0.25); border-color: rgba(80, 120, 255, 0.35); }
-  50% { box-shadow: inset 0 0 14px rgba(80, 120, 255, 0.6); border-color: rgba(80, 120, 255, 0.7); }
-  100% { box-shadow: inset 0 0 5px rgba(80, 120, 255, 0.25); border-color: rgba(80, 120, 255, 0.35); }
-}
-
-@keyframes verticalDanceLoop {
-  0% { transform: translateY(-8px); }
-  50% { transform: translateY(8px); }
-  100% { transform: translateY(-8px); }
-}
-
+/* Targets the underlying platform container layout to drop visibility while scanner is active */
 :global(body:has(.ai-strategy-scanner)) .risk-disclaimer,
 :global(body:has(.ai-strategy-scanner)) [class*="risk-disclaimer"],
 :global(body:has(.ai-strategy-scanner)) [id*="risk-disclaimer"],
@@ -555,7 +446,9 @@
   padding: 0 !important;
   margin: 0 !important;
 }
+/* FloatingAI.css - Automated Trigger Button Hider Layer */
 
+/* If the dashboard analytics text block mounts onto the screen DOM, forcefully drop the trigger button visibility */
 body:has(:contains("Contracts lost")) button[class*="scanner"],
 body:has(:contains("Total stake")) button:contains("AI Scanner"),
 body:has(:contains("Total stake")) [class*="scanner-btn"] {
@@ -566,4 +459,4 @@ body:has(:contains("Total stake")) [class*="scanner-btn"] {
   height: 0 !important;
   width: 0 !important;
   padding: 0 !important;
-}
+   }
