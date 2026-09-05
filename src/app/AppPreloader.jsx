@@ -26,11 +26,17 @@ export const AppPreloader = ({ isAppReady }) => {
     return () => clearInterval(bootTimer);
   }, []);
 
-  // Force the layout bar to snap straight to 100% the instant your backend completes loading
+  // Professional transition block: delays unmounting so the UI updates natively
   useEffect(() => {
     if (isAppReady) {
-      setProgressPercentage(100);
       setCurrentStatusText('Boot sequence complete. Welcome.');
+      
+      // Deliberate transition window to cleanly push progress tracking to full completion
+      const finishTimeout = setTimeout(() => {
+        setProgressPercentage(100);
+      }, 600); 
+
+      return () => clearTimeout(finishTimeout);
     }
   }, [isAppReady]);
 
