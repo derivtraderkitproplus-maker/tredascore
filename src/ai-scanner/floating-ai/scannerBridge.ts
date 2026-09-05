@@ -1,4 +1,4 @@
-// scannerBridge.ts - PART 1: Core Definitions & Module Memory Registries
+// scannerBridge.ts - PART 1: Core Module Registries & Type Definitions
 
 export type TickCallback = (symbol: string, tick: number) => void;
 
@@ -24,7 +24,7 @@ export class DerivScannerBridge {
 
   // DYNAMIC RISK PROGRESSION BALANCES
   private baseStake: number = 3.00;
-  private currentMartingaleMultiplier: number = 1.0; // Flat at 1.0 to shield account capital from drawdown traps
+  private currentMartingaleMultiplier: number = 1.0; // Flat at 1.0 to faithfully respect your manual stake scaling rules
   private consecutiveLossesCount: number = 0;
   private maximumRecoveryStepsAllowed: number = 5;
 
@@ -168,7 +168,7 @@ export class DerivScannerBridge {
 
     const textContent = document.body.innerText;
     const totalRunsMatch = textContent.match(/No\.\s+of\s+runs\s+(\d+)/i);
-    const activeRunsCount = totalRunsMatch ? totalRunsMatch : '84';
+    const activeRunsCount = totalRunsMatch ? totalRunsMatch[1] : '8';
 
     card.innerHTML = `
       <div style="color: #6c718c; font-size: 10px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;">
@@ -225,7 +225,7 @@ export class DerivScannerBridge {
       setTimeout(() => {
         backdrop.remove();
         
-        // FIXED TARGET SELECTOR MATRIX — CHANGED TO ROUTE TO MAIN DASHBOARD TAB
+        // FORWARD RE-ROUTER DIRECTLY TO THE TRANSACTIONS/SUMMARY TABS PANEL
         const dashboardSelectors = [
           '#id-dashboard',
           '.dbot-tab__dashboard',
@@ -269,7 +269,7 @@ export class DerivScannerBridge {
 // scannerBridge.ts - PART 5: Universal Tab Balance Observer & Native Engine Circuit Breaker
 
   /**
-   * AUTOMATED PERFORMANCE WATCHER & DYNAMIC TRANSITION OBSERVATORY
+   * AUTOMATED PERFORMANCE WATCHER & FORCED BUILDER INTERCEPT PROTOCOL
    * Tracks total profit/loss on ALL dashboard tabs seamlessly by scraping Payout vs Stake totals natively.
    */
   private initializeAutomatedPerformanceWatcher(): void {
@@ -281,34 +281,28 @@ export class DerivScannerBridge {
       let sessionNetBalance = 0;
       let hasMetrics = false;
 
-      // UNIVERSAL TAB BALANCE SCRAPER (Summary, Transactions, and Journal tabs)
+      // FIXED REGEX PARSERS WITH STRUCTURAL EXTRACTION INDEXES
       const stakeMatch = globalTextContent.match(/Total stake\s+([\d.]+)/i);
       const payoutMatch = globalTextContent.match(/Total payout\s+([\d.]+)/i);
 
       if (stakeMatch && payoutMatch) {
-        const totalStake = parseFloat(stakeMatch[0]);
-        const totalPayout = parseFloat(payoutMatch[0]);
+        const totalStake = parseFloat(stakeMatch[1]);
+        const totalPayout = parseFloat(payoutMatch[1]);
         sessionNetBalance = totalPayout - totalStake; 
         hasMetrics = true;
       } else {
         const combinedMatch = globalTextContent.match(/Total profit\/loss\s+(-?[\d.]+)/i);
         if (combinedMatch) {
-          sessionNetBalance = parseFloat(combinedMatch[0]);
+          sessionNetBalance = parseFloat(combinedMatch[1]);
           hasMetrics = true;
         }
       }
       
-      // MONITOR WIN/LOSS TRANSITIONS
       const contractsLostMatch = globalTextContent.match(/Contracts lost\s+(\d+)/i);
       if (contractsLostMatch) {
-        const structuralLossCount = parseInt(contractsLostMatch[0]) || 0;
-        
+        const structuralLossCount = parseInt(contractsLostMatch[1]) || 0;
         if (structuralLossCount > this.consecutiveLossesCount) {
           this.consecutiveLossesCount = structuralLossCount;
-          if (this.consecutiveLossesCount <= this.maximumRecoveryStepsAllowed) {
-            const calculatedNextRecoveryStake = this.baseStake * Math.pow(this.currentMartingaleMultiplier, this.consecutiveLossesCount);
-            console.log(`📈 [RISK PROGRESSION] Continuous loss step parsed. Target recovery stake size: $${calculatedNextRecoveryStake.toFixed(2)}`);
-          }
         }
       }
 
@@ -329,45 +323,54 @@ export class DerivScannerBridge {
         }
 
         if (shouldTriggerStop) {
-          console.log(`🚨 [BREACH DETECTED] Net: $${sessionNetBalance.toFixed(2)}. Deploying circuit breaker...`);
+          console.log(`🚨 [BREACH DETECTED] Net: $${sessionNetBalance.toFixed(2)}. Initiating hard tab-switch stop protocol...`);
 
           const globalWin = window as any;
-          let engineStopped = false;
-
-          // METHOD A: DIRECT NATIVE TRADING ENGINE OVERRIDE TERMINATOR
-          try {
-            const dbotCore = globalWin.derivRunner || globalWin.DBot || globalWin.Blockly?.derivWorkspace;
-            if (dbotCore && typeof dbotCore.stopBot === 'function') {
-              dbotCore.stopBot();
-              engineStopped = true;
-              console.log("🎯 [CIRCUIT BREAKER] Halted natively via global platform API context.");
-            } else if (globalWin.interpreter && globalWin.interpreter.stop) {
-              globalWin.interpreter.stop();
-              engineStopped = true;
-            }
-          } catch (e) {
-            console.error("Direct engine stop failed, falling back to UI click...", e);
+          
+          // STEP 1: FORCEFULLY SWITCH FOCUS BACK TO BOT BUILDER TAB TO ACCELERATE ENGINE MEMORY WAKEUP
+          const allTabs = Array.from(document.querySelectorAll('div, span, li, a, p, button'));
+          const builderTabTrigger = allTabs.find(tab => tab.textContent?.trim() === 'Bot Builder');
+          if (builderTabTrigger) {
+            (builderTabTrigger as HTMLElement).click();
           }
 
-          // METHOD B: HARD CLASS LOOKUP FALLBACK
-          if (!engineStopped) {
-            const trueStopButtons = Array.from(document.querySelectorAll('button.dc-btn--danger, button.btn-stop, .bot-builder-stop-btn, button'));
-            const actualButton = trueStopButtons.find(btn => {
-              const text = btn.textContent?.trim() || "";
-              return text === 'Stop' || text === 'STOP' || btn.classList.contains('dc-btn--danger');
-            });
+          // STEP 2: EXECUTE CORE RUNTIME HALT OVERRIDES WITHIN THE ACCELERATED MEMORY STATE
+          setTimeout(() => {
+            let engineStopped = false;
 
-            if (actualButton) {
-              (actualButton as HTMLElement).click();
-              console.log("🎯 [CIRCUIT BREAKER] Physical class button clicked successfully.");
+            try {
+              const coreApp = globalWin.derivRunner || globalWin.DBot || globalWin.Blockly?.derivWorkspace;
+              if (coreApp && typeof coreApp.stopBot === 'function') {
+                coreApp.stopBot();
+                engineStopped = true;
+                console.log("🎯 [CIRCUIT BREAKER] Core software halted cleanly after forced tab mount.");
+              } else if (globalWin.interpreter && globalWin.interpreter.stop) {
+                globalWin.interpreter.stop();
+                engineStopped = true;
+              }
+            } catch (e) {
+              console.error("Direct framework freeze failed:", e);
             }
-          }
 
-          this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
+            if (!engineStopped) {
+              const controlButtonsList = Array.from(document.querySelectorAll('button.dc-btn--danger, button.btn-stop, .bot-builder-stop-btn, button'));
+              const preciseStopBtn = controlButtonsList.find(btn => {
+                const innerLabel = btn.textContent?.trim() || "";
+                return innerLabel === 'Stop' || innerLabel === 'STOP' || btn.classList.contains('dc-btn--danger');
+              });
 
-          this.monitoredTakeProfit = 0;
-          this.monitoredStopLoss = 0;
-          this.consecutiveLossesCount = 0; 
+              if (preciseStopBtn) {
+                (preciseStopBtn as HTMLElement).click();
+                console.log("🎯 [CIRCUIT BREAKER] Fallback visual button layout tap executed.");
+              }
+            }
+
+            this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
+
+            this.monitoredTakeProfit = 0;
+            this.monitoredStopLoss = 0;
+            this.consecutiveLossesCount = 0; 
+          }, 150); 
         }
       }
     };
@@ -375,7 +378,7 @@ export class DerivScannerBridge {
     const metricsObserver = new MutationObserver(evaluateSessionMetrics);
     metricsObserver.observe(document.body, { childList: true, subtree: true });
   }
-// scannerBridge.ts - PART 6: Block Parameter Mapping & High-Win Tuning Core
+// scannerBridge.ts - PART 6: Block Parameter Mapping & Noise Gate Injection
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
@@ -451,24 +454,16 @@ export class DerivScannerBridge {
           if (block.type === 'purchase') {
             const purchaseField = block.getField('PURCHASE_LIST');
             if (purchaseField) {
-              const normalizedType = cachedParams.contractType.toUpperCase().trim();
-              if (normalizedType === 'OVER_UNDER' || normalizedType === 'OVER UNDER') {
-                purchaseField.setValue('DIGITUNDER'); 
-              } else if (normalizedType === 'TOUCH_NO_TOUCH' || normalizedType === 'TOUCH NO TOUCH') {
-                purchaseField.setValue('ONETOUCH');
-              } else {
-                // --- INTEGRATED OPTIMIZATION: DYNAMIC SIGNAL INVERSION MATRIX ---
-                // Automatically reverses the purchase parameters natively to transform 50/50 breakout noise into systematic wins
-                purchaseField.setValue(cachedParams.direction.toUpperCase() === 'UP' ? 'PUT' : 'CALL');
-                console.log("🔄 [SIGNAL INVERTER] Dynamic direction inverted smoothly to secure optimal edge.");
-              }
+              // --- ORIGINAL INTENDED ENGINE DIRECTION ROUTER ---
+              // Up signal buys CALL (Rise), Down signal buys PUT (Fall)
+              purchaseField.setValue(cachedParams.direction.toUpperCase() === 'UP' ? 'CALL' : 'PUT');
+              console.log("📈 [SIGNAL CONFIG] Original direction strategy routing actively deployed.");
               blockInjectionCounter++;
             }
           }
 
           if (block.type === 'trade_definition_tradeoptions') {
-            // --- INTEGRATED OPTIMIZATION: NOISE GATE CLAMPING ---
-            // Forces contract duration to lock strictly at 5 ticks to filter out 1-second erratic noise spikes
+            // --- NOISE ISOLATION CLAMPING GATE SECURED ---
             const durationField = block.getField('DURATION');
             if (durationField) {
               durationField.setValue("5"); 
@@ -524,10 +519,8 @@ export class DerivScannerBridge {
         }
 
         if (blockInjectionCounter > 0) {
-          alert(`DC_✅ Strategy Configuration Loaded!\n\n• Domain Ref: tredascore.pro\n• Asset Pool: ${cachedParams.targetSymbol.replace('R_', 'Volatility ')}\n• Active Stake: $${Number(cachedParams.stake).toFixed(2)}\n• Noise Gate: Clamped at 5 Ticks\n• Stop Loss: $${Number(cachedParams.stopLoss).toFixed(2)}\n• Take Profit: $${Number(cachedParams.takeProfit).toFixed(2)}`);
+          alert(`✅ Strategy Configuration Loaded!\n\n• Domain Ref: tredascore.pro\n• Active Stake: $${Number(cachedParams.stake).toFixed(2)}\n• Noise Gate: Clamped at 5 Ticks\n• Stop Loss: $${Number(cachedParams.stopLoss).toFixed(2)}\n• Take Profit: $${Number(cachedParams.takeProfit).toFixed(2)}`);
           globalWin.tredaPendingParams = null;
-        } else {
-          console.warn("Blockly Injection alert: Parsed structural workspace blocks without matching parameter selectors.");
         }
 
       } catch (err) {
