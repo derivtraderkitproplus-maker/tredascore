@@ -78,7 +78,6 @@ export const SYMBOL_BROKER_MAP: Record<string, string> = {
 
 /**
  * CORE QUANT MACHINE BROKER ROUTING ENGINE
- * Connects directly to the secure production exchange API layer to fire trades instantly
  */
 export async function executeBrokerTrade(signal: HighConfidenceSignal) {
   if (liveExecutionLock || checkEngineStatus()) return;
@@ -133,7 +132,6 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
 
 /**
  * CONNECTION-RESILIENT VIRTUAL RUNTIME MONITOR
- * Watches running trade state streams and pushes automated exit requests matching SL/TP forms
  */
 async function startVirtualProtectionEngine(contractId: string, takeProfit: number, stopLoss: number, isAccumulator: boolean) {
   let activeWatcher = true;
@@ -201,7 +199,6 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
 
 /**
  * THE GHOST POSITION RESOLVER
- * Forces local storage data down to clear frozen system engine states mid-crash
  */
 function handleFatalNetworkDisconnection(contractId: string) {
   liveExecutionLock = false; 
@@ -235,7 +232,7 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
   if (checkEngineStatus()) return;
   if (signal.executionLatencyMs > ACCOUNT_LIMITS.MAX_ALLOWED_SLIPPAGE_MS) return;
   
-  // UNIVERSAL CONFIDENCE WALL: Intercept and filter signals falling below your strict 96% target threshold
+  // DYNAMIC STRATEGY FILTER WALL: Enforces our production-grade 96% confidence criteria universally
   if (signal.confidenceScore < 96) {
     console.warn(`🛡️ [STRATEGY FILTERED] ${signal.strategyName} signal rejected. Confidence: ${signal.confidenceScore}%, threshold is 96%.`);
     return;
@@ -369,19 +366,19 @@ export class ScannerLogicEngine {
     const currentTicks = this.tickRegistry[symbolKey] || [];
     const startTimeMs = Date.now();
 
-    // Dynamically iterate across all 30 strategies registered in your strategies file
+    // Dynamically evaluate every strategy profile tracking this specific volatility index parallelly
     STRATEGY_PROFILES.forEach(async (profile) => {
       if (profile.targetSymbol !== symbolKey) return;
 
       const evaluation = evaluateStrategy(profile, currentTicks);
 
-      // Multi-strategy execution trigger looking for pristine 96%+ setups
+      // Multi-strategy execution trigger looking for pristine 96%+ configurations
       if (evaluation.marketState === 'READY' && evaluation.finalConfidence >= 96) {
         const signalPayload: HighConfidenceSignal = {
           strategyName: profile.name,
           assetName: symbolKey.replace('R_', 'Volatility '),
           confidenceScore: evaluation.finalConfidence,
-          recommendedAction: evaluation.direction === 'UP' ? 'DOWN' : 'UP', // Reverse for Fall on Rise spikes
+          recommendedAction: evaluation.direction === 'UP' ? 'DOWN' : 'UP', // Counter-trend execution flip
           riskTier: profile.tier,
           contractType: profile.contractType,
           executionLatencyMs: Date.now() - startTimeMs,
