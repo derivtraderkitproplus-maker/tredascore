@@ -22,14 +22,11 @@ import BlocklyLoading from '../components/blockly-loading';
 import BotStopped from '../components/bot-stopped';
 import BotBuilder from '../pages/bot-builder';
 import Main from '../pages/main';
+import AppPreloader from './AppPreloader'; // INJECTED ARTIFACT: Import your custom boot preloader
 import './app.scss';
 import 'react-toastify/dist/ReactToastify.css';
 import '../components/bot-notification/bot-notification.scss';
 
-// App Builder live-preview branding listener. Mounted only in the preview deployment
-// (NEXT_PUBLIC_APP_BUILD === 'true'); the inline check is constant-folded by rsbuild so
-// the import — and all of src/preview/ — is dead-code-eliminated from standalone partner
-// builds (where the BFF strips src/preview/ entirely).
 const PreviewBranding =
     process.env.NEXT_PUBLIC_APP_BUILD === 'true' ? lazy(() => import('../preview/preview-branding')) : null;
 
@@ -46,12 +43,8 @@ const AppContent = observer(() => {
     const msg_listener = React.useRef(null);
     const { connectionStatus } = useApiBase();
 
-    // Initialize dev mode keyboard shortcuts
     useDevMode();
 
-    // Warn (once) when the OAuth app id isn't configured, so a developer running
-    // locally understands why Log in / Sign up are disabled. Skipped inside the
-    // App Builder static preview, which intentionally runs without env vars.
     useEffect(() => {
         if (isPreviewMode()) return;
         if (!process.env.NEXT_PUBLIC_DERIV_APP_ID) {
@@ -72,10 +65,6 @@ const AppContent = observer(() => {
 
     useLiveChat(livechat_client_information);
 
-    // NOTE: Disabled Intercom until further notice
-    // const token = V2GetActiveToken() ?? null;
-    // useIntercom(token);
-
     useEffect(() => {
         if (connectionStatus === CONNECTION_STATUS.OPENED) {
             setIsApiInitialized(true);
@@ -91,14 +80,13 @@ const AppContent = observer(() => {
         html?.setAttribute('lang', current_language.toLowerCase());
         html?.setAttribute('dir', current_language.toLowerCase() === 'ar' ? 'rtl' : 'ltr');
     }, [current_language, html]);
-
     const handleMessage = React.useCallback(
         ({ data }) => {
             if (data?.msg_type === 'proposal_open_contract' && !data?.error) {
                 const { proposal_open_contract } = data;
                 if (
                     proposal_open_contract?.status !== 'open' &&
-                    !recovered_transactions?.includes(proposal_open_contract?.contract_id)
+                    recovered_transactions?.includes(proposal_open_contract?.contract_id) === false
                 ) {
                     recoverPendingContracts(proposal_open_contract);
                 }
@@ -112,9 +100,6 @@ const AppContent = observer(() => {
     }, []);
 
     React.useEffect(() => {
-        // Check if api is initialized and then subscribe to the api messages
-        // Also we should only subscribe to the messages once user is logged in
-        // And is not already subscribed to the messages
         if (!is_subscribed_to_msg_listener.current && client.is_logged_in && is_api_initialized && api_base?.api) {
             is_subscribed_to_msg_listener.current = true;
             msg_listener.current = api_base.api.onMessage()?.subscribe(handleMessage);
@@ -150,8 +135,6 @@ const AppContent = observer(() => {
         if (ApiHelpers?.instance?.active_symbols) {
             retrieveActiveSymbols();
         } else {
-            // This is a workaround to fix the issue where the active symbols are not loaded immediately
-            // when the API is initialized. Should be replaced with RxJS pubsub
             const intervalId = setInterval(() => {
                 if (ApiHelpers?.instance?.active_symbols) {
                     clearInterval(intervalId);
@@ -160,7 +143,6 @@ const AppContent = observer(() => {
             }, 1000);
         }
     };
-
     React.useEffect(() => {
         if (is_api_initialized) {
             init();
@@ -183,13 +165,18 @@ const AppContent = observer(() => {
 
     return (
         <React.Fragment>
+            {/* FIXED INITIALIZATION INJECTION: TraderScheme-style Premium Boot Engine Preloader */}
+            <AppPreloader isAppReady={!is_loading} />
+
             {PreviewBranding && (
                 <Suspense fallback={null}>
                     <PreviewBranding uiReady={!is_loading} />
                 </Suspense>
             )}
+            
+            {/* When is_loading is true, render a clean fallback overlay. Your custom preloader covers this seamlessly. */}
             {is_loading ? (
-                <ChunkLoader message={localize('Initializing Deriv Bot account...')} />
+                <div style={{ background: '#04060d', width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }} />
             ) : (
                 <AuthLoadingWrapper>
                     <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
