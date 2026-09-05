@@ -53,7 +53,6 @@ const BotBuilder = observer(() => {
                 removeBlockChangeListener();
             }
         };
-
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_running]);
 
@@ -80,10 +79,8 @@ const BotBuilder = observer(() => {
             is_blockly_delete_listener_registered.current = true;
             workspace.addChangeListener(handleBlockDelete);
         }
-
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_loading]);
-
     const handleBlockDelete = (e: TBlocklyEvents) => {
         const { is_reset_button_clicked, setResetButtonState } = toolbar;
 
@@ -142,34 +139,70 @@ const BotBuilder = observer(() => {
             <SaveModal />
             {is_open && <QuickStrategy1 />}
 
-            {/* Floating Quick Action Launcher Button - Visible only inside Bot Builder view tab context */}
+            {/* FIXED INJECTION: LIQUID-SMOOTH TOUCH GESTURE DRAGGABLE SPHERE ENCLOSURE */}
             {active_tab === 1 && !is_preview_on_popup && (
-                <button 
-                    className='ai-scanner-launcher-btn'
-                    onClick={() => setIsAiScannerOpen(!isAiScannerOpen)}
+                <div 
+                    className='floating-ai-trigger-wrapper'
                     style={{
                         position: 'fixed',
-                        bottom: '85px',
-                        right: '20px',
-                        background: 'linear-gradient(135deg, #7c5dfa 0%, #5078ff 100%)',
-                        color: '#ffffff',
-                        border: 'none',
-                        padding: '12px 18px',
-                        borderRadius: '30px',
-                        fontWeight: 'bold',
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        zIndex: 999,
-                        boxShadow: '0 4px 15px rgba(124, 93, 250, 0.4)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
+                        bottom: '95px',
+                        right: '25px',
+                        transform: 'translate(var(--ai-drag-x, 0px), var(--ai-drag-y, 0px))',
+                        zIndex: 99999
+                    }}
+                    onTouchStart={(e) => {
+                        const targetNode = e.currentTarget;
+                        const initialTouchFrame = e.touches[0];
+                        
+                        // Parse existing active CSS transform style variables accurately
+                        const activeComputedStyles = window.getComputedStyle(targetNode).transform;
+                        let initialXOffset = 0;
+                        let initialYOffset = 0;
+                        
+                        if (activeComputedStyles && activeComputedStyles !== 'none') {
+                            const matrixArrayValues = activeComputedStyles.split('(')[1].split(')')[0].split(',');
+                            initialXOffset = parseFloat(matrixArrayValues[4]) || 0;
+                            initialYOffset = parseFloat(matrixArrayValues[5]) || 0;
+                        }
+
+                        const handleTouchMoveGesture = (moveEvent: TouchEvent) => {
+                            const movingTouchFrame = moveEvent.touches[0];
+                            const rawDeltaX = movingTouchFrame.clientX - initialTouchFrame.clientX + initialXOffset;
+                            const rawDeltaY = movingTouchFrame.clientY - initialTouchFrame.clientY + initialYOffset;
+                            
+                            targetNode.style.setProperty('--ai-drag-x', `${rawDeltaX}px`);
+                            targetNode.style.setProperty('--ai-drag-y', `${rawDeltaY}px`);
+                        };
+
+                        const handleTouchEndGesture = () => {
+                            window.removeEventListener('touchmove', handleTouchMoveGesture);
+                            window.removeEventListener('touchend', handleTouchEndGesture);
+                        };
+
+                        window.addEventListener('touchmove', handleTouchMoveGesture, { passive: false });
+                        window.addEventListener('touchend', handleTouchEndGesture);
                     }}
                 >
-                    <span>✨</span> {isAiScannerOpen ? localize('Close Scanner') : localize('AI Scanner')}
-                </button>
-            )}
+                    {/* The double pulsing radar rings signifying data activity */}
+                    <div className="floating-radar-pulse-ring radar-ring-outer"></div>
+                    <div className="floating-radar-pulse-ring radar-ring-inner"></div>
 
+                    {/* Premium outer core sphere trigger container mapped securely to your active tab hooks */}
+                    <button 
+                        className="premium-ai-sphere-trigger"
+                        onClick={() => setIsAiScannerOpen(!isAiScannerOpen)}
+                    >
+                        <div className="circular-inside-ai-core">
+                            <div className="toggle-dance-node"></div>
+                        </div>
+                    </button>
+                    
+                    {/* Dynamic text anchor synchronization text tracking seamlessly underneath */}
+                    <span className="scanner-anchor-label">
+                        {isAiScannerOpen ? localize('Close') : localize('AI Scanner')}
+                    </span>
+                </div>
+            )}
             {/* Centered Modal Backdrop Layer Overlay containing the 30 profile engine modules */}
             {active_tab === 1 && !is_preview_on_popup && isAiScannerOpen && (
                 <div 
@@ -203,7 +236,7 @@ const BotBuilder = observer(() => {
                         }}
                     />
                     <div style={{ width: '100%', maxWidth: '450px' }}>
-                        {/* FIXED: Passing dynamic onCloseScanner close handler hooks down through component props seamlessly */}
+                        {/* Pass active onCloseScanner hooks straight down into the child strategy matrix sheet layout */}
                         <FloatingAI 
                             derivContext={{ websocketInstance: window.Blockly?.derivWorkspace?.socket || window.ws || app }} 
                             selectedMarket='1HZ100V' 
