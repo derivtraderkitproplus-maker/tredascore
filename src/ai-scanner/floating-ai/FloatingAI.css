@@ -460,3 +460,111 @@ body:has(:contains("Total stake")) [class*="scanner-btn"] {
   width: 0 !important;
   padding: 0 !important;
    }
+/* ==========================================================================
+   PRODUCTION READY: Premium Interactive Floating AI Sphere Engine
+   ========================================================================== */
+
+/* The floating base arena container that holds the sphere over your workspace */
+.floating-ai-trigger-container {
+  position: fixed !important;
+  bottom: 95px !important;
+  right: 20px !important;
+  width: 70px !important;
+  height: 70px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 99999 !important;
+  overflow: visible !important;
+}
+
+/* Beautifully Pulsing Background Radar Waves */
+.floating-radar-ring {
+  position: absolute !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(80, 120, 255, 0.3) !important;
+  background: rgba(80, 120, 255, 0.02) !important;
+  pointer-events: none !important;
+}
+
+.radar-wave-outer {
+  width: 110px !important;
+  height: 110px !important;
+  animation: radarBreathingLoop 3.5s infinite ease-in-out !important;
+}
+
+.radar-wave-inner {
+  width: 80px !important;
+  height: 80px !important;
+  animation: radarBreathingLoop 2.2s infinite ease-in-out 0.4s !important;
+}
+
+/* Smoothly Draggable Outer Sphere Framework Button Shell */
+.premium-ai-sphere-button {
+  position: relative !important;
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #17224d 0%, #0d1124 100%) !important;
+  border: 1px solid #2d3b75 !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), inset 0 1px 3px rgba(255, 255, 255, 0.1) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: grab !important;
+  touch-action: none !important; /* Fixes mobile drag-free conflict */
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.premium-ai-sphere-button:active {
+  cursor: grabbing !important;
+  transform: scale(1.05) !important;
+}
+
+/* Circular Inside AI Core Sphere Base Window */
+.circular-inside-ai-core {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 50% !important;
+  background: #07090e !important;
+  border: 1px solid rgba(80, 120, 255, 0.4) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  box-shadow: inset 0 0 8px rgba(80, 120, 255, 0.2) !important;
+  animation: coreGlowLoop 2.8s infinite ease-in-out !important;
+}
+
+/* Toggle Dance Up/Down Signal Light Indicator Element */
+.toggle-dance-node {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: #5078ff !important;
+  box-shadow: 0 0 6px #5078ff, 0 0 12px #5078ff !important;
+  animation: verticalDanceLoop 1.4s infinite ease-in-out !important;
+}
+
+/* ==========================================================================
+   ANIMATION TIME-LOOPS (HIGH-ACCURACY / STABLE RESPONSIVE RENDERS)
+   ========================================================================== */
+
+@keyframes radarBreathingLoop {
+  0% { transform: scale(1); opacity: 0.15; }
+  50% { transform: scale(1.25); opacity: 0.55; }
+  100% { transform: scale(1); opacity: 0.15; }
+}
+
+@keyframes coreGlowLoop {
+  0% { box-shadow: inset 0 0 5px rgba(80, 120, 255, 0.25); border-color: rgba(80, 120, 255, 0.35); }
+  50% { box-shadow: inset 0 0 14px rgba(80, 120, 255, 0.6); border-color: rgba(80, 120, 255, 0.7); }
+  100% { box-shadow: inset 0 0 5px rgba(80, 120, 255, 0.25); border-color: rgba(80, 120, 255, 0.35); }
+}
+
+@keyframes verticalDanceLoop {
+  0% { transform: translateY(-8px); }
+  50% { transform: translateY(8px); }
+  100% { transform: translateY(-8px); }
+}
