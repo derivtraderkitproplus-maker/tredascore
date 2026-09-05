@@ -45,7 +45,7 @@ const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "YOUR_T
 const TELEGRAM_CHANNEL_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_ID || "@your_public_channel_username"; 
 
 export const ACCOUNT_LIMITS = {
-  MAX_ALLOWED_SLIPPAGE_MS: 380,
+  MAX_ALLOWED_SLIPPAGE_MS: 180, // Optimized to 180ms to match institutional execution bounds
   RISK_PER_TRADE_PERCENT: 0.02 
 };
 
@@ -78,7 +78,7 @@ export const SYMBOL_BROKER_MAP: Record<string, string> = {
 
 /**
  * CORE QUANT MACHINE BROKER ROUTING ENGINE
- * Connects directly to the exchange API layer to fire trades instantly
+ * Connects directly to the secure production exchange API layer to fire trades instantly
  */
 export async function executeBrokerTrade(signal: HighConfidenceSignal) {
   if (liveExecutionLock || checkEngineStatus()) return;
@@ -91,7 +91,6 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
   }
 
   console.log(`⚡ [EXECUTION INITIATED] Fire order: ${signal.contractType} | Asset: ${signal.assetName}`);
-
   const isAccumulator = signal.contractType === 'ACCUMULATOR';
   
   const brokerPayload = {
@@ -108,7 +107,6 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
   };
 
   try {
-    // FIXED: Formatted template literal strings explicitly targeting the secure Deriv API v3 layer
     const response = await fetch(`https://deriv.com`, { 
       method: "POST",
       headers: { 
@@ -140,8 +138,6 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
 async function startVirtualProtectionEngine(contractId: string, takeProfit: number, stopLoss: number, isAccumulator: boolean) {
   let activeWatcher = true;
   let consecutiveNetworkFailures = 0;
-
-  // Throttles checking performance on weaker mobile platforms dynamically
   const adaptivePollInterval = (typeof navigator !== 'undefined' && /Android|iPhone/i.test(navigator.userAgent)) ? 600 : 300;
 
   while (activeWatcher) {
@@ -152,7 +148,6 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
     }
 
     try {
-      // FIXED: Applied correct string literal interpolation backticks and AbortSignal connection limits
       const checkResponse = await fetch(`https://deriv.com{contractId}`, {
         signal: AbortSignal.timeout(1500)
       });
@@ -173,7 +168,6 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
 
       const currentFloatingPnL = trackingNode.profit; 
 
-      // A. Virtual Take Profit Trigger
       if (currentFloatingPnL >= takeProfit) {
         console.log(`🎯 Virtual Take Profit Hit (+$${currentFloatingPnL}). Forcing structural sell closure.`);
         await executeEmergencyPositionLiquidation(contractId, currentFloatingPnL);
@@ -181,7 +175,6 @@ async function startVirtualProtectionEngine(contractId: string, takeProfit: numb
         break;
       }
 
-      // B. Virtual Stop Loss Trigger
       if (currentFloatingPnL <= -stopLoss) {
         console.log(`🛑 Virtual Stop Loss Broken (-$${Math.abs(currentFloatingPnL)}). Killing transaction.`);
         await executeEmergencyPositionLiquidation(contractId, currentFloatingPnL);
@@ -229,27 +222,30 @@ function handleFatalNetworkDisconnection(contractId: string) {
 
 async function executeEmergencyPositionLiquidation(contractId: string, currentPnL: number) {
   try {
-    // FIXED: Formatted string literals targeting the secure v3 api router endpoint matrix
     await fetch(`https://deriv.com{contractId}/close`, { method: "POST" });
     trackExecutedTradeResult(currentPnL);
   } catch (err) {
     console.error("Critical failure during liquidation execution:", err);
   } finally {
-    liveExecutionLock = false; // Disengage concurrency loop
+    liveExecutionLock = false; 
   }
 }
 
 export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, strategyId: string) {
   if (checkEngineStatus()) return;
   if (signal.executionLatencyMs > ACCOUNT_LIMITS.MAX_ALLOWED_SLIPPAGE_MS) return;
-  if (signal.confidenceScore <= 80) return;
+  
+  // UNIVERSAL CONFIDENCE WALL: Intercept and filter signals falling below your strict 96% target threshold
+  if (signal.confidenceScore < 96) {
+    console.warn(`🛡️ [STRATEGY FILTERED] ${signal.strategyName} signal rejected. Confidence: ${signal.confidenceScore}%, threshold is 96%.`);
+    return;
+  }
 
   if (signal.riskTier === 'HIGH') {
     if (masterActiveHighStrategyId !== null && masterActiveHighStrategyId !== strategyId) return;
     masterActiveHighStrategyId = strategyId;
   }
 
-  // FIXED: Explicitly await core execution loop to block overlapping parallel orders
   if (!liveExecutionLock) {
     await executeBrokerTrade(signal);
   } else {
@@ -260,7 +256,7 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
   const currentPnl = isClient() ? parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00') : 0.00;
   const webAppURL = "https://vercel.app";
   const messageText = encodeURIComponent(
-    `🚀 *CRITICAL HIGH-CONFIDENCE REAL SIGNAL* 🚀\n\n` +
+    `🚀 *CRITICAL 96%+ CONFIDENCE REAL SIGNAL* 🚀\n\n` +
     `🤖 *Strategy:* ${signal.strategyName}\n` +
     `📊 *Asset Class:* ${signal.assetName}\n` +
     `🎯 *Verified Confidence:* ${signal.confidenceScore}%\n` +
@@ -269,7 +265,6 @@ export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, st
     `👉 [Deploy Live Trade Instantly](${webAppURL})`
   );
 
-  // FIXED: Restructured URL parameters explicitly adding the mandatory /bot endpoint routing prefix 
   const telegramApiEndPoint = `https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${messageText}&parse_mode=Markdown`;
 
   try {
@@ -294,14 +289,13 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
     lossStreak = 0; 
   }
 
-  // AUTOMATED DISCIPLINE SWITCH: Enforces strict target loss/profit thresholds to lock in session runs
   if (lossStreak >= 3) {
     isTerminated = true;
     console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit!");
-  } else if (currentPnl >= 30.00) { // 🎯 PROFIT CIRCUIT BREAKER: Shuts down bot automatically at +$30 profit
+  } else if (currentPnl >= 30.00) { 
     isTerminated = true;
     console.log("🎯 Session financial profit goal reached. Shutting down.");
-  } else if (currentPnl <= -15.00) { // 🛑 MAX RISK FLOOR: Terminate bot automatically at -$15 loss
+  } else if (currentPnl <= -15.00) { 
     isTerminated = true;
   }
 
@@ -362,9 +356,41 @@ export class ScannerLogicEngine {
     this.lastTickReceivedTimestamp = currentTime;
     this.tickTimestamps[normalizedSymbol] = currentTime;
 
-    if (this.tickRegistry[normalizedSymbol].length > 120) {
+    if (this.tickRegistry[normalizedSymbol].length > 150) {
       this.tickRegistry[normalizedSymbol].shift();
     }
+
+    // Dynamic Multi-Strategy Real-time Ingestion Path
+    this.executeGlobalStrategyScanner(normalizedSymbol);
+  }
+
+  private async executeGlobalStrategyScanner(symbolKey: string) {
+    if (checkEngineStatus()) return;
+    const currentTicks = this.tickRegistry[symbolKey] || [];
+    const startTimeMs = Date.now();
+
+    // Dynamically iterate across all 30 strategies registered in your strategies file
+    STRATEGY_PROFILES.forEach(async (profile) => {
+      if (profile.targetSymbol !== symbolKey) return;
+
+      const evaluation = evaluateStrategy(profile, currentTicks);
+
+      // Multi-strategy execution trigger looking for pristine 96%+ setups
+      if (evaluation.marketState === 'READY' && evaluation.finalConfidence >= 96) {
+        const signalPayload: HighConfidenceSignal = {
+          strategyName: profile.name,
+          assetName: symbolKey.replace('R_', 'Volatility '),
+          confidenceScore: evaluation.finalConfidence,
+          recommendedAction: evaluation.direction === 'UP' ? 'DOWN' : 'UP', // Reverse for Fall on Rise spikes
+          riskTier: profile.tier,
+          contractType: profile.contractType,
+          executionLatencyMs: Date.now() - startTimeMs,
+          executionPayload: evaluation.executionPayload
+        };
+
+        await broadcastSignalToTelegram(signalPayload, profile.id);
+      }
+    });
   }
 
   public setEditingState(isEditing: boolean): void {
@@ -380,7 +406,7 @@ export class ScannerLogicEngine {
 
     broadcastSignalToTelegram({
       strategyName: activeFrame.profile.name || 'Unknown',
-      assetName: (activeFrame.profile.targetSymbol || '').replace('R_', 'Volatility '),
+      assetName: assetToken.replace('R_', 'Volatility '),
       confidenceScore: activeFrame.metrics.finalConfidence || 0,
       recommendedAction: activeFrame.metrics.direction || 'FLAT',
       riskTier: activeFrame.metrics.status as any,
@@ -433,7 +459,6 @@ export class ScannerLogicEngine {
       const targetToken = this.standardizeSymbol(profile.targetSymbol);
       const currentTicks = this.tickRegistry[targetToken] || [];
       
-      // FIXED: Swapped out high-latency nested stringify actions for performance on all device chips
       const isolatedProfileCopy = {
         ...profile,
         runtimeSettings: profile.runtimeSettings ? { ...profile.runtimeSettings } : undefined
@@ -454,14 +479,13 @@ export class ScannerLogicEngine {
     });
 
     const candidateWinner = sortedGlobalChallengers.length > 0 ? sortedGlobalChallengers[0] : null; 
-
     const assetToken = candidateWinner ? this.standardizeSymbol(candidateWinner.profile.targetSymbol) : '';
     const currentLatency = currentTime - (this.tickTimestamps[assetToken] || currentTime);
 
     const strictEnforcedFrames = rawFrames.map(frame => {
       const isAbsoluteGlobalWinner = candidateWinner && frame.profile.id === candidateWinner.profile.id;
       const confidence = frame.metrics?.finalConfidence || 0;
-      const passesConfidenceThreshold = confidence > 80;
+      const passesConfidenceThreshold = confidence >= 90;
 
       if (isAbsoluteGlobalWinner && passesConfidenceThreshold) {
         frame.metrics.status = 'HIGH';
@@ -485,13 +509,13 @@ export class ScannerLogicEngine {
     }
 
     if (isLockExpired || !this.currentTopStrategyId || isCurrentWinnerDethronedByPerformance || !currentWinnerStillViable) {
-      if (candidateWinner && (candidateWinner.metrics?.finalConfidence || 0) > 80) {
+      if (candidateWinner && (candidateWinner.metrics?.finalConfidence || 0) > 85) {
         this.currentTopStrategyId = candidateWinner.profile.id;
         this.lastLockTime = currentTime;
         
         broadcastSignalToTelegram({
           strategyName: candidateWinner.profile.name || 'Unknown',
-          assetName: (candidateWinner.profile.targetSymbol || '').replace('R_', 'Volatility '),
+          assetName: assetToken.replace('R_', 'Volatility '),
           confidenceScore: candidateWinner.metrics.finalConfidence || 0,
           recommendedAction: candidateWinner.metrics.direction || 'FLAT',
           riskTier: 'HIGH',
