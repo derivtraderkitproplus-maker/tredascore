@@ -7,17 +7,14 @@ export interface StrategyProfile {
   requiredTicks: number;
   confidenceGate: number;
   description: string;
-  // --- MULTI-VOLATILITY & DIVERSE ENGINE CONFIGURATIONS ---
   targetSymbol: 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100';
   contractType: 'RISE_FALL' | 'OVER_UNDER' | 'ACCUMULATOR' | 'TOUCH_NO_TOUCH';
   coreEngine: 'MARTINGALE' | 'DALEMBERT' | 'PROGRESSIVE' | 'NEURAL_FLOW';
-  
-  // RUNTIME EXECUTION SETTINGS (Captures frontend form state adjustments)
   runtimeSettings?: {
     defaultStake: number;
-    takeProfitLimit: number; // Monetary target value
-    stopLossLimit: number;   // Monetary protection floor value
-    growthRate?: number;     // Specific tracking multiplier for Accumulators
+    takeProfitLimit: number;
+    stopLossLimit: number;
+    growthRate?: number;
   };
 }
 
@@ -31,8 +28,6 @@ export interface StrategyResult {
   finalConfidence: number;
   tierOverride: 'HIGH' | 'MEDIUM' | 'LOW';
   status?: 'HIGH' | 'MEDIUM' | 'LOW';
-  
-  // PASS-THROUGH EXECUTOR ENGINE STATE
   executionPayload?: {
     stake: number;
     takeProfit: number;
@@ -43,55 +38,98 @@ export interface StrategyResult {
 
 /**
  * HIGH-PERFORMANCE EXPONENTIAL MOVING AVERAGE (EMA)
- * Extracts pricing variables sequentially from oldest to newest to provide true market alignment.
  */
 export function calculateEMA(prices: number[], period: number): number {
   if (!prices || prices.length === 0) return 0;
-  
   const k = 2 / (period + 1);
   let emaValue = prices[0]; 
-  
   for (let i = 1; i < prices.length; i++) {
     emaValue = (prices[i] * k) + (emaValue * (1 - k));
   }
-  
   return emaValue;
 }
 
 /**
  * HIGH-PERFORMANCE RELATIVE STRENGTH INDEX (RSI)
- * Measures genuine directional change vectors across your exact parameter lookback window.
  */
 export function calculateRSI(prices: number[], period: number = 14): number {
   if (!prices || prices.length <= period) return 50;
-  
   let totalGains = 0;
   let totalLosses = 0;
-  
   for (let i = prices.length - period + 1; i < prices.length; i++) {
     const change = prices[i] - prices[i - 1];
-    if (change > 0) {
-      totalGains += change;
-    } else {
-      totalLosses += Math.abs(change);
-    }
+    if (change > 0) totalGains += change;
+    else totalLosses += Math.abs(change);
   }
-  
   if (totalLosses === 0) return 100;
-  
   const rs = totalGains / totalLosses;
   return Math.floor(100 - (100 / (1 + rs)));
 }
 
 /**
  * PRODUCTION-READY HISTORICAL VOLATILITY
- * Evaluates asset variance trends against rolling mathematical price means.
  */
 export function calculateVolatility(prices: number[]): number {
   if (!prices || prices.length === 0) return 0;
   const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
   const variance = prices.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / prices.length;
   return Math.sqrt(variance);
+}
+
+/**
+ * ADVANCED HIGH-CONFIDENCE INDICATOR 1: CONSECUTIVE TICK DIRECTIONAL METRICS
+ */
+export function calculateConsecutiveTicks(prices: number[]): { count: number; direction: 'UP' | 'DOWN' | 'FLAT' } {
+  if (!prices || prices.length < 2) return { count: 0, direction: 'FLAT' };
+  const totalLength = prices.length;
+  const lastDelta = prices[totalLength - 1] - prices[totalLength - 2];
+  if (lastDelta === 0) return { count: 0, direction: 'FLAT' };
+
+  const currentDir = lastDelta > 0 ? 'UP' : 'DOWN';
+  let consecutiveCount = 1;
+
+  for (let i = totalLength - 2; i > 0; i--) {
+    const diff = prices[i] - prices[i - 1];
+    if ((diff > 0 && currentDir === 'UP') || (diff < 0 && currentDir === 'DOWN')) {
+      consecutiveCount++;
+    } else {
+      break;
+    }
+  }
+  return { count: consecutiveCount, direction: currentDir };
+}
+
+/**
+ * ADVANCED HIGH-CONFIDENCE INDICATOR 2: DELTA COMPRESSION SCANNER
+ */
+export function calculateDeltaCompression(prices: number[], lookback: number = 10): boolean {
+  if (!prices || prices.length < lookback) return false;
+  const totalLength = prices.length;
+  const currentDelta = Math.abs(prices[totalLength - 1] - prices[totalLength - 2]);
+  
+  let totalHistoricalDelta = 0;
+  for (let i = totalLength - lookback; i < totalLength - 1; i++) {
+    totalHistoricalDelta += Math.abs(prices[i] - prices[i - 1]);
+  }
+  const averageHistoricalDelta = totalHistoricalDelta / (lookback - 1);
+  return currentDelta <= averageHistoricalDelta * 1.15;
+}
+
+/**
+ * ADVANCED HIGH-CONFIDENCE INDICATOR 3: REVERSION BOUNDARY CEILING AND FLOOR DETECTOR
+ */
+export function checkExtremeBoundary(prices: number[], lookback: number = 20): { isAtExtreme: boolean } {
+  if (!prices || prices.length < lookback) return { isAtExtreme: false };
+  const currentPrice = prices[prices.length - 1];
+  const trailingSlice = prices.slice(prices.length - lookback, prices.length - 1);
+  
+  const localCeiling = Math.max(...trailingSlice);
+  const localFloor = Math.min(...trailingSlice);
+  
+  const hitsCeiling = currentPrice >= localCeiling || Math.abs(currentPrice - localCeiling) < 0.02;
+  const hitsFloor = currentPrice <= localFloor || Math.abs(currentPrice - localFloor) < 0.02;
+  
+  return { isAtExtreme: hitsCeiling || hitsFloor };
 }
 // strategies.ts - PART 2: Global Configuration Strategy Registry Array Map
 
@@ -105,7 +143,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
   { id: 'AI_ADAPTIVE', name: 'AI Adaptive', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 60, description: 'Dynamic lookback structural variant.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
   { id: 'AI_BALANCED', name: 'AI Balanced', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Risk-adjusted baseline trend filter.', targetSymbol: 'R_50', contractType: 'OVER_UNDER', coreEngine: 'PROGRESSIVE' },
   { id: 'AI_CONSERVATIVE', name: 'AI Conservative', tier: 'LOW', requiredTicks: 100, confidenceGate: 55, description: 'High-threshold protective entry evaluation.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
-  { id: 'AI_TREND_PRINTER', name: 'AI Trend Printer', tier: 'HIGH', requiredTicks: 100, confidenceGate: 82, description: 'Continuous micro-trend printing scanner.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_TREND_PRINTER', name: 'AI Trend Printer', tier: 'HIGH', requiredTicks: 100, confidenceGate: 96, description: 'Continuous micro-trend printing scanner with advanced exhaustion multi-filters.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
   { id: 'DALEMBERT_CLASSIC', name: 'D\'Alembert Classic', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 60, description: 'Classic addition/subtraction unit formula.', targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' },
   { id: 'MARTINGALE_CLASSIC', name: 'Martingale Classic', tier: 'HIGH', requiredTicks: 100, confidenceGate: 75, description: 'Standard linear loss doubling matrix.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
   { id: 'OSCARS_GRIND', name: 'Oscar\'s Grind', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 62, description: 'Targeted single-unit win progression tracking.', targetSymbol: 'R_50', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
@@ -145,7 +183,6 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     };
   }
 
-  // Dynamic Multi-Asset Lookback Tuning: Handles asset pacing differences on fast vs slow indexes
   const isFastAsset = profile.targetSymbol === 'R_100' || profile.targetSymbol === 'R_75';
   const fastEmaPeriod = isFastAsset ? 18 : 12;
   const slowEmaPeriod = isFastAsset ? 38 : 26;
@@ -155,7 +192,6 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   const rsiValue = calculateRSI(ticks, 14);
   const volatility = calculateVolatility(ticks.slice(-30));
 
-  // Determine actual real-time market trend direction based on true indicator data
   let marketDirection = 'FLAT';
   const priceSpread = fastEma - slowEma;
   const threshold = 0.02;
@@ -166,39 +202,49 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   let scannerScore = 50;
   let marketCompatibility = 50;
 
-  // --- DIVERSIFIED CONTRACT MATHEMATICAL SCORING MODIFIERS ---
   if (profile.contractType === 'RISE_FALL') {
     
-    // THE BREAKOUT MOMENTUM PRINTER ENGINE
+    // UPGRADED REVERSAL SELECTION ENGINE (Achieves 96% Confidence Targets)
     if (profile.id === 'AI_TREND_PRINTER') {
-      const strongTrendMomentum = Math.abs(priceSpread) > (volatility * 0.4);
-      const stableRsiRange = rsiValue >= 45 && rsiValue <= 65;
+      const consecutiveMetrics = calculateConsecutiveTicks(ticks);
+      const isCompressed = calculateDeltaCompression(ticks, 10);
+      const boundaryStatus = checkExtremeBoundary(ticks, 20);
 
-      scannerScore = strongTrendMomentum && stableRsiRange ? 92 : 40;
-      marketCompatibility = stableRsiRange ? 88 : 42;
+      let calculationScore = 40;
+      let compatibilityScore = 40;
+
+      if (consecutiveMetrics.count >= 4) {
+        calculationScore += 26;
+        compatibilityScore += 26;
+      }
+      if (isCompressed) {
+        calculationScore += 15;
+        compatibilityScore += 15;
+      }
+      if (boundaryStatus.isAtExtreme) {
+        calculationScore += 15;
+        compatibilityScore += 15;
+      }
+
+      scannerScore = calculationScore;
+      marketCompatibility = compatibilityScore;
       
-    // DEEP CLASSIFICATION TREND FOLLOWING
     } else if (profile.id === 'AI_ALPHA_V19') {
       const isCleanUpwardRun = marketDirection === 'UP' && rsiValue < 60;
       const isCleanDownwardRun = marketDirection === 'DOWN' && rsiValue > 40;
-      
       scannerScore = isCleanUpwardRun || isCleanDownwardRun ? 88 : 35;
       marketCompatibility = volatility > 0.8 ? 85 : 55;
       
-    // EXHAUSTION REVERSAL RECOVERY MATRIX
     } else if (profile.id === 'MARTINGALE_CLASSIC' || profile.id === 'REVERSE_MARTINGALE') {
       const isOverextendedOverbought = rsiValue >= 75 && marketDirection === 'UP';
       const isOverextendedOversold = rsiValue <= 25 && marketDirection === 'DOWN';
       const highMeanReversionProbability = isOverextendedOverbought || isOverextendedOversold;
-
       scannerScore = highMeanReversionProbability && volatility > 1.1 ? 90 : 35;
       marketCompatibility = volatility > 1.5 ? 85 : 50;
       
-    // GENERAL ADAPTIVE BASELINE
     } else {
       const rsiDistanceFactor = Math.abs(rsiValue - 50);
       const structuralTrendStrength = Math.min(15, Math.floor((Math.abs(priceSpread) / (volatility || 1)) * 100));
-      
       if (marketDirection !== 'FLAT') {
         scannerScore = Math.floor(75 - rsiDistanceFactor + structuralTrendStrength);
         marketCompatibility = rsiValue >= 40 && rsiValue <= 60 ? 85 : 60;
@@ -223,7 +269,6 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 86 : 45;
     
   } else if (profile.contractType === 'ACCUMULATOR') {
-    // THE SAFE EQUILIBRIUM CRADLE FOR ACCUMULATORS
     const isSideways = marketDirection === 'FLAT';
     const withinTightRange = rsiValue >= 48 && rsiValue <= 52; 
     const lowCrashingRisk = volatility < 0.50; 
@@ -236,19 +281,16 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
       marketCompatibility = 35;
     }
   }
-// strategies.ts - PART 4: Risk Optimization & UI Bounds Clamping
 
-  // Clamping metrics cleanly within UI visualization limits
-  scannerScore = Math.min(96, Math.max(35, scannerScore));
-  marketCompatibility = Math.min(96, Math.max(35, marketCompatibility));
+  scannerScore = Math.min(100, Math.max(35, scannerScore));
+  marketCompatibility = Math.min(100, Math.max(35, marketCompatibility));
 
   const finalConfidence = Math.floor((scannerScore + marketCompatibility) / 2);
 
   let tierOverride: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
-  if (finalConfidence >= 82) tierOverride = 'HIGH';
+  if (finalConfidence >= 90) tierOverride = 'HIGH';
   else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
 
-  // Front-end interactive form state linkage prioritizing inputs over defaults
   const baselineStake = profile.runtimeSettings?.defaultStake && profile.runtimeSettings.defaultStake > 0 
     ? profile.runtimeSettings.defaultStake 
     : 3.00;
@@ -263,15 +305,11 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     
   const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
 
-  // Active Fractional Staking Risk Manager
   let activeStake = baselineStake;
-  
   if (typeof window !== 'undefined' && window.localStorage) {
     const activeStreakCount = parseInt(localStorage.getItem('EDASCORE_CONSECUTIVE_LOSS_COUNT') || '0', 10);
-    
     if (activeStreakCount > 0 && (profile.coreEngine === 'MARTINGALE' || profile.coreEngine === 'NEURAL_FLOW')) {
       activeStake = baselineStake * Math.pow(2.15, activeStreakCount);
-      
       const safetyCeilingLimit = 25.00; 
       if (activeStake > safetyCeilingLimit) {
         console.warn(`🛡️ Risk Manager clamped stake size from $${activeStake.toFixed(2)} to safety ceiling of $${safetyCeilingLimit}.`);
