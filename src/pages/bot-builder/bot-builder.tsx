@@ -139,12 +139,13 @@ const BotBuilder = observer(() => {
             <SaveModal />
             {is_open && <QuickStrategy1 />}
 
-            {/* INJECTED ARTIFACT: SMOOTH-DRAG SLOW-DANCE PURPLE AI SPHERE TRIGGER MODULE */}
+            {/* INJECTED ARTIFACT: INERTIAL MOMENTUM FLUID SLIDE PURPLE AI SPHERE MODULE */}
             {active_tab === 1 && !is_preview_on_popup && (
                 <div 
                     className='floating-ai-trigger-wrapper'
                     style={{
-                        display: isAiScannerOpen ? 'none' : 'flex'
+                        display: isAiScannerOpen ? 'none' : 'flex',
+                        transform: `translate(var(--ai-drag-x, 0px), var(--ai-drag-y, 0px))`
                     }}
                     onTouchStart={(e) => {
                         const targetElement = e.currentTarget;
@@ -163,18 +164,74 @@ const BotBuilder = observer(() => {
                             }
                         }
 
+                        const screenWidthLimit = window.innerWidth;
+                        const screenHeightLimit = window.innerHeight;
+                        const minXAllowed = -screenWidthLimit + 85; 
+                        const maxXAllowed = 15;
+                        const minYAllowed = -screenHeightLimit + 160;
+                        const maxYAllowed = 75;
+
+                        let currentDeltaX = initialXOffset;
+                        let currentDeltaY = initialYOffset;
+                        let lastTouchX = touchStartFrame.clientX;
+                        let lastTouchY = touchStartFrame.clientY;
+                        let lastTouchTime = Date.now();
+                        let absoluteVelocityX = 0;
+                        let absoluteVelocityY = 0;
+
                         const handleTouchMove = (moveEvent: TouchEvent) => {
                             const movingTouchFrame = moveEvent.touches[0];
-                            const calculatedDeltaX = movingTouchFrame.clientX - touchStartFrame.clientX + initialXOffset;
-                            const calculatedDeltaY = movingTouchFrame.clientY - touchStartFrame.clientY + initialYOffset;
+                            const currentTimestamp = Date.now();
+                            const elapsedTime = currentTimestamp - lastTouchTime;
+
+                            const deltaMovementX = movingTouchFrame.clientX - touchStartFrame.clientX + initialXOffset;
+                            const deltaMovementY = movingTouchFrame.clientY - touchStartFrame.clientY + initialYOffset;
                             
-                            targetElement.style.setProperty('--ai-drag-x', `${calculatedDeltaX}px`);
-                            targetElement.style.setProperty('--ai-drag-y', `${calculatedDeltaY}px`);
+                            currentDeltaX = Math.max(minXAllowed, Math.min(deltaMovementX, maxXAllowed));
+                            currentDeltaY = Math.max(minYAllowed, Math.min(deltaMovementY, maxYAllowed));
+                            
+                            targetElement.style.setProperty('--ai-drag-x', `${currentDeltaX}px`);
+                            targetElement.style.setProperty('--ai-drag-y', `${currentDeltaY}px`);
+
+                            if (elapsedTime > 0) {
+                                absoluteVelocityX = (movingTouchFrame.clientX - lastTouchX) / elapsedTime;
+                                absoluteVelocityY = (movingTouchFrame.clientY - lastTouchY) / elapsedTime;
+                            }
+
+                            lastTouchX = movingTouchFrame.clientX;
+                            lastTouchY = movingTouchFrame.clientY;
+                            lastTouchTime = currentTimestamp;
                         };
 
                         const handleTouchEnd = () => {
                             window.removeEventListener('touchmove', handleTouchMove);
                             window.removeEventListener('touchend', handleTouchEnd);
+
+                            const movementSpeedThreshold = 0.15;
+                            const absoluteSpeed = Math.sqrt(absoluteVelocityX * absoluteVelocityX + absoluteVelocityY * absoluteVelocityY);
+
+                            if (absoluteSpeed > movementSpeedThreshold) {
+                                const frictionDecayCoefficient = 0.95; 
+                                
+                                const runMomentumDecayFrame = () => {
+                                    absoluteVelocityX *= frictionDecayCoefficient;
+                                    absoluteVelocityY *= frictionDecayCoefficient;
+
+                                    currentDeltaX += absoluteVelocityX * 16; 
+                                    currentDeltaY += absoluteVelocityY * 16;
+
+                                    currentDeltaX = Math.max(minXAllowed, Math.min(currentDeltaX, maxXAllowed));
+                                    currentDeltaY = Math.max(minYAllowed, Math.min(currentDeltaY, maxYAllowed));
+
+                                    targetElement.style.setProperty('--ai-drag-x', `${currentDeltaX}px`);
+                                    targetElement.style.setProperty('--ai-drag-y', `${currentDeltaY}px`);
+
+                                    if (Math.abs(absoluteVelocityX) > 0.02 || Math.abs(absoluteVelocityY) > 0.02) {
+                                        requestAnimationFrame(runMomentumDecayFrame);
+                                    }
+                                };
+                                requestAnimationFrame(runMomentumDecayFrame);
+                            }
                         };
 
                         window.addEventListener('touchmove', handleTouchMove, { passive: false });
