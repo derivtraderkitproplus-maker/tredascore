@@ -1,293 +1,299 @@
-// strategies.ts - PART 1: Strict Types & Module Configuration Interfaces
+// strategies.ts - PART 1: Global Interfaces & Clean Mathematical Indicators
 
-export interface MarketCondition {
-  indicator: 'RSI' | 'EMA_CROSS' | 'BOLLINGER' | 'MACD' | 'ATR';
-  period: number;
-  threshold: number;
-  comparison: 'GREATER_THAN' | 'LESS_THAN' | 'CROSS_OVER' | 'CROSS_UNDER';
-}
-
-export interface QuantitativeStrategy {
+export interface StrategyProfile {
   id: string;
   name: string;
+  tier: 'HIGH' | 'MEDIUM' | 'LOW';
+  requiredTicks: number;
+  confidenceGate: number;
   description: string;
-  confidenceThreshold: number;
-  macroTrendFilter: boolean;
-  volatilityClamp: boolean;
-  minTicksDuration: number;
-  entryConditions: MarketCondition[];
+  // --- MULTI-VOLATILITY & DIVERSE ENGINE CONFIGURATIONS ---
+  targetSymbol: 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100';
+  contractType: 'RISE_FALL' | 'OVER_UNDER' | 'ACCUMULATOR' | 'TOUCH_NO_TOUCH';
+  coreEngine: 'MARTINGALE' | 'DALEMBERT' | 'PROGRESSIVE' | 'NEURAL_FLOW';
+  
+  // RUNTIME EXECUTION SETTINGS (Captures frontend form state adjustments)
+  runtimeSettings?: {
+    defaultStake: number;
+    takeProfitLimit: number; // Monetary target value
+    stopLossLimit: number;   // Monetary protection floor value
+    growthRate?: number;     // Specific tracking multiplier for Accumulators
+  };
 }
 
-export const STRATEGY_REGISTRY_VERSION = "2.1.0-PRO";
-// strategies.ts - PART 2: High-Performance Trend-Following Strategy Modules
+export interface StrategyResult {
+  profileId: string;
+  ticksLoaded: number;
+  marketState: string;
+  direction: string;
+  scannerScore: number;
+  marketCompatibility: number;
+  finalConfidence: number;
+  tierOverride: 'HIGH' | 'MEDIUM' | 'LOW';
+  status?: 'HIGH' | 'MEDIUM' | 'LOW';
+  
+  // PASS-THROUGH EXECUTOR ENGINE STATE
+  executionPayload?: {
+    stake: number;
+    takeProfit: number;
+    stopLoss: number;
+    growthRate: number;
+  };
+}
 
-export const QUANT_STRATEGY_REGISTRY: QuantitativeStrategy[] = [
-  {
-    id: "str_trend_shield_pro",
-    name: "Trend Shield Pro (Institutional)",
-    description: "Multi-layered trend follower. Utilizes a long-period Exponential Moving Average filter to execute high-confidence entries aligned with institutional macro momentum.",
-    confidenceThreshold: 92.5,
-    macroTrendFilter: true,
-    volatilityClamp: true,
-    minTicksDuration: 5,
-    entryConditions: [
-      {
-        indicator: "EMA_CROSS",
-        period: 50,
-        threshold: 0,
-        comparison: "CROSS_OVER"
-      },
-      {
-        indicator: "RSI",
-        period: 14,
-        threshold: 55,
-        comparison: "GREATER_THAN"
-      },
-      {
-        indicator: "ATR",
-        period: 14,
-        threshold: 0.15,
-        comparison: "GREATER_THAN"
-      }
-    ]
-  },
-  {
-    id: "str_alpha_momentum",
-    name: "Alpha Momentum Scalper",
-    description: "Designed for explosive breakouts on hyper-fast assets like Volatility 100 (1s). Identifies sharp, continuous vector velocity acceleration gates.",
-    confidenceThreshold: 88.0,
-    macroTrendFilter: true,
-    volatilityClamp: false,
-    minTicksDuration: 5,
-    entryConditions: [
-      {
-        indicator: "MACD",
-        period: 12,
-        threshold: 0,
-        comparison: "CROSS_OVER"
-      },
-      {
-        indicator: "RSI",
-        period: 9,
-        threshold: 60,
-        comparison: "GREATER_THAN"
-      }
-    ]
+/**
+ * HIGH-PERFORMANCE EXPONENTIAL MOVING AVERAGE (EMA)
+ * Extracts pricing variables sequentially from oldest to newest to provide true market alignment.
+ */
+export function calculateEMA(prices: number[], period: number): number {
+  if (!prices || prices.length === 0) return 0;
+  
+  const k = 2 / (period + 1);
+  let emaValue = prices[0]; 
+  
+  for (let i = 1; i < prices.length; i++) {
+    emaValue = (prices[i] * k) + (emaValue * (1 - k));
   }
-// strategies.ts - PART 3: Mean Reversion & Volatility Range Strategy Modules
+  
+  return emaValue;
+}
 
-  {
-    id: "str_mean_reversion_pro",
-    name: "Mean Reversion Pro",
-    description: "Monitors mathematical deviations using historical volatility envelopes. Identifies exhausted price vectors to capture smooth asset corrections.",
-    confidenceThreshold: 90.0,
-    macroTrendFilter: false,
-    volatilityClamp: true,
-    minTicksDuration: 5,
-    entryConditions: [
-      {
-        indicator: "BOLLINGER",
-        period: 20,
-        threshold: 2.0, // Standard deviations
-        comparison: "CROSS_UNDER"
-      },
-      {
-        indicator: "RSI",
-        period: 14,
-        threshold: 30,
-        comparison: "LESS_THAN"
-      }
-    ]
-  },
-  {
-    id: "str_volatility_breakout",
-    name: "Volatility Compression Burst",
-    description: "Detects low-volatility compression boxes (Bollinger Band squeezes) and executes instant positional updates as soon as an explosive price expansion begins.",
-    confidenceThreshold: 85.0,
-    macroTrendFilter: false,
-    volatilityClamp: true,
-    minTicksDuration: 5,
-    entryConditions: [
-      {
-        indicator: "BOLLINGER",
-        period: 20,
-        threshold: 0.05, // Narrow band width threshold
-        comparison: "CROSS_OVER"
-      },
-      {
-        indicator: "ATR",
-        period: 10,
-        threshold: 0.25,
-        comparison: "GREATER_THAN"
-      }
-    ]
+/**
+ * HIGH-PERFORMANCE RELATIVE STRENGTH INDEX (RSI)
+ * Measures genuine directional change vectors across your exact parameter lookback window.
+ */
+export function calculateRSI(prices: number[], period: number = 14): number {
+  if (!prices || prices.length <= period) return 50;
+  
+  let totalGains = 0;
+  let totalLosses = 0;
+  
+  for (let i = prices.length - period + 1; i < prices.length; i++) {
+    const change = prices[i] - prices[i - 1];
+    if (change > 0) {
+      totalGains += change;
+    } else {
+      totalLosses += Math.abs(change);
+    }
   }
+  
+  if (totalLosses === 0) return 100;
+  
+  const rs = totalGains / totalLosses;
+  return Math.floor(100 - (100 / (1 + rs)));
+}
+
+/**
+ * PRODUCTION-READY HISTORICAL VOLATILITY
+ * Evaluates asset variance trends against rolling mathematical price means.
+ */
+export function calculateVolatility(prices: number[]): number {
+  if (!prices || prices.length === 0) return 0;
+  const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
+  const variance = prices.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / prices.length;
+  return Math.sqrt(variance);
+}
+// strategies.ts - PART 2: Global Configuration Strategy Registry Array Map
+
+export const STRATEGY_PROFILES: StrategyProfile[] = [
+  { id: 'STRATEGY_1_3_2_6', name: '1-3-2-6 System', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 68, description: 'Fixed progressive staking sequence.', targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
+  { id: 'ACC_DALEMBERT', name: 'Accumulator D\'Alembert', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Equilibrium based staking scale.', targetSymbol: 'R_25', contractType: 'ACCUMULATOR', coreEngine: 'DALEMBERT' },
+  { id: 'ACC_MARTINGALE', name: 'Accumulator Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 75, description: 'Aggressive recovery multiplier sequence.', targetSymbol: 'R_50', contractType: 'ACCUMULATOR', coreEngine: 'MARTINGALE' },
+  { id: 'ACC_REVERSE', name: 'Accumulator Reverse', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 64, description: 'Anti-equilibrium progression pattern.', targetSymbol: 'R_75', contractType: 'ACCUMULATOR', coreEngine: 'PROGRESSIVE' },
+  { id: 'ACC_REVERSE_MARTINGALE', name: 'Accumulator Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 78, description: 'Paroli-style compounding trend rider.', targetSymbol: 'R_100', contractType: 'ACCUMULATOR', coreEngine: 'MARTINGALE' },
+  { id: 'AI_ACC_FLOW', name: 'AI Accumulator Flow', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 70, description: 'Neural momentum tracking array.', targetSymbol: 'R_10', contractType: 'ACCUMULATOR', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_ADAPTIVE', name: 'AI Adaptive', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 60, description: 'Dynamic lookback structural variant.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_BALANCED', name: 'AI Balanced', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Risk-adjusted baseline trend filter.', targetSymbol: 'R_50', contractType: 'OVER_UNDER', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_CONSERVATIVE', name: 'AI Conservative', tier: 'LOW', requiredTicks: 100, confidenceGate: 55, description: 'High-threshold protective entry evaluation.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_TREND_PRINTER', name: 'AI Trend Printer', tier: 'HIGH', requiredTicks: 100, confidenceGate: 82, description: 'Continuous micro-trend printing scanner.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
+  { id: 'DALEMBERT_CLASSIC', name: 'D\'Alembert Classic', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 60, description: 'Classic addition/subtraction unit formula.', targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' },
+  { id: 'MARTINGALE_CLASSIC', name: 'Martingale Classic', tier: 'HIGH', requiredTicks: 100, confidenceGate: 75, description: 'Standard linear loss doubling matrix.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
+  { id: 'OSCARS_GRIND', name: 'Oscar\'s Grind', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 62, description: 'Targeted single-unit win progression tracking.', targetSymbol: 'R_50', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
+  { id: 'REVERSE_DALEMBERT', name: 'Reverse D\'Alembert', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 61, description: 'Inverted risk distribution progression.', targetSymbol: 'R_75', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' },
+  { id: 'REVERSE_MARTINGALE', name: 'Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 76, description: 'Compounded profit maximizing pipeline.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
+  { id: 'AI_ALPHA_V16', name: 'AI Alpha Engine v16', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 66, description: 'Predictive neural trend optimization layer.', targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_ALPHA_V17', name: 'AI Alpha Engine v17', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 67, description: 'Dynamic multi-asset lookback tracking matrix.', targetSymbol: 'R_25', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_ALPHA_V18', name: 'AI Alpha Engine v18', tier: 'LOW', requiredTicks: 100, confidenceGate: 58, description: 'High-frequency variance boundary check core.', targetSymbol: 'R_50', contractType: 'ACCUMULATOR', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_ALPHA_V19', name: 'AI Alpha Engine v19', tier: 'HIGH', requiredTicks: 100, confidenceGate: 79, description: 'Deep learning classification vector processor.', targetSymbol: 'R_75', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_ALPHA_V20', name: 'AI Alpha Engine v20', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 70, description: 'Neural momentum delta tracking array node.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_QUANT_V21', name: 'AI Quant Matrix v21', tier: 'HIGH', requiredTicks: 100, confidenceGate: 81, description: 'Statistical boundary exhaustion trend filter.', targetSymbol: 'R_10', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_QUANT_V22', name: 'AI Quant Matrix v22', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 64, description: 'Volatility range consolidation index scanner.', targetSymbol: 'R_25', contractType: 'ACCUMULATOR', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_QUANT_V23', name: 'AI Quant Matrix v23', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 69, description: 'Micro-fractal price velocity calculation network.', targetSymbol: 'R_50', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_QUANT_V24', name: 'AI Quant Matrix v24', tier: 'LOW', requiredTicks: 100, confidenceGate: 56, description: 'Moving average convergence divergence tracking.', targetSymbol: 'R_75', contractType: 'OVER_UNDER', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_QUANT_V25', name: 'AI Quant Matrix v25', tier: 'HIGH', requiredTicks: 100, confidenceGate: 77, description: 'Explosive micro-breakout trend vector tracker.', targetSymbol: 'R_100', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
+  { id: 'HYPER_SCALPER_V26', name: 'Hyper Scalper Engine v26', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Sub-second structural tick execution array.', targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
+  { id: 'HYPER_SCALPER_V27', name: 'Hyper Scalper Engine v27', tier: 'HIGH', requiredTicks: 100, confidenceGate: 78, description: 'Aggressive rapid price velocity spike scanner.', targetSymbol: 'R_25', contractType: 'OVER_UNDER', coreEngine: 'MARTINGALE' },
+  { id: 'TREND_SHIELD_V28', name: 'Trend Shield Pro v28', tier: 'HIGH', requiredTicks: 100, confidenceGate: 80, description: 'Counter-trend entry denial asset protector.', targetSymbol: 'R_50', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
+  { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
+  { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' }
 ];
-// strategies.ts - PART 4: Real-Time Signal Processing & Confidence Scoring Engine
+// strategies.ts - PART 3: Mathematical Scoring Engine & Contract Evaluation
 
-export interface TechnicalIndicatorData {
-  rsi?: number;
-  emaCrossValue?: number;
-  macdHistogram?: number;
-  bollingerUpper?: number;
-  bollingerLower?: number;
-  currentPrice?: number;
-  atr?: number;
-}
-
-/**
- * MATHEMATICAL SCORING ENGINE
- * Evaluates live market arrays to calculate the analytical strategy confidence scores.
- */
-export function calculateStrategyConfidence(
-  strategy: QuantitativeStrategy,
-  marketData: TechnicalIndicatorData
-): number {
-  if (!strategy.entryConditions || strategy.entryConditions.length === 0) return 0;
-
-  let verifiedConditionsCount = 0;
-  const totalConditionsCount = strategy.entryConditions.length;
-
-  strategy.entryConditions.forEach((condition) => {
-    switch (condition.indicator) {
-      case "RSI":
-        if (marketData.rsi !== undefined) {
-          if (condition.comparison === "GREATER_THAN" && marketData.rsi > condition.threshold) verifiedConditionsCount++;
-          if (condition.comparison === "LESS_THAN" && marketData.rsi < condition.threshold) verifiedConditionsCount++;
-        }
-        break;
-
-      case "EMA_CROSS":
-        if (marketData.emaCrossValue !== undefined) {
-          if (condition.comparison === "CROSS_OVER" && marketData.emaCrossValue > condition.threshold) verifiedConditionsCount++;
-          if (condition.comparison === "CROSS_UNDER" && marketData.emaCrossValue < condition.threshold) verifiedConditionsCount++;
-        }
-        break;
-
-      case "MACD":
-        if (marketData.macdHistogram !== undefined) {
-          if (condition.comparison === "CROSS_OVER" && marketData.macdHistogram > condition.threshold) verifiedConditionsCount++;
-          if (condition.comparison === "CROSS_UNDER" && marketData.macdHistogram < condition.threshold) verifiedConditionsCount++;
-        }
-        break;
-
-      case "BOLLINGER":
-        if (marketData.currentPrice !== undefined && marketData.bollingerUpper !== undefined && marketData.bollingerLower !== undefined) {
-          if (condition.comparison === "CROSS_OVER" && marketData.currentPrice >= marketData.bollingerUpper) verifiedConditionsCount++;
-          if (condition.comparison === "CROSS_UNDER" && marketData.currentPrice <= marketData.bollingerLower) verifiedConditionsCount++;
-        }
-        break;
-
-      case "ATR":
-        if (marketData.atr !== undefined) {
-          if (condition.comparison === "GREATER_THAN" && marketData.atr > condition.threshold) verifiedConditionsCount++;
-          if (condition.comparison === "LESS_THAN" && marketData.atr < condition.threshold) verifiedConditionsCount++;
-        }
-        break;
-
-      default:
-        break;
-    }
-  });
-
-  // Calculate final percentage score
-  return (verifiedConditionsCount / totalConditionsCount) * 100;
-}
-// strategies.ts - PART 5: Automated Market Regime & Volatility Validators
-
-export interface RegimeFilterResult {
-  isPermitted: boolean;
-  reason: string;
-}
-
-/**
- * STRUCTURAL REGIME VALIDATOR
- * Verifies if macro market states allow safe trade execution profiles.
- */
-export function validateMarketRegime(
-  strategy: QuantitativeStrategy,
-  macroEmaTrend: 'BULLISH' | 'BEARISH' | 'SIDEWAYS',
-  currentAtr: number,
-  historicalMinAtr: number
-): RegimeFilterResult {
+export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
+  const currentCount = ticks.length;
   
-  // 1. MACRO TREND CROSS-MATCH FILTER
-  if (strategy.macroTrendFilter) {
-    if (macroEmaTrend === 'SIDEWAYS') {
-      return {
-        isPermitted: false,
-        reason: "Macro market regime is sideways/choppy. Disabling trend allocation entries."
-      };
-    }
+  if (currentCount < profile.requiredTicks) {
+    return {
+      profileId: profile.id,
+      ticksLoaded: currentCount,
+      marketState: 'INSUFFICIENT_DATA',
+      direction: 'FLAT',
+      scannerScore: 0,
+      marketCompatibility: 0,
+      finalConfidence: 0,
+      tierOverride: profile.tier
+    };
   }
 
-  // 2. VOLATILITY COMPRESSION GATE
-  if (strategy.volatilityClamp) {
-    if (currentAtr < historicalMinAtr) {
-      return {
-        isPermitted: false,
-        reason: "Market volatility levels fell below minimum noise thresholds. Execution locked."
-      };
+  // Dynamic Multi-Asset Lookback Tuning: Handles asset pacing differences on fast vs slow indexes
+  const isFastAsset = profile.targetSymbol === 'R_100' || profile.targetSymbol === 'R_75';
+  const fastEmaPeriod = isFastAsset ? 18 : 12;
+  const slowEmaPeriod = isFastAsset ? 38 : 26;
+
+  const fastEma = calculateEMA(ticks, fastEmaPeriod);
+  const slowEma = calculateEMA(ticks, slowEmaPeriod);
+  const rsiValue = calculateRSI(ticks, 14);
+  const volatility = calculateVolatility(ticks.slice(-30));
+
+  // Determine actual real-time market trend direction based on true indicator data
+  let marketDirection = 'FLAT';
+  const priceSpread = fastEma - slowEma;
+  const threshold = 0.02;
+
+  if (priceSpread > threshold) marketDirection = 'UP';
+  else if (priceSpread < -threshold) marketDirection = 'DOWN';
+
+  let scannerScore = 50;
+  let marketCompatibility = 50;
+
+  // --- DIVERSIFIED CONTRACT MATHEMATICAL SCORING MODIFIERS ---
+  if (profile.contractType === 'RISE_FALL') {
+    
+    // THE BREAKOUT MOMENTUM PRINTER ENGINE
+    if (profile.id === 'AI_TREND_PRINTER') {
+      const strongTrendMomentum = Math.abs(priceSpread) > (volatility * 0.4);
+      const stableRsiRange = rsiValue >= 45 && rsiValue <= 65;
+
+      scannerScore = strongTrendMomentum && stableRsiRange ? 92 : 40;
+      marketCompatibility = stableRsiRange ? 88 : 42;
+      
+    // DEEP CLASSIFICATION TREND FOLLOWING
+    } else if (profile.id === 'AI_ALPHA_V19') {
+      const isCleanUpwardRun = marketDirection === 'UP' && rsiValue < 60;
+      const isCleanDownwardRun = marketDirection === 'DOWN' && rsiValue > 40;
+      
+      scannerScore = isCleanUpwardRun || isCleanDownwardRun ? 88 : 35;
+      marketCompatibility = volatility > 0.8 ? 85 : 55;
+      
+    // EXHAUSTION REVERSAL RECOVERY MATRIX
+    } else if (profile.id === 'MARTINGALE_CLASSIC' || profile.id === 'REVERSE_MARTINGALE') {
+      const isOverextendedOverbought = rsiValue >= 75 && marketDirection === 'UP';
+      const isOverextendedOversold = rsiValue <= 25 && marketDirection === 'DOWN';
+      const highMeanReversionProbability = isOverextendedOverbought || isOverextendedOversold;
+
+      scannerScore = highMeanReversionProbability && volatility > 1.1 ? 90 : 35;
+      marketCompatibility = volatility > 1.5 ? 85 : 50;
+      
+    // GENERAL ADAPTIVE BASELINE
+    } else {
+      const rsiDistanceFactor = Math.abs(rsiValue - 50);
+      const structuralTrendStrength = Math.min(15, Math.floor((Math.abs(priceSpread) / (volatility || 1)) * 100));
+      
+      if (marketDirection !== 'FLAT') {
+        scannerScore = Math.floor(75 - rsiDistanceFactor + structuralTrendStrength);
+        marketCompatibility = rsiValue >= 40 && rsiValue <= 60 ? 85 : 60;
+      } else {
+        scannerScore = 40;
+        marketCompatibility = 40;
+      }
+    }
+    
+  } else if (profile.contractType === 'OVER_UNDER') {
+    if (profile.id === 'DALEMBERT_CLASSIC') {
+      scannerScore = marketDirection === 'FLAT' && volatility < 0.6 ? 88 : 35;
+      marketCompatibility = rsiValue >= 48 && rsiValue <= 52 ? 90 : 40;
+    } else {
+      scannerScore = marketDirection === 'FLAT' && volatility < 0.8 ? 84 : 40;
+      marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 82 : 45;
+    }
+    
+  } else if (profile.contractType === 'TOUCH_NO_TOUCH') {
+    const isExtremeVolatilitySpike = volatility > 1.45 && (rsiValue > 72 || rsiValue < 28);
+    scannerScore = isExtremeVolatilitySpike ? 92 : 35;
+    marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 86 : 45;
+    
+  } else if (profile.contractType === 'ACCUMULATOR') {
+    // THE SAFE EQUILIBRIUM CRADLE FOR ACCUMULATORS
+    const isSideways = marketDirection === 'FLAT';
+    const withinTightRange = rsiValue >= 48 && rsiValue <= 52; 
+    const lowCrashingRisk = volatility < 0.50; 
+
+    if (isSideways && withinTightRange && lowCrashingRisk) {
+      scannerScore = 95; 
+      marketCompatibility = 90;
+    } else {
+      scannerScore = 35; 
+      marketCompatibility = 35;
+    }
+  }
+// strategies.ts - PART 4: Risk Optimization & UI Bounds Clamping
+
+  // Clamping metrics cleanly within UI visualization limits
+  scannerScore = Math.min(96, Math.max(35, scannerScore));
+  marketCompatibility = Math.min(96, Math.max(35, marketCompatibility));
+
+  const finalConfidence = Math.floor((scannerScore + marketCompatibility) / 2);
+
+  let tierOverride: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+  if (finalConfidence >= 82) tierOverride = 'HIGH';
+  else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
+
+  // Front-end interactive form state linkage prioritizing inputs over defaults
+  const baselineStake = profile.runtimeSettings?.defaultStake && profile.runtimeSettings.defaultStake > 0 
+    ? profile.runtimeSettings.defaultStake 
+    : 3.00;
+    
+  const activeTP = profile.runtimeSettings?.takeProfitLimit && profile.runtimeSettings.takeProfitLimit > 0
+    ? profile.runtimeSettings.takeProfitLimit 
+    : 8.00;
+    
+  const activeSL = profile.runtimeSettings?.stopLossLimit && profile.runtimeSettings.stopLossLimit > 0
+    ? profile.runtimeSettings.stopLossLimit 
+    : 4.00;
+    
+  const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
+
+  // Active Fractional Staking Risk Manager
+  let activeStake = baselineStake;
+  
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const activeStreakCount = parseInt(localStorage.getItem('EDASCORE_CONSECUTIVE_LOSS_COUNT') || '0', 10);
+    
+    if (activeStreakCount > 0 && (profile.coreEngine === 'MARTINGALE' || profile.coreEngine === 'NEURAL_FLOW')) {
+      activeStake = baselineStake * Math.pow(2.15, activeStreakCount);
+      
+      const safetyCeilingLimit = 25.00; 
+      if (activeStake > safetyCeilingLimit) {
+        console.warn(`🛡️ Risk Manager clamped stake size from $${activeStake.toFixed(2)} to safety ceiling of $${safetyCeilingLimit}.`);
+        activeStake = safetyCeilingLimit;
+      }
     }
   }
 
   return {
-    isPermitted: true,
-    reason: "Market structure passes all institutional safety validations."
+    profileId: profile.id,
+    ticksLoaded: currentCount,
+    marketState: 'READY',
+    direction: marketDirection,
+    scannerScore,
+    marketCompatibility,
+    finalConfidence,
+    tierOverride,
+    executionPayload: {
+      stake: parseFloat(activeStake.toFixed(2)),
+      takeProfit: activeTP,
+      stopLoss: activeSL,
+      growthRate: activeGrowth
+    }
   };
 }
-// strategies.ts - PART 6: Strategy Resolution Helpers & Registry Utilities
-
-/**
- * STRATEGY CONFIGURATION RESOLVER
- * Safely locates an active strategy profile from the unified registry map.
- */
-export function getStrategyProfileById(strategyId: string): QuantitativeStrategy | undefined {
-  return QUANT_STRATEGY_REGISTRY.find(strategy => strategy.id === strategyId);
-}
-
-/**
- * SIGNAL COMPILATION HELPER
- * Evaluates strategy parameters to verify if a confidence score meets the execution threshold.
- */
-export function verifyStrategySignal(
-  strategyId: string, 
-  marketData: TechnicalIndicatorData,
-  macroEmaTrend: 'BULLISH' | 'BEARISH' | 'SIDEWAYS',
-  currentAtr: number,
-  historicalMinAtr: number
-): { shouldTrade: boolean; confidenceScore: number; validationMessage: string } {
-  
-  const strategy = getStrategyProfileById(strategyId);
-  if (!strategy) {
-    return { shouldTrade: false, confidenceScore: 0, validationMessage: "Strategy profile not registered." };
-  }
-
-  // 1. Calculate Confidence Scoring Metrics
-  const confidenceScore = calculateStrategyConfidence(strategy, marketData);
-  
-  // 2. Cross-Verify Market Regime Safety Envelopes
-  const regimeCheck = validateMarketRegime(strategy, macroEmaTrend, currentAtr, historicalMinAtr);
-  if (!regimeCheck.isPermitted) {
-    return { shouldTrade: false, confidenceScore, validationMessage: regimeCheck.reason };
-  }
-
-  // 3. Evaluate Threshold Bounds
-  const hasMetThreshold = confidenceScore >= strategy.confidenceThreshold;
-  const statusMessage = hasMetThreshold 
-    ? `🎯 Signal confirmed! Strategy meets threshold with ${confidenceScore.toFixed(1)}% confidence.` 
-    : `⏳ Signal scanning... Current confidence at ${confidenceScore.toFixed(1)}% (Threshold: ${strategy.confidenceThreshold}%).`;
-
-  return {
-    shouldTrade: hasMetThreshold,
-    confidenceScore,
-    validationMessage: statusMessage
-  };
-}
-
-// Global configuration constants used by the front-end menu panel cards
-export const SYSTEM_TUNING_PROFILES = {
-  TREND_MODE: "TREND_FOLLOWER",
-  NOISE_GATE_TICKS: 5,
-  WHITE_LABEL_REF: "tredascore.pro"
-};
