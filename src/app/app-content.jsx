@@ -33,6 +33,8 @@ const PreviewBranding =
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
     const [is_loading, setIsLoading] = React.useState(true);
+    // Safety flag ensures workspace logic mounts cleanly after preloader unmounts
+    const [preloader_dismissed, setPreloaderDismissed] = React.useState(false);
 
     const store = useStore();
     const { app, transactions, common, client } = store;
@@ -161,12 +163,24 @@ const AppContent = observer(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_api_initialized, client.loginid]);
 
+    // Handle delayed evaluation state tracking cleanly 
+    React.useEffect(() => {
+        if (!is_loading) {
+            const clearTimer = setTimeout(() => {
+                setPreloaderDismissed(true);
+            }, 750); // Matches preloader 600ms with structural headroom
+            return () => clearTimeout(clearTimer);
+        } else {
+            setPreloaderDismissed(false);
+        }
+    }, [is_loading]);
+
     if (common?.error) return null;
 
     return (
         <React.Fragment>
-            {/* FIXED INITIALIZATION INJECTION: TraderScheme-style Premium Boot Engine Preloader */}
-            <AppPreloader isAppReady={!is_loading} />
+            {/* Render preloader smoothly using the safe unmount condition */}
+            {!preloader_dismissed && <AppPreloader isAppReady={!is_loading} />}
 
             {PreviewBranding && (
                 <Suspense fallback={null}>
@@ -174,9 +188,9 @@ const AppContent = observer(() => {
                 </Suspense>
             )}
             
-            {/* When is_loading is true, render a clean fallback overlay. Your custom preloader covers this seamlessly. */}
-            {is_loading ? (
-                <div style={{ background: '#04060d', width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }} />
+            {/* Show workspace only when preloader sequence has completed structural runtime execution */}
+            {!preloader_dismissed ? (
+                <div style={{ background: '#04060d', width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0, zIndex: 9998 }} />
             ) : (
                 <AuthLoadingWrapper>
                     <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>
