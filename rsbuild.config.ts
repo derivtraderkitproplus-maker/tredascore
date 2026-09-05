@@ -69,6 +69,11 @@ export default defineConfig({
     distPath: {
       root: isStaticBuild ? 'out/preview' : 'dist',
     },
+    // 🛡️ TRADERSCHEME FIX: Removes heavy production source maps to maximize browser UI thread efficiency
+    sourceMap: {
+      js: process.env.NODE_ENV === 'development',
+      css: process.env.NODE_ENV === 'development',
+    },
     copy: [
       {
         from: path.join(smartchartsDist, '*'),
@@ -92,6 +97,14 @@ export default defineConfig({
     ],
   },
   html: { template: './index.html' },
+  performance: {
+    // 🚀 SWC-RUST ACCELERATOR: Enforces absolute production binary compression optimizations
+    minify: true,
+    // Splitting strategy isolates core visual components from high-frequency scanner logic
+    chunkSplit: {
+      strategy: 'split-by-experience',
+    },
+  },
   server: {
     compress: true,
   },
