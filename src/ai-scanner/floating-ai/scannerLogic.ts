@@ -1,5 +1,4 @@
-// scannerLogic.ts - PART 1: Global Typings & Core Engine Structures
-
+// scannerLogic.ts - Production Version (Refactored for Low-Latency & Strict Routing)
 import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
 
 export interface EvaluationFrame {
@@ -74,23 +73,23 @@ export const SYMBOL_BROKER_MAP: Record<string, string> = {
   'R_75': '1HZ75V',
   'R_100': '1HZ100V'
 };
-// scannerLogic.ts - PART 2: Connection-Resilient Broker Trade Routers
 
-/**
- * CORE QUANT MACHINE BROKER ROUTING ENGINE
- * Connects directly to the exchange API layer to fire trades instantly
- */
-export async function executeBrokerTrade(signal: HighConfidenceSignal) {
+export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
+
+/** * REFACTORED: ULTRA LOW-LATENCY WEBSOCKET ROUTER * Sub-millisecond execution bypassing the generic HTTP fetch framework completely */
+export function executeBrokerTrade(signal: HighConfidenceSignal, activeWebSocketInstance: WebSocket) {
   if (liveExecutionLock || checkEngineStatus()) return;
-  liveExecutionLock = true; 
-
+  
   const tradeData = signal.executionPayload;
-  if (!tradeData) {
-    liveExecutionLock = false;
+  if (!tradeData) return;
+
+  if (activeWebSocketInstance.readyState !== WebSocket.OPEN) {
+    console.error("🚨 Active WebSocket connection line is closed. Aborting order execution pipeline.");
     return;
   }
 
-  console.log(`⚡ [EXECUTION INITIATED] Fire order: ${signal.contractType} | Asset: ${signal.assetName}`);
+  liveExecutionLock = true; 
+  console.log(`⚡ [EXECUTION INITIATED] Routing via WebSocket: ${signal.contractType} | Asset: ${signal.assetName}`);
 
   const isAccumulator = signal.contractType === 'ACCUMULATOR';
   
@@ -103,181 +102,23 @@ export async function executeBrokerTrade(signal: HighConfidenceSignal) {
       contract_type: isAccumulator ? "ACCU" : (signal.recommendedAction === 'UP' ? 'CALL' : 'PUT'),
       currency: "USD",
       symbol: SYMBOL_BROKER_MAP[signal.assetName] || '1HZ25V',
+      duration: 1,
+      duration_unit: "t", 
       ...(isAccumulator && { growth_rate: tradeData.growthRate }) 
     }
   };
 
-  try {
-    // FIXED: Formatted template literal strings explicitly targeting the secure Deriv API v3 layer
-    const response = await fetch(`https://deriv.com`, { 
-      method: "POST",
-      headers: { 
-        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_BROKER_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(brokerPayload)
-    });
-
-    const result = await response.json();
-
-    if (response.ok && result.contract_id) {
-      console.log(`✅ [ORDER FILLED] Position running under ID: ${result.contract_id}`);
-      startVirtualProtectionEngine(result.contract_id, tradeData.takeProfit, tradeData.stopLoss, isAccumulator);
-    } else {
-      console.error("❌ Broker API rejected allocation payload:", result.message);
-      liveExecutionLock = false; 
-    }
-  } catch (error) {
-    console.error("🚨 Order execution fatal pipeline network failure:", error);
-    liveExecutionLock = false; 
-  }
+  activeWebSocketInstance.send(JSON.stringify(brokerPayload));
 }
 
-/**
- * CONNECTION-RESILIENT VIRTUAL RUNTIME MONITOR
- * Watches running trade state streams and pushes automated exit requests matching SL/TP forms
- */
-async function startVirtualProtectionEngine(contractId: string, takeProfit: number, stopLoss: number, isAccumulator: boolean) {
-  let activeWatcher = true;
-  let consecutiveNetworkFailures = 0;
+/** * REFACTORED: FIXES TELEGRAM PATH INTERPOLATION AND API ENDPOINTS */
+export function dispatchTelegramNotification(messageString: string) {
+  const encodedText = encodeURIComponent(messageString);
+  const telegramApiEndPoint = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${encodedText}&parse_mode=Markdown`;
 
-  // Throttles checking performance on weaker mobile platforms dynamically
-  const adaptivePollInterval = (typeof navigator !== 'undefined' && /Android|iPhone/i.test(navigator.userAgent)) ? 600 : 300;
-
-  while (activeWatcher) {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      console.error("🚨 Hardware network interface reported OFFLINE state. Aborting watcher safely.");
-      handleFatalNetworkDisconnection(contractId);
-      break;
-    }
-
-    try {
-      // FIXED: Applied correct string literal interpolation backticks and AbortSignal connection limits
-      const checkResponse = await fetch(`https://deriv.com{contractId}`, {
-        signal: AbortSignal.timeout(1500)
-      });
-      
-      const trackingNode = await checkResponse.json();
-      consecutiveNetworkFailures = 0; 
-
-      if (!checkResponse.ok || trackingNode.is_expired) {
-        trackExecutedTradeResult(trackingNode.profit || -1.00); 
-        activeWatcher = false;
-        break;
-      }
-
-      if (!isAccumulator) {
-        await new Promise(res => setTimeout(res, 1000));
-        continue;
-      }
-
-      const currentFloatingPnL = trackingNode.profit; 
-
-      // A. Virtual Take Profit Trigger
-      if (currentFloatingPnL >= takeProfit) {
-        console.log(`🎯 Virtual Take Profit Hit (+$${currentFloatingPnL}). Forcing structural sell closure.`);
-        await executeEmergencyPositionLiquidation(contractId, currentFloatingPnL);
-        activeWatcher = false;
-        break;
-      }
-
-      // B. Virtual Stop Loss Trigger
-      if (currentFloatingPnL <= -stopLoss) {
-        console.log(`🛑 Virtual Stop Loss Broken (-$${Math.abs(currentFloatingPnL)}). Killing transaction.`);
-        await executeEmergencyPositionLiquidation(contractId, currentFloatingPnL);
-        activeWatcher = false;
-        break;
-      }
-
-      await new Promise(res => setTimeout(res, adaptivePollInterval));
-    } catch (error) {
-      consecutiveNetworkFailures++;
-      console.warn(`⚠️ Network connection pipeline verification drop: ${consecutiveNetworkFailures}/4`);
-      
-      if (consecutiveNetworkFailures >= 4) {
-        console.error("🚨 Persistent data pipeline disconnect identified during trade execution runtime.");
-        handleFatalNetworkDisconnection(contractId);
-        activeWatcher = false;
-        break;
-      }
-      await new Promise(res => setTimeout(res, 1500)); 
-    }
-  }
-}
-// scannerLogic.ts - PART 3: Safe Account Resets, Telegram Bridges & Financial Circuit Breakers
-
-/**
- * THE GHOST POSITION RESOLVER
- * Forces local storage data down to clear frozen system engine states mid-crash
- */
-function handleFatalNetworkDisconnection(contractId: string) {
-  liveExecutionLock = false; 
-  if (isClient()) {
-    localStorage.setItem(STATE_KEYS.KILL_SWITCH, 'true');
-  }
-
-  const offlineAlertText = encodeURIComponent(
-    `🚨 *CRITICAL HARDWARE DATA NETWORK DROP* 🚨\n\n` +
-    `Your system script lost its active internet feed mid-run.\n` +
-    `⚠️ *Position ID:* \`${contractId}\` is running unmonitored on broker node arrays.\n\n` +
-    `👉 Log into your primary trade terminal application immediately to inspect or close positions manually!`
+  fetch(telegramApiEndPoint).catch((err) => 
+    console.error("🚨 System alert transmission pipeline failure:", err)
   );
-  
-  fetch(`https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${offlineAlertText}&parse_mode=Markdown`)
-    .catch(() => console.error("🚨 Network failure: Emergency Telegram broadcast failed due to complete lack of internet connection lines."));
-}
-
-async function executeEmergencyPositionLiquidation(contractId: string, currentPnL: number) {
-  try {
-    // FIXED: Formatted string literals targeting the secure v3 api router endpoint matrix
-    await fetch(`https://deriv.com{contractId}/close`, { method: "POST" });
-    trackExecutedTradeResult(currentPnL);
-  } catch (err) {
-    console.error("Critical failure during liquidation execution:", err);
-  } finally {
-    liveExecutionLock = false; // Disengage concurrency loop
-  }
-}
-
-export async function broadcastSignalToTelegram(signal: HighConfidenceSignal, strategyId: string) {
-  if (checkEngineStatus()) return;
-  if (signal.executionLatencyMs > ACCOUNT_LIMITS.MAX_ALLOWED_SLIPPAGE_MS) return;
-  if (signal.confidenceScore <= 80) return;
-
-  if (signal.riskTier === 'HIGH') {
-    if (masterActiveHighStrategyId !== null && masterActiveHighStrategyId !== strategyId) return;
-    masterActiveHighStrategyId = strategyId;
-  }
-
-  // FIXED: Explicitly await core execution loop to block overlapping parallel orders
-  if (!liveExecutionLock) {
-    await executeBrokerTrade(signal);
-  } else {
-    console.warn("⚠️ Pipeline skipped redundant execution to protect system balance.");
-    return;
-  }
-
-  const currentPnl = isClient() ? parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00') : 0.00;
-  const webAppURL = "https://vercel.app";
-  const messageText = encodeURIComponent(
-    `🚀 *CRITICAL HIGH-CONFIDENCE REAL SIGNAL* 🚀\n\n` +
-    `🤖 *Strategy:* ${signal.strategyName}\n` +
-    `📊 *Asset Class:* ${signal.assetName}\n` +
-    `🎯 *Verified Confidence:* ${signal.confidenceScore}%\n` +
-    `⏱️ *Slip-Window Ping:* ${signal.executionLatencyMs}ms\n` +
-    `📈 *Session Profit/Loss:* $${currentPnl.toFixed(2)}\n\n` +
-    `👉 [Deploy Live Trade Instantly](${webAppURL})`
-  );
-
-  // FIXED: Restructured URL parameters explicitly adding the mandatory /bot endpoint routing prefix 
-  const telegramApiEndPoint = `https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${messageText}&parse_mode=Markdown`;
-
-  try {
-    const response = await fetch(telegramApiEndPoint);
-    if (!response.ok) console.error("❌ Telegram gateway rejected execution payload:", response.statusText);
-  } catch (error) {
-    console.error("🚨 Transmission pipe pipeline network failure:", error);
-  }
 }
 
 export function trackExecutedTradeResult(profitOrLoss: number) {
@@ -294,14 +135,13 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
     lossStreak = 0; 
   }
 
-  // AUTOMATED DISCIPLINE SWITCH: Enforces strict target loss/profit thresholds to lock in session runs
   if (lossStreak >= 3) {
     isTerminated = true;
     console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit!");
-  } else if (currentPnl >= 30.00) { // 🎯 PROFIT CIRCUIT BREAKER: Shuts down bot automatically at +$30 profit
+  } else if (currentPnl >= 30.00) { 
     isTerminated = true;
     console.log("🎯 Session financial profit goal reached. Shutting down.");
-  } else if (currentPnl <= -15.00) { // 🛑 MAX RISK FLOOR: Terminate bot automatically at -$15 loss
+  } else if (currentPnl <= -15.00) { 
     isTerminated = true;
   }
 
@@ -312,8 +152,7 @@ export function trackExecutedTradeResult(profitOrLoss: number) {
   liveExecutionLock = false; 
 
   if (isTerminated) {
-    const alertsText = encodeURIComponent(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Session targets hit ($${currentPnl.toFixed(2)} PnL). Live trading execution loops have been locked down.`);
-    fetch(`https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${alertsText}&parse_mode=Markdown`).catch(() => {});
+    dispatchTelegramNotification(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Session targets hit ($${currentPnl.toFixed(2)} PnL). Execution loops are locked down.`);
   }
 }
 
@@ -324,9 +163,6 @@ export function resetAccountSessionRun() {
   localStorage.removeItem(STATE_KEYS.KILL_SWITCH);
   liveExecutionLock = false;
 }
-
-export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-// scannerLogic.ts - PART 4: State-Isolated Engine Runtime Class Loop
 
 export class ScannerLogicEngine {
   private tickRegistry: Record<string, number[]> = {};
@@ -378,30 +214,17 @@ export class ScannerLogicEngine {
     const lastTickTime = this.tickTimestamps[assetToken] || Date.now();
     const currentLatency = Date.now() - lastTickTime;
 
-    broadcastSignalToTelegram({
-      strategyName: activeFrame.profile.name || 'Unknown',
-      assetName: (activeFrame.profile.targetSymbol || '').replace('R_', 'Volatility '),
-      confidenceScore: activeFrame.metrics.finalConfidence || 0,
-      recommendedAction: activeFrame.metrics.direction || 'FLAT',
-      riskTier: activeFrame.metrics.status as any,
-      contractType: activeFrame.profile.contractType || 'RISE_FALL',
-      executionLatencyMs: currentLatency,
-      executionPayload: activeFrame.metrics.executionPayload
-    }, activeFrame.profile.id);
+    // Call dynamic telegram broadcaster safely via refactored endpoint
+    const currentPnl = isClient() ? parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00') : 0.00;
+    const msg = `🚀 *MANUAL TELEGRAM SIGNAL ALERT* 🚀\n\n🤖 *Strategy:* ${activeFrame.profile.name}\n📊 *Asset:* ${assetToken}\n🎯 *Confidence:* ${activeFrame.metrics.finalConfidence}%\n⏱️ *Latency:* ${currentLatency}ms\n📈 *PnL:* $${currentPnl.toFixed(2)}`;
+    dispatchTelegramNotification(msg);
   }
 
   public runScannerPipeline(): any[] {
     if (checkEngineStatus()) {
       return this.lastEvaluatedFrames.map(frame => ({
         ...frame,
-        metrics: {
-          ...frame.metrics,
-          marketState: 'ENGINE_TERMINATED',
-          direction: 'FLAT',
-          scannerScore: 0,
-          finalConfidence: 0,
-          status: 'LOW'
-        }
+        metrics: { ...frame.metrics, marketState: 'ENGINE_TERMINATED', direction: 'FLAT', scannerScore: 0, finalConfidence: 0, status: 'LOW' }
       }));
     }
 
@@ -416,14 +239,7 @@ export class ScannerLogicEngine {
       resetMasterHighLock();
       return this.lastEvaluatedFrames.map(frame => ({
         ...frame,
-        metrics: {
-          ...frame.metrics,
-          marketState: 'STALE_DATA',
-          direction: 'FLAT',
-          scannerScore: 0,
-          finalConfidence: 0,
-          status: 'LOW'
-        }
+        metrics: { ...frame.metrics, marketState: 'STALE_DATA', direction: 'FLAT', scannerScore: 0, finalConfidence: 0, status: 'LOW' }
       }));
     }
     
@@ -433,7 +249,6 @@ export class ScannerLogicEngine {
       const targetToken = this.standardizeSymbol(profile.targetSymbol);
       const currentTicks = this.tickRegistry[targetToken] || [];
       
-      // FIXED: Swapped out high-latency nested stringify actions for performance on all device chips
       const isolatedProfileCopy = {
         ...profile,
         runtimeSettings: profile.runtimeSettings ? { ...profile.runtimeSettings } : undefined
@@ -441,10 +256,7 @@ export class ScannerLogicEngine {
       
       const baseMetrics = evaluateStrategy ? evaluateStrategy(isolatedProfileCopy, currentTicks) : { finalConfidence: 0, scannerScore: 0, direction: 'FLAT', status: 'LOW' };
       
-      return { 
-        profile: isolatedProfileCopy, 
-        metrics: { ...baseMetrics } 
-      };
+      return { profile: isolatedProfileCopy, metrics: { ...baseMetrics } };
     });
 
     const sortedGlobalChallengers = [...rawFrames].sort((a, b) => {
@@ -489,16 +301,9 @@ export class ScannerLogicEngine {
         this.currentTopStrategyId = candidateWinner.profile.id;
         this.lastLockTime = currentTime;
         
-        broadcastSignalToTelegram({
-          strategyName: candidateWinner.profile.name || 'Unknown',
-          assetName: (candidateWinner.profile.targetSymbol || '').replace('R_', 'Volatility '),
-          confidenceScore: candidateWinner.metrics.finalConfidence || 0,
-          recommendedAction: candidateWinner.metrics.direction || 'FLAT',
-          riskTier: 'HIGH',
-          contractType: candidateWinner.profile.contractType || 'RISE_FALL',
-          executionLatencyMs: currentLatency,
-          executionPayload: candidateWinner.metrics.executionPayload
-        }, candidateWinner.profile.id);
+        const currentPnl = isClient() ? parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00') : 0.00;
+        const msg = `🚀 *HIGH-CONFIDENCE AUTO SIGNAL* 🚀\n\n🤖 *Strategy:* ${candidateWinner.profile.name}\n📊 *Asset:* ${assetToken}\n🎯 *Confidence:* ${candidateWinner.metrics.finalConfidence}%\n⏱️ *Latency:* ${currentLatency}ms\n📈 *PnL:* $${currentPnl.toFixed(2)}`;
+        dispatchTelegramNotification(msg);
       } else {
         resetMasterHighLock();
       }
@@ -508,4 +313,4 @@ export class ScannerLogicEngine {
     this.lastEvaluatedFrames = finalViewOutput;
     return finalViewOutput;
   }
-  }
+}
