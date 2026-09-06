@@ -129,6 +129,17 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   if (priceSpread > threshold) marketDirection = 'UP';
   else if (priceSpread < -threshold) marketDirection = 'DOWN';
 
+  // 🎯 HIGH-WIN OPTIMIZATION GATEWAY: Evaluates real-time price cascades across a 5-tick array window
+  const lastFiveTicks = ticks.slice(-5);
+  let isActivelyCrashing = false;
+  if (lastFiveTicks.length >= 5) {
+    if (lastFiveTicks[4] < lastFiveTicks[3] && 
+        lastFiveTicks[3] < lastFiveTicks[2] && 
+        lastFiveTicks[2] < lastFiveTicks[1]) {
+      isActivelyCrashing = true; // Identifies a dangerous downward flush sequence
+    }
+  }
+
   let scannerScore = 50;
   let marketCompatibility = 50;
 
@@ -136,15 +147,25 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     if (profile.id === 'AI_TREND_PRINTER') {
       const strongTrendMomentum = Math.abs(priceSpread) > (volatility * 0.4);
       const stableRsiRange = rsiValue >= 45 && rsiValue <= 65;
-      scannerScore = strongTrendMomentum && stableRsiRange ? 92 : 40;
-      marketCompatibility = stableRsiRange ? 88 : 42;
+      
+      // CRITICAL BLOCK FILTER: If strategy tries to buy UP during a crash, drop score immediately
+      if (marketDirection === 'UP' && isActivelyCrashing) {
+        scannerScore = 35; marketCompatibility = 35;
+      } else {
+        scannerScore = strongTrendMomentum && stableRsiRange ? 92 : 40;
+        marketCompatibility = stableRsiRange ? 88 : 42;
+      }
     } else if (profile.id === 'AI_ALPHA_V19') {
       const isCleanUpwardRun = marketDirection === 'UP' && rsiValue < 60;
       const isCleanDownwardRun = marketDirection === 'DOWN' && rsiValue > 40;
-      scannerScore = isCleanUpwardRun || isCleanDownwardRun ? 88 : 35;
-      marketCompatibility = volatility > 0.8 ? 85 : 55;
+      
+      if (marketDirection === 'UP' && isActivelyCrashing) {
+        scannerScore = 35; marketCompatibility = 35;
+      } else {
+        scannerScore = isCleanUpwardRun || isCleanDownwardRun ? 88 : 35;
+        marketCompatibility = volatility > 0.8 ? 85 : 55;
+      }
     } else if (profile.id === 'MARTINGALE_CLASSIC' || profile.id === 'REVERSE_MARTINGALE') {
-      // OPTIMIZED MICRO-CHANNEL VELOCITY REVERSION GATEWAY
       const isMicroOverbought = rsiValue >= 65 && marketDirection === 'UP';
       const isMicroOversold = rsiValue <= 35 && marketDirection === 'DOWN';
       const isMomentumExhausted = Math.abs(priceSpread) < (volatility * 0.25);
@@ -197,7 +218,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
 
   const baselineStake = profile.runtimeSettings?.defaultStake && profile.runtimeSettings.defaultStake > 0 
-    ? profile.runtimeSettings.defaultStake : 0.35;
+    ? profile.runtimeSettings.defaultStake : 0.35; // Standard baseline test size
     
   const activeTP = profile.runtimeSettings?.takeProfitLimit && profile.runtimeSettings.takeProfitLimit > 0
     ? profile.runtimeSettings.takeProfitLimit : 8.00;
@@ -222,4 +243,4 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
     scannerScore, marketCompatibility, finalConfidence, tierOverride,
     executionPayload: { stake: parseFloat(activeStake.toFixed(2)), takeProfit: activeTP, stopLoss: activeSL, growthRate: activeGrowth }
   };
-} // 🏁 FIXED SEALS: Every single parameter layer is cleanly closed and compiled perfectly!
+} // 🏁 FIXED SEALS: Perfectly closes and balances structural array paths.
