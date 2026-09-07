@@ -1,149 +1,246 @@
-l// strategies.ts - PART 1: Core Type Registries & Base Structuring
+// strategies.ts - PART 1: Global Interfaces & Clean Mathematical Indicators
 
 export interface StrategyProfile {
   id: string;
   name: string;
-  targetSymbol: string;
-  contractType: string;
+  tier: 'HIGH' | 'MEDIUM' | 'LOW';
+  requiredTicks: number;
+  confidenceGate: number;
+  description: string;
+  targetSymbol: 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100';
+  contractType: 'RISE_FALL' | 'OVER_UNDER' | 'ACCUMULATOR' | 'TOUCH_NO_TOUCH';
+  coreEngine: 'MARTINGALE' | 'DALEMBERT' | 'PROGRESSIVE' | 'NEURAL_FLOW';
+  
   runtimeSettings?: {
-    multiplier?: number;
-    depthLimit?: number;
+    defaultStake: number;
+    takeProfitLimit: number;
+    stopLossLimit: number;
+    growthRate?: number;
   };
 }
 
-export interface StrategyMetrics {
-  finalConfidence: number;
+export interface StrategyResult {
+  profileId: string;
+  ticksLoaded: number;
+  marketState: string;
+  direction: string;
   scannerScore: number;
-  direction: 'UP' | 'DOWN' | 'FLAT';
-  status: 'LOW' | 'MEDIUM' | 'HIGH';
-  marketState?: string;
+  marketCompatibility: number;
+  finalConfidence: number;
+  tierOverride: 'HIGH' | 'MEDIUM' | 'LOW';
+  status?: 'HIGH' | 'MEDIUM' | 'LOW';
+  
   executionPayload?: {
     stake: number;
     takeProfit: number;
     stopLoss: number;
-    growthRate?: number;
+    growthRate: number;
   };
 }
-// strategies.ts - PART 2: Complete Master 30-Strategy Profile Engine Registry
+
+export function calculateEMA(prices: number[], period: number): number {
+  if (!prices || prices.length === 0) return 0;
+  const k = 2 / (period + 1);
+  let emaValue = prices[0]; 
+  for (let i = 1; i < prices.length; i++) {
+    emaValue = (prices[i] * k) + (emaValue * (1 - k));
+  }
+  return emaValue;
+}
+
+export function calculateRSI(prices: number[], period: number = 14): number {
+  if (!prices || prices.length <= period) return 50;
+  let totalGains = 0; let totalLosses = 0;
+  for (let i = prices.length - period + 1; i < prices.length; i++) {
+    const change = prices[i] - prices[i - 1];
+    if (change > 0) totalGains += change;
+    else totalLosses += Math.abs(change);
+  }
+  if (totalLosses === 0) return 100;
+  const rs = totalGains / totalLosses;
+  return Math.floor(100 - (100 / (1 + rs)));
+}
+
+export function calculateVolatility(prices: number[]): number {
+  if (!prices || prices.length === 0) return 0;
+  const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
+  const variance = prices.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / prices.length;
+  return Math.sqrt(variance);
+}
+// strategies.ts - PART 2: Global Configuration Strategy Registry Array Map
 
 export const STRATEGY_PROFILES: StrategyProfile[] = [
-  { id: "STRAT_AI_ADAPTIVE", name: "AI Adaptive", targetSymbol: "R_25", contractType: "RISE_FALL" },
-  { id: "STRAT_QUANT_MATRIX", name: "AI Quant Matrix v23", targetSymbol: "R_50", contractType: "RISE_FALL" },
-  { id: "STRAT_TREND_SHIELD", name: "Trend Shield Pro v28", targetSymbol: "R_50", contractType: "RISE_FALL" },
-  { id: "STRAT_ALPHA_ENGINE", name: "AI Alpha Engine v19", targetSymbol: "R_75", contractType: "RISE_FALL" },
-  { id: "STRAT_SYS_1326", name: "1-3-2-6 System", targetSymbol: "R_10", contractType: "RISE_FALL" },
-  { id: "STRAT_MARTINGALE_CLASSIC", name: "Martingale Classic", targetSymbol: "R_25", contractType: "RISE_FALL" },
-  { id: "STRAT_HYPER_SCALPER", name: "Hyper Scalper Engine v26", targetSymbol: "R_10", contractType: "RISE_FALL" },
-  { id: "STRAT_AI_CONSERVATIVE", name: "AI Conservative", targetSymbol: "R_75", contractType: "TOUCH_NO_TOUCH" },
-  
-  // 🔄 STRATEGY TIER EXPANSIONS
-  { id: "STRAT_NEURAL_FLOW", name: "Neural Flow Matrix", targetSymbol: "R_100", contractType: "RISE_FALL" },
-  { id: "STRAT_VOL_BREAKER_10", name: "Vol Breaker v10", targetSymbol: "R_10", contractType: "RISE_FALL" },
-  { id: "STRAT_VOL_BREAKER_25", name: "Vol Breaker v25", targetSymbol: "R_25", contractType: "RISE_FALL" },
-  { id: "STRAT_VOL_BREAKER_50", name: "Vol Breaker v50", targetSymbol: "R_50", contractType: "RISE_FALL" },
-  { id: "STRAT_VOL_BREAKER_75", name: "Vol Breaker v75", targetSymbol: "R_75", contractType: "RISE_FALL" },
-  { id: "STRAT_VOL_BREAKER_100", name: "Vol Breaker v100", targetSymbol: "R_100", contractType: "RISE_FALL" },
-  
-  { id: "STRAT_MOMENTUM_SCALPER", name: "Momentum Scalper Pro", targetSymbol: "R_25", contractType: "RISE_FALL" },
-  { id: "STRAT_REVERSAL_SCANNER", name: "Reversal Scanner Edge", targetSymbol: "R_100", contractType: "RISE_FALL" },
-  { id: "STRAT_MACRO_TREND_ALPHA", name: "Macro Trend Alpha", targetSymbol: "R_75", contractType: "RISE_FALL" },
-  { id: "STRAT_MICRO_TICK_EXPLORER", name: "Micro-Tick Explorer", targetSymbol: "R_10", contractType: "RISE_FALL" },
-  { id: "STRAT_VELOCITY_MATRIX", name: "Velocity Matrix v4", targetSymbol: "R_50", contractType: "RISE_FALL" },
-  { id: "STRAT_LIQUIDITY_SWEEP", name: "Liquidity Sweep Engine", targetSymbol: "R_25", contractType: "RISE_FALL" },
-  
-  { id: "STRAT_FIBONACCI_SCALPER", name: "Fibonacci Scalper v2", targetSymbol: "R_10", contractType: "RISE_FALL" },
-  { id: "STRAT_BOLLINGER_BURST", name: "Bollinger Burst Engine", targetSymbol: "R_50", contractType: "RISE_FALL" },
-  { id: "STRAT_RSI_NEURAL_GATE", name: "RSI Neural Gate v8", targetSymbol: "R_75", contractType: "RISE_FALL" },
-  { id: "STRAT_STOCHASTIC_FLOW", name: "Stochastic Flow Pro", targetSymbol: "R_100", contractType: "RISE_FALL" },
-  { id: "STRAT_MACD_SIGNAL_SNIPER", name: "MACD Signal Sniper", targetSymbol: "R_25", contractType: "RISE_FALL" },
-  
-  { id: "STRAT_ACCUMULATOR_MAX", name: "Accumulator Max Win", targetSymbol: "R_100", contractType: "ACCUMULATOR" },
-  { id: "STRAT_DYNAMIC_GRID_EDGE", name: "Dynamic Grid Edge", targetSymbol: "R_10", contractType: "RISE_FALL" },
-  { id: "STRAT_PARABOLIC_SAR_FLOW", name: "Parabolic SAR Flow", targetSymbol: "R_50", contractType: "RISE_FALL" },
-  { id: "STRAT_ICHIMOKU_CLOUD_PRO", name: "Ichimoku Cloud Pro", targetSymbol: "R_75", contractType: "RISE_FALL" },
-  { id: "STRAT_BLACK_SCHOLES_QUANT", name: "Black-Scholes Quant v12", targetSymbol: "R_25", contractType: "RISE_FALL" }
+  { id: 'STRATEGY_1_3_2_6', name: '1-3-2-6 System', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 68, description: 'Fixed progressive staking sequence.', targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
+  { id: 'ACC_DALEMBERT', name: `Accumulator D'Alembert`, tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Equilibrium based staking scale.', targetSymbol: 'R_25', contractType: 'ACCUMULATOR', coreEngine: 'DALEMBERT' },
+  { id: 'ACC_MARTINGALE', name: 'Accumulator Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 75, description: 'Aggressive recovery multiplier sequence.', targetSymbol: 'R_50', contractType: 'ACCUMULATOR', coreEngine: 'MARTINGALE' },
+  { id: 'ACC_REVERSE', name: 'Accumulator Reverse', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 64, description: 'Anti-equilibrium progression pattern.', targetSymbol: 'R_75', contractType: 'ACCUMULATOR', coreEngine: 'PROGRESSIVE' },
+  { id: 'ACC_REVERSE_MARTINGALE', name: 'Accumulator Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 78, description: 'Paroli-style compounding trend rider.', targetSymbol: 'R_100', contractType: 'ACCUMULATOR', coreEngine: 'MARTINGALE' },
+  { id: 'AI_ACC_FLOW', name: 'AI Accumulator Flow', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 70, description: 'Neural momentum tracking array.', targetSymbol: 'R_10', contractType: 'ACCUMULATOR', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_ADAPTIVE', name: 'AI Adaptive', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 60, description: 'Dynamic lookback structural variant.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_BALANCED', name: 'AI Balanced', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Risk-adjusted baseline trend filter.', targetSymbol: 'R_50', contractType: 'OVER_UNDER', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_CONSERVATIVE', name: 'AI Conservative', tier: 'LOW', requiredTicks: 100, confidenceGate: 55, description: 'High-threshold protective entry evaluation.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_TREND_PRINTER', name: 'AI Trend Printer', tier: 'HIGH', requiredTicks: 100, confidenceGate: 82, description: 'Continuous micro-trend printing scanner.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
+  { id: 'DALEMBERT_CLASSIC', name: `D'Alembert Classic`, tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 60, description: 'Classic addition/subtraction unit formula.', targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' },
+  { id: 'MARTINGALE_CLASSIC', name: 'Martingale Classic', tier: 'HIGH', requiredTicks: 100, confidenceGate: 75, description: 'Standard linear loss doubling matrix.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
+  { id: 'OSCARS_GRIND', name: `Oscar's Grind`, tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 62, description: 'Targeted single-unit win progression tracking.', targetSymbol: 'R_50', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
+  { id: 'REVERSE_DALEMBERT', name: `Reverse D'Alembert`, tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 61, description: 'Inverted risk distribution progression.', targetSymbol: 'R_75', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' },
+  { id: 'REVERSE_MARTINGALE', name: 'Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 76, description: 'Compounded profit maximizing pipeline.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
+  { id: 'AI_ALPHA_V16', name: 'AI Alpha Engine v16', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 66, description: 'Predictive neural trend optimization layer.', targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_ALPHA_V17', name: 'AI Alpha Engine v17', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 67, description: 'Dynamic multi-asset lookback tracking matrix.', targetSymbol: 'R_25', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_ALPHA_V18', name: 'AI Alpha Engine v18', tier: 'LOW', requiredTicks: 100, confidenceGate: 58, description: 'High-frequency variance boundary check core.', targetSymbol: 'R_50', contractType: 'ACCUMULATOR', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_ALPHA_V19', name: 'AI Alpha Engine v19', tier: 'HIGH', requiredTicks: 100, confidenceGate: 79, description: 'Deep learning classification vector processor.', targetSymbol: 'R_75', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_ALPHA_V20', name: 'AI Alpha Engine v20', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 70, description: 'Neural momentum delta tracking array node.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'NEURAL_FLOW' },
+  { id: 'AI_QUANT_V21', name: 'AI Quant Matrix v21', tier: 'HIGH', requiredTicks: 100, confidenceGate: 81, description: 'Statistical boundary exhaustion trend filter.', targetSymbol: 'R_10', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_QUANT_V22', name: 'AI Quant Matrix v22', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 64, description: 'Volatility range consolidation index scanner.', targetSymbol: 'R_25', contractType: 'ACCUMULATOR', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_QUANT_V23', name: 'AI Quant Matrix v23', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 69, description: 'Micro-fractal price velocity calculation network.', targetSymbol: 'R_50', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_QUANT_V24', name: 'AI Quant Matrix v24', tier: 'LOW', requiredTicks: 100, confidenceGate: 56, description: 'Moving average convergence divergence tracking.', targetSymbol: 'R_75', contractType: 'OVER_UNDER', coreEngine: 'PROGRESSIVE' },
+  { id: 'AI_QUANT_V25', name: 'AI Quant Matrix v25', tier: 'HIGH', requiredTicks: 100, confidenceGate: 77, description: 'Explosive micro-breakout trend vector tracker.', targetSymbol: 'R_100', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
+  { id: 'HYPER_SCALPER_V26', name: 'Hyper Scalper Engine v26', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Sub-second structural tick execution array.', targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
+  { id: 'HYPER_SCALPER_V27', name: 'Hyper Scalper Engine v27', tier: 'HIGH', requiredTicks: 100, confidenceGate: 78, description: 'Aggressive rapid price velocity spike scanner.', targetSymbol: 'R_25', contractType: 'OVER_UNDER', coreEngine: 'MARTINGALE' },
+  { id: 'TREND_SHIELD_V28', name: 'Trend Shield Pro v28', tier: 'HIGH', requiredTicks: 100, confidenceGate: 80, description: 'Counter-trend entry denial asset protector.', targetSymbol: 'R_50', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
+  { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
+  { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' }
 ];
-// strategies.ts - PART 3: Balanced Momentum Trend Scalping Engine
+// strategies.ts - PART 3: Algorithmic Strategy Evaluator & Execution Main Pipeline Closer
 
-export function evaluateStrategy(profile: StrategyProfile, tickRegistryArray: number[]): StrategyMetrics {
-  // Safe validation fallback: Ensures the registry buffer has gathered enough historical ticks
-  if (!tickRegistryArray || tickRegistryArray.length < 25) {
-    return { finalConfidence: 0, scannerScore: 0, direction: 'FLAT', status: 'LOW', marketState: 'INITIALIZING_TICK_REGISTRY' };
+export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
+  const currentCount = ticks.length;
+  
+  if (currentCount < profile.requiredTicks) {
+    return {
+      profileId: profile.id, ticksLoaded: currentCount, marketState: 'INSUFFICIENT_DATA',
+      direction: 'FLAT', scannerScore: 0, marketCompatibility: 0, finalConfidence: 0, tierOverride: profile.tier
+    };
   }
 
-  const length = tickRegistryArray.length;
-  
-  // A. ISOLATE THE MOST RECENT 3 MICRO-TICKS
-  const t0 = tickRegistryArray[length - 1]; // Active spot tick value
-  const t1 = tickRegistryArray[length - 2]; // 1 tick ago
-  const t2 = tickRegistryArray[length - 3]; // 2 ticks ago
+  const isFastAsset = profile.targetSymbol === 'R_100' || profile.targetSymbol === 'R_75';
+  const fastEmaPeriod = isFastAsset ? 18 : 12;
+  const slowEmaPeriod = isFastAsset ? 38 : 26;
 
-  // B. COMPUTE SMOOTH ROLLING MOMENTUM
-  let sumLatest5 = 0;
-  let sumPrior5 = 0;
-  for (let i = 0; i < 5; i++) {
-    sumLatest5 += tickRegistryArray[length - 1 - i];
-    sumPrior5 += tickRegistryArray[length - 6 - i];
-  }
-  const fastMma = sumLatest5 / 5;
-  const slowMma = sumPrior5 / 5;
-  
-  // C. RUN BALANCED MOMENTUM CONFIRMATION LOCKS
-  // Checks if the immediate spot is moving down AND the rolling averages confirm a steady downward path
-  const isSteadyDecline = t0 < t1 && t1 < t2;
-  const isTrendDirectionDown = fastMma < slowMma;
+  const fastEma = calculateEMA(ticks, fastEmaPeriod);
+  const slowEma = calculateEMA(ticks, slowEmaPeriod);
+  const rsiValue = calculateRSI(ticks, 14);
+  const volatility = calculateVolatility(ticks.slice(-30));
 
-  let calculatedConfidence = 0;
-  let designatedDirection: 'UP' | 'DOWN' | 'FLAT' = 'FLAT';
+  let marketDirection = 'FLAT';
+  const priceSpread = fastEma - slowEma;
+  const threshold = 0.02;
 
-  // 🎯 THE WIN-RATE RECOVERY GATEWAY:
-  // Catches smooth, rolling downward waves early instead of waiting for a sharp micro-crash.
-  // This stops the bot from buying the floor of a sudden drop, lifting your win percentages back to premium levels!
-  if (isSteadyDecline && isTrendDirectionDown) {
-    designatedDirection = 'DOWN';
-    
-    // Weight the signal confidence dynamically based on trend speed to trigger your neon flash rings safely
-    const currentDropVelocity = Math.abs(t0 - t1);
-    if (currentDropVelocity > 0.05) {
-      calculatedConfidence = 94; // Locks down high-probability wave entries
-    } else {
-      calculatedConfidence = 86; // Secure confirmation threshold
+  if (priceSpread > threshold) marketDirection = 'UP';
+  else if (priceSpread < -threshold) marketDirection = 'DOWN';
+
+  // 🎯 HIGH-WIN OPTIMIZATION GATEWAY: Evaluates real-time price cascades across a 5-tick array window
+  const lastFiveTicks = ticks.slice(-5);
+  let isActivelyCrashing = false;
+  if (lastFiveTicks.length >= 5) {
+    if (lastFiveTicks[4] < lastFiveTicks[3] && 
+        lastFiveTicks[3] < lastFiveTicks[2] && 
+        lastFiveTicks[2] < lastFiveTicks[1]) {
+      isActivelyCrashing = true; // Identifies a dangerous downward flush sequence
     }
-  } 
-  
-  // Balanced counter-signal parameter check for RISE trends
-  else if (t0 > t1 && t1 > t2 && fastMma > slowMma) {
-    designatedDirection = 'UP';
-    calculatedConfidence = 88;
   }
 
-  return assembleMetricsPayload(profile, calculatedConfidence, designatedDirection);
-}
-// strategies.ts - PART 4: Metrics Payload Assembler & Helper Utilities
+  let scannerScore = 50;
+  let marketCompatibility = 50;
 
-function assembleMetricsPayload(profile: StrategyProfile, confidence: number, direction: 'UP' | 'DOWN' | 'FLAT'): StrategyMetrics {
-  const globalWin = typeof window !== 'undefined' ? (window as any) : null;
+  if (profile.contractType === 'RISE_FALL') {
+    if (profile.id === 'AI_TREND_PRINTER') {
+      const strongTrendMomentum = Math.abs(priceSpread) > (volatility * 0.4);
+      const stableRsiRange = rsiValue >= 45 && rsiValue <= 65;
+      
+      // CRITICAL BLOCK FILTER: If strategy tries to buy UP during a crash, drop score immediately
+      if (marketDirection === 'UP' && isActivelyCrashing) {
+        scannerScore = 35; marketCompatibility = 35;
+      } else {
+        scannerScore = strongTrendMomentum && stableRsiRange ? 92 : 40;
+        marketCompatibility = stableRsiRange ? 88 : 42;
+      }
+    } else if (profile.id === 'AI_ALPHA_V19') {
+      const isCleanUpwardRun = marketDirection === 'UP' && rsiValue < 60;
+      const isCleanDownwardRun = marketDirection === 'DOWN' && rsiValue > 40;
+      
+      if (marketDirection === 'UP' && isActivelyCrashing) {
+        scannerScore = 35; marketCompatibility = 35;
+      } else {
+        scannerScore = isCleanUpwardRun || isCleanDownwardRun ? 88 : 35;
+        marketCompatibility = volatility > 0.8 ? 85 : 55;
+      }
+    } else if (profile.id === 'MARTINGALE_CLASSIC' || profile.id === 'REVERSE_MARTINGALE') {
+      const isMicroOverbought = rsiValue >= 65 && marketDirection === 'UP';
+      const isMicroOversold = rsiValue <= 35 && marketDirection === 'DOWN';
+      const isMomentumExhausted = Math.abs(priceSpread) < (volatility * 0.25);
+      const highMeanReversionProbability = (isMicroOverbought || isMicroOversold) && isMomentumExhausted;
+
+      scannerScore = highMeanReversionProbability ? 95 : 35;
+      marketCompatibility = volatility > 0.4 ? 92 : 45;
+    } else {
+      const rsiDistanceFactor = Math.abs(rsiValue - 50);
+      const structuralTrendStrength = Math.min(15, Math.floor((Math.abs(priceSpread) / (volatility || 1)) * 100));
+      
+      if (marketDirection !== 'FLAT') {
+        scannerScore = Math.floor(75 - rsiDistanceFactor + structuralTrendStrength);
+        marketCompatibility = rsiValue >= 40 && rsiValue <= 60 ? 85 : 60;
+      } else {
+        scannerScore = 40; marketCompatibility = 40;
+      }
+    }
+  } else if (profile.contractType === 'OVER_UNDER') {
+    if (profile.id === 'DALEMBERT_CLASSIC') {
+      scannerScore = marketDirection === 'FLAT' && volatility < 0.6 ? 88 : 35;
+      marketCompatibility = rsiValue >= 48 && rsiValue <= 52 ? 90 : 40;
+    } else {
+      scannerScore = marketDirection === 'FLAT' && volatility < 0.8 ? 84 : 40;
+      marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 82 : 45;
+    }
+  } else if (profile.contractType === 'TOUCH_NO_TOUCH') {
+    const isExtremeVolatilitySpike = volatility > 1.45 && (rsiValue > 72 || rsiValue < 28);
+    scannerScore = isExtremeVolatilitySpike ? 92 : 35;
+    marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 86 : 45;
+  } else if (profile.contractType === 'ACCUMULATOR') {
+    const isSideways = marketDirection === 'FLAT';
+    const withinTightRange = rsiValue >= 48 && rsiValue <= 52; 
+    const lowCrashingRisk = volatility < 0.50; 
+
+    if (isSideways && withinTightRange && lowCrashingRisk) {
+      scannerScore = 95; marketCompatibility = 90;
+    } else {
+      scannerScore = 35; marketCompatibility = 35;
+    }
+  }
+
+  scannerScore = Math.min(96, Math.max(35, scannerScore));
+  marketCompatibility = Math.min(96, Math.max(35, marketCompatibility));
+
+  const finalConfidence = Math.floor((scannerScore + marketCompatibility) / 2);
+
+  let tierOverride: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+  if (finalConfidence >= 82) tierOverride = 'HIGH';
+  else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
+
+  const baselineStake = profile.runtimeSettings?.defaultStake && profile.runtimeSettings.defaultStake > 0 
+    ? profile.runtimeSettings.defaultStake : 0.35; // Standard baseline test size
+    
+  const activeTP = profile.runtimeSettings?.takeProfitLimit && profile.runtimeSettings.takeProfitLimit > 0
+    ? profile.runtimeSettings.takeProfitLimit : 8.00;
+    
+  const activeSL = profile.runtimeSettings?.stopLossLimit && profile.runtimeSettings.stopLossLimit > 0
+    ? profile.runtimeSettings.stopLossLimit : 4.00;
+    
+  const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
+  let activeStake = baselineStake;
   
-  // Dynamically extract active configuration variables from background system memory
-  const baselineStake = globalWin?.tredaActiveStake || 0.35;
-  const baselineSL = globalWin?.tredaActiveSL || 4.00;
-  const baselineTP = globalWin?.tredaActiveTP || 8.00;
-
-  let assignedRiskTier: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
-  if (confidence >= 90) assignedRiskTier = 'HIGH';
-  else if (confidence >= 70) assignedRiskTier = 'MEDIUM';
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const activeStreakCount = parseInt(localStorage.getItem('EDASCORE_CONSECUTIVE_LOSS_COUNT') || '0', 10);
+    if (activeStreakCount > 0 && (profile.coreEngine === 'MARTINGALE' || profile.coreEngine === 'NEURAL_FLOW')) {
+      activeStake = baselineStake * Math.pow(2.15, activeStreakCount);
+      const safetyCeilingLimit = 25.00; 
+      if (activeStake > safetyCeilingLimit) activeStake = safetyCeilingLimit;
+    }
+  }
 
   return {
-    finalConfidence: confidence,
-    scannerScore: Math.max(0, confidence - 10),
-    direction: direction,
-    status: assignedRiskTier,
-    marketState: confidence > 0 ? 'ACTIVE_TREND' : 'CHOP_ZONE',
-    executionPayload: {
-      stake: baselineStake,
-      takeProfit: baselineTP,
-      stopLoss: baselineSL,
-      growthRate: 0.02
-    }
+    profileId: profile.id, ticksLoaded: currentCount, marketState: 'READY', direction: marketDirection,
+    scannerScore, marketCompatibility, finalConfidence, tierOverride,
+    executionPayload: { stake: parseFloat(activeStake.toFixed(2)), takeProfit: activeTP, stopLoss: activeSL, growthRate: activeGrowth }
   };
-}
+} // 🏁 FIXED SEALS: Perfectly closes and balances structural array paths.
