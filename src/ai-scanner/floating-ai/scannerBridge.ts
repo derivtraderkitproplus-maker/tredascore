@@ -1,4 +1,4 @@
-// scannerBridge.ts - PART 1: Core Module Registries & Multi-Thread Constructor
+// scannerBridge.ts - PART 1: Core Module Registries & Type Definitions
 
 export type TickCallback = (symbol: string, tick: number) => void;
 
@@ -11,36 +11,26 @@ export interface BotParameters {
   targetSymbol: string;  
 }
 
-export interface HighConfidenceSignal {
-  strategyName: string;
-  assetName: string;
-  confidenceScore: number;
-  recommendedAction: string;
-  riskTier: string;
-  contractType: string;
-  executionLatencyMs: number;
-  executionPayload?: any;
-}
-
 export class DerivScannerBridge {
   private ws: WebSocket | null = null;
   private onTickCallback: TickCallback | null = null;
   private activeSymbols: string[] = [];
   private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
-  private worker: Worker | null = null;
   
+  // Real-time circuit breaker tracking states
   private isPerformanceWatcherActive: boolean = false;
   private monitoredStopLoss: number = 0;
   private monitoredTakeProfit: number = 0;
 
-  // DYNAMIC RISK BALANCES & SESSION LEDGERS
-  private baseStake: number = 0.35;
-  public liveExecutionLock: boolean = false;
-  private runningSessionAccumulatedPnL: number = 0;
+  // DYNAMIC RISK PROGRESSION BALANCES
+  private baseStake: number = 3.00;
+  private currentMartingaleMultiplier: number = 1.0; // Flat at 1.0 to faithfully respect your manual stake scaling rules
+  private consecutiveLossesCount: number = 0;
+  private maximumRecoveryStepsAllowed: number = 5;
 
   constructor(private appCtx: any) {
     this.extractSystemSocket();
-    this.initializeBackgroundWorker();
+    this.initializeAutomatedPerformanceWatcher();
   }
 
   private extractSystemSocket(): void {
@@ -52,34 +42,7 @@ export class DerivScannerBridge {
       this.ws = globalWin.derivWebSocket || globalWin.ws || globalWin.socket || globalWin.Blockly?.derivWorkspace?.socket;
     }
   }
-
-  private initializeBackgroundWorker(): void {
-    if (typeof window === 'undefined') return;
-    
-    // Rspack-compatible dynamic URL module background multi-thread worker instantiation
-    this.worker = new Worker(new URL('./scanner.worker.ts', import.meta.url), { type: 'module' });
-
-    this.worker.onmessage = (e: MessageEvent) => {
-      const { action, payload } = e.data;
-      if (action === 'SCANNER_BATCH_READY' && payload.length > 0) {
-        const primaryWinner = payload; 
-        
-        if (primaryWinner && primaryWinner.metrics?.finalConfidence > 80 && !this.liveExecutionLock) {
-          this.executeWebSocketOrder({
-            strategyName: primaryWinner.profile.name,
-            assetName: primaryWinner.profile.targetSymbol,
-            confidenceScore: primaryWinner.metrics.finalConfidence,
-            recommendedAction: primaryWinner.metrics.direction,
-            riskTier: primaryWinner.metrics.status,
-            contractType: primaryWinner.profile.contractType,
-            executionLatencyMs: 0,
-            executionPayload: primaryWinner.metrics.executionPayload
-          });
-        }
-      }
-    };
-  }
-// scannerBridge.ts - PART 2: Real-Time Web Socket Pipeline Router & Ledger Accumulator
+// scannerBridge.ts - PART 2: Text Normalizers & Socket Message Listeners
 
   private normalizeSymbolString(s: string): string {
     const term = s.toUpperCase().trim();
@@ -101,34 +64,16 @@ export class DerivScannerBridge {
     this.activeSymbols = symbols;
     this.extractSystemSocket();
 
-    // 🎯 INITIALIZATION RESET: Resets your session profit buffer back to $0.00 at the start of every brand new run
-    this.runningSessionAccumulatedPnL = 0;
-    console.log("🏁 [ENGINE INITIALIZED] Session profit balance reset to $0.00 for this run.");
-
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.boundMessageHandler = (event: MessageEvent) => {
         try {
-          const incomingFrame = JSON.parse(event.data);
-          
-          if (incomingFrame.msg_type === 'tick' && incomingFrame.tick) {
-            const { symbol, quote } = incomingFrame.tick;
-            const normalized = this.normalizeSymbolString(symbol);
+          const data = JSON.parse(event.data);
+          if (data.msg_type === 'tick' && data.tick) {
+            const { symbol, quote } = data.tick;
+            const matchedSymbol = this.activeSymbols.find(s => this.checkSymbolMatch(symbol, s));
             
-            if (this.activeSymbols.some(s => this.normalizeSymbolString(s) === normalized)) {
-              this.onTickCallback?.(normalized, parseFloat(quote));
-              this.worker?.postMessage({
-                action: 'INFLOW_TICK',
-                symbol: normalized,
-                price: parseFloat(quote)
-              });
-            }
-          }
-
-          if (incomingFrame.msg_type === 'proposal_open_contract') {
-            const contract = incomingFrame.proposal_open_contract;
-            if (contract && (contract.is_expired || contract.status !== 'open')) {
-              console.log(`🏁 Contract settlement event verified: $${contract.profit}`);
-              this.handleContractSettlementEvent(contract);
+            if (matchedSymbol) {
+              this.onTickCallback?.(this.normalizeSymbolString(matchedSymbol), parseFloat(quote));
             }
           }
         } catch (e) {}
@@ -137,99 +82,64 @@ export class DerivScannerBridge {
     }
   }
 
-  public handleContractSettlementEvent(contractNode: any): void {
-    if (!contractNode) return;
-
-    // Release the thread execution lock immediately to clear data pathways for upcoming ticks
-    this.liveExecutionLock = false;
-
-    const individualContractPnL = parseFloat(contractNode.profit) || 0;
-    const activeRunsCount = contractNode.transaction_ids?.length || 8;
-
-    // Upgrades tracking logic to compute true net returns across all consecutive cycles
-    this.runningSessionAccumulatedPnL += individualContractPnL;
-    
-    console.log(`📊 [ACCOUNT AUDIT] Total Session Ledger PnL: $${this.runningSessionAccumulatedPnL.toFixed(2)}`);
-
-    // FAIL-SAFE TAKE PROFIT CIRCUIT BREAKER
-    if (this.monitoredTakeProfit > 0 && this.runningSessionAccumulatedPnL >= this.monitoredTakeProfit) {
-      console.log(`🎯 [TAKE PROFIT HIT] Reached $${this.runningSessionAccumulatedPnL.toFixed(2)} >= Target of $${this.monitoredTakeProfit.toFixed(2)}`);
-      this.triggerTopTierAlertOverlay('PROFIT', this.runningSessionAccumulatedPnL, this.monitoredTakeProfit, activeRunsCount);
-      this.emergencyHaltOperations();
-      return;
-    } 
-
-    // FAIL-SAFE STOP LOSS CIRCUIT BREAKER (Evaluates absolute parameters to stop boundary skipping)
-    if (this.monitoredStopLoss > 0 && this.runningSessionAccumulatedPnL < 0) {
-      const activeRunningDrawdown = Math.abs(this.runningSessionAccumulatedPnL);
-      const configuredStopLossLimit = Math.abs(this.monitoredStopLoss);
-
-      if (activeRunningDrawdown >= configuredStopLossLimit) {
-        console.log(`🛑 [STOP LOSS HIT] Drawdown hit $${activeRunningDrawdown.toFixed(2)} >= Protection Limit of $${configuredStopLossLimit.toFixed(2)}`);
-        this.triggerTopTierAlertOverlay('LOSS', this.runningSessionAccumulatedPnL, this.monitoredStopLoss, activeRunsCount);
-        this.emergencyHaltOperations();
-        return;
-      }
+  public closePipeline(): void {
+    if (this.ws && this.boundMessageHandler) {
+      try {
+        this.ws.removeEventListener('message', this.boundMessageHandler);
+      } catch (e) {}
+      this.boundMessageHandler = null;
     }
   }
+// scannerBridge.ts - PART 3: Premium Native Web Audio Chime Synthesizer
 
-  public executeWebSocketOrder(signal: HighConfidenceSignal): void {
-    if (this.liveExecutionLock || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-    
-    this.liveExecutionLock = true;
-    console.log(`🚀 [ENGINE DISPATCH] Outbound transaction message packet sent for: ${signal.strategyName}`);
-
-    // Dynamic fallback check prioritizes class memory configurations safely
-    const activeExecutionStake = signal.executionPayload?.stake || this.baseStake;
-
-    const brokerPayload = {
-      buy: 1,
-      price: activeExecutionStake,
-      parameters: {
-        amount: activeExecutionStake,
-        basis: "stake",
-        contract_type: signal.recommendedAction === 'UP' ? 'CALL' : 'PUT',
-        currency: "USD",
-        symbol: this.normalizeSymbolString(signal.assetName) === 'R_25' ? '1HZ25V' : '1HZ100V',
-        duration: 1,
-        duration_unit: "t"
-      }
-    };
-
-    this.ws.send(JSON.stringify(brokerPayload));
-  }
-// scannerBridge.ts - PART 3: Premium Native Web Audio Chime & Circuit Breaker Overlay
-
+  /**
+   * HIGH-TECH NATIVE AUDIO CHIME GENERATOR
+   * Utilizes the browser Web Audio API to synthesize sleek tones without external files.
+   */
   private playPremiumSynthesizerChime(style: 'SUCCESS_RISE' | 'ALERT_ECHO'): void {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
+      
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
       
       osc.connect(gainNode);
       gainNode.connect(ctx.destination);
+
       const now = ctx.currentTime;
 
       if (style === 'SUCCESS_RISE') {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(587.33, now); 
         osc.frequency.exponentialRampToValueAtTime(1174.66, now + 0.15); 
+        osc.frequency.exponentialRampToValueAtTime(1760.00, now + 0.35); 
+        
         gainNode.gain.setValueAtTime(0.25, now);
         gainNode.gain.linearRampToValueAtTime(0.001, now + 0.55);
-        osc.start(now); osc.stop(now + 0.55);
+        osc.start(now);
+        osc.stop(now + 0.55);
       } else {
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(220.00, now); 
+        osc.frequency.setValueAtTime(196.00, now + 0.12); 
+        
         gainNode.gain.setValueAtTime(0.35, now);
         gainNode.gain.linearRampToValueAtTime(0.001, now + 0.45);
-        osc.start(now); osc.stop(now + 0.45);
+        osc.start(now);
+        osc.stop(now + 0.45);
       }
-    } catch (e) {}
+    } catch (error) {
+      console.warn("Web Audio Context not permitted or fully initialized yet:", error);
+    }
   }
+// scannerBridge.ts - PART 4: Premium UI Overlay (tredascore.pro Branding & Dashboard Tab Redirect)
 
-  private triggerTopTierAlertOverlay(type: 'PROFIT' | 'LOSS', balance: number, limit: number, activeRunsCount: number | string): void {
+  /**
+   * INJECTS A HIGH-END CUSTOM UI MODAL DIALOG CONTAINER DIRECTLY INTO THE INTERFACE DOM
+   */
+  private triggerTopTierAlertOverlay(type: 'PROFIT' | 'LOSS', balance: number, limit: number): void {
     const existingModal = document.getElementById('treda-circuit-breaker-modal');
     if (existingModal) existingModal.remove();
 
@@ -256,95 +166,252 @@ export class DerivScannerBridge {
       transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)', fontFamily: '-apple-system, sans-serif'
     });
 
+    const textContent = document.body.innerText;
+    const totalRunsMatch = textContent.match(/No\.\s+of\s+runs\s+(\d+)/i);
+    const activeRunsCount = totalRunsMatch ? totalRunsMatch[1] : '8';
+
     card.innerHTML = `
       <div style="color: #6c718c; font-size: 10px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;">
         🌐 tredascore.pro says:
       </div>
-      <div style="font-size: 32px; margin-bottom: 12px;">${isProfit ? '🏆' : '🛑'}</div>
-      <h2 style="color: #ffffff; font-size: 18px; font-weight: 800; margin: 0 0 4px 0; text-transform: uppercase;">
+      <div style="font-size: 32px; margin-bottom: 12px; animation: pulseIcon 2s infinite alternate;">
+        ${isProfit ? '🏆' : '🛑'}
+      </div>
+      <h2 style="color: #ffffff; font-size: 18px; font-weight: 800; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">
         ${isProfit ? 'Target Profit Breach' : 'Drawdown Breached'}
       </h2>
-      <p style="color: #6c718c; font-size: 11px; margin: 0 0 20px 0;">Automated circuit breaker deployed.</p>
+      <p style="color: #6c718c; font-size: 11px; margin: 0 0 20px 0;">
+        Automated circuit breaker deployed successfully.
+      </p>
+
       <div style="background: #141824; border: 1px solid #1e2335; border-radius: 8px; padding: 12px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px;">
         <div style="display: flex; justify-content: space-between; font-size: 12px;">
           <span style="color: #6c718c;">Session Balance:</span>
           <span style="font-weight: bold; color: ${primaryColor};">${isProfit ? '+' : '-'}$${Math.abs(balance).toFixed(2)}</span>
         </div>
+        <div style="width: 100%; height: 1px; background: #1e2335;"></div>
         <div style="display: flex; justify-content: space-between; font-size: 12px;">
           <span style="color: #6c718c;">Trigger Target:</span>
           <span style="font-weight: bold; color: #ffffff;">$${limit.toFixed(2)}</span>
         </div>
+        <div style="width: 100%; height: 1px; background: #1e2335;"></div>
         <div style="display: flex; justify-content: space-between; font-size: 12px;">
           <span style="color: #6c718c;">Total Cycle Runs:</span>
           <span style="font-weight: bold; color: #f5a623;">${activeRunsCount} Cycles</span>
         </div>
       </div>
-      <button id="close-breaker-modal-btn" style="width: 100%; background: #1c2035; border: 1px solid #2d3450; color: #ffffff; padding: 12px; font-size: 12px; font-weight: bold; border-radius: 6px; cursor: pointer;">
+
+      <p style="color: #a3a7bc; font-size: 12px; margin: 0 0 24px 0; line-height: 1.4;">
+        Trading operations halted natively. Current market positions are fully secured.
+      </p>
+
+      <button id="close-breaker-modal-btn" style="width: 100%; background: #1c2035; border: 1px solid #2d3450; color: #ffffff; padding: 12px; font-size: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; transition: background 0.15s ease;">
         ACKNOWLEDGE & DISMISS
       </button>
+
+      <style>
+        @keyframes pulseIcon { 0% { transform: scale(1); } 100% { transform: scale(1.15); } }
+      </style>
     `;
 
     backdrop.appendChild(card);
     document.body.appendChild(backdrop);
+
     setTimeout(() => { backdrop.style.opacity = '1'; card.style.transform = 'scale(1)'; }, 10);
 
     const dismissModal = () => {
       backdrop.style.opacity = '0'; card.style.transform = 'scale(0.9)';
+      
       setTimeout(() => {
         backdrop.remove();
-        const el = document.querySelector('#id-dashboard') || document.querySelector('.dbot-tab__dashboard');
-        if (el) (el as HTMLElement).click();
+        
+        // FORWARD RE-ROUTER DIRECTLY TO THE TRANSACTIONS/SUMMARY TABS PANEL
+        const dashboardSelectors = [
+          '#id-dashboard',
+          '.dbot-tab__dashboard',
+          '[data-testid="dt_dashboard_tab"]',
+          '#db-animation__dashboard'
+        ];
+        
+        let foundDashboardElement: HTMLElement | null = null;
+        
+        for (const selector of dashboardSelectors) {
+          const el = document.querySelector(selector);
+          if (el) {
+            foundDashboardElement = el as HTMLElement;
+            break;
+          }
+        }
+        
+        if (!foundDashboardElement) {
+          const elementsList = Array.from(document.querySelectorAll('div, span, li, a, p, button, slot'));
+          foundDashboardElement = elementsList.find(el => {
+            const labelText = el.textContent?.trim() || "";
+            return labelText === 'Dashboard' || labelText === 'DASHBOARD' || el.classList.contains('dashboard-tab-trigger');
+          }) as HTMLElement || null;
+        }
+        
+        if (foundDashboardElement) {
+          foundDashboardElement.click();
+          console.log("🎯 [TAB ROUTER] Redirect successfully fired onto your main Dashboard layout menu.");
+        } else {
+          const globalWin = window as any;
+          if (globalWin.DerivBotApp?.routeTo) {
+            globalWin.DerivBotApp.routeTo('dashboard');
+          }
+        }
       }, 250);
     };
 
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) dismissModal(); });
     card.querySelector('#close-breaker-modal-btn')?.addEventListener('click', dismissModal);
   }
+// scannerBridge.ts - PART 5: Universal Tab Balance Observer & Native Engine Circuit Breaker
 
-  private emergencyHaltOperations(): void {
-    this.liveExecutionLock = true; 
-    const globalWin = window as any;
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('EDASCORE_SYSTEM_RUN_TERMINATED', 'true');
-    }
+  /**
+   * AUTOMATED PERFORMANCE WATCHER & FORCED BUILDER INTERCEPT PROTOCOL
+   * Tracks total profit/loss on ALL dashboard tabs seamlessly by scraping Payout vs Stake totals natively.
+   */
+  private initializeAutomatedPerformanceWatcher(): void {
+    if (this.isPerformanceWatcherActive) return;
+    this.isPerformanceWatcherActive = true;
 
-    try {
-      const coreApp = globalWin.derivRunner || globalWin.DBot || globalWin.Blockly?.derivWorkspace;
-      if (coreApp && typeof coreApp.stopBot === 'function') coreApp.stopBot();
-    } catch (e) {}
+    const evaluateSessionMetrics = () => {
+      const globalTextContent = document.body.innerText;
+      let sessionNetBalance = 0;
+      let hasMetrics = false;
 
-    // B. HARD DOM CLICK OVERRIDE FALLBACK: Traces active view elements to force official engine termination
-    setTimeout(() => {
-      const allActionButtons = Array.from(document.querySelectorAll('button'));
-      const stopActionButton = allActionButtons.find(btn => {
-        const textLabel = btn.textContent?.toUpperCase().trim() || "";
-        return textLabel === 'STOP' || btn.classList.contains('dc-btn--danger') || btn.id === 'db-animation__stop-button';
-      });
-      if (stopActionButton) (stopActionButton as HTMLElement).click();
-    }, 50);
+      // FIXED REGEX PARSERS WITH STRUCTURAL EXTRACTION INDEXES
+      const stakeMatch = globalTextContent.match(/Total stake\s+([\d.]+)/i);
+      const payoutMatch = globalTextContent.match(/Total payout\s+([\d.]+)/i);
 
-    // 🎯 PERSISTENCE FIX: Parameters are preserved across runs to prevent reset back-to-back locks
+      if (stakeMatch && payoutMatch) {
+        const totalStake = parseFloat(stakeMatch[1]);
+        const totalPayout = parseFloat(payoutMatch[1]);
+        sessionNetBalance = totalPayout - totalStake; 
+        hasMetrics = true;
+      } else {
+        const combinedMatch = globalTextContent.match(/Total profit\/loss\s+(-?[\d.]+)/i);
+        if (combinedMatch) {
+          sessionNetBalance = parseFloat(combinedMatch[1]);
+          hasMetrics = true;
+        }
+      }
+      
+      const contractsLostMatch = globalTextContent.match(/Contracts lost\s+(\d+)/i);
+      if (contractsLostMatch) {
+        const structuralLossCount = parseInt(contractsLostMatch[1]) || 0;
+        if (structuralLossCount > this.consecutiveLossesCount) {
+          this.consecutiveLossesCount = structuralLossCount;
+        }
+      }
+
+      if (hasMetrics && sessionNetBalance !== 0) {
+        let shouldTriggerStop = false;
+        let breakerType: 'PROFIT' | 'LOSS' = 'PROFIT';
+        let activeLimit = 0;
+
+        if (this.monitoredTakeProfit > 0 && sessionNetBalance >= this.monitoredTakeProfit) {
+          shouldTriggerStop = true;
+          breakerType = 'PROFIT';
+          activeLimit = this.monitoredTakeProfit;
+        } 
+        else if (this.monitoredStopLoss > 0 && sessionNetBalance <= -Math.abs(this.monitoredStopLoss)) {
+          shouldTriggerStop = true;
+          breakerType = 'LOSS';
+          activeLimit = this.monitoredStopLoss;
+        }
+
+        if (shouldTriggerStop) {
+          console.log(`🚨 [BREACH DETECTED] Net: $${sessionNetBalance.toFixed(2)}. Initiating hard tab-switch stop protocol...`);
+
+          const globalWin = window as any;
+          
+          // STEP 1: FORCEFULLY SWITCH FOCUS BACK TO BOT BUILDER TAB TO ACCELERATE ENGINE MEMORY WAKEUP
+          const allTabs = Array.from(document.querySelectorAll('div, span, li, a, p, button'));
+          const builderTabTrigger = allTabs.find(tab => tab.textContent?.trim() === 'Bot Builder');
+          if (builderTabTrigger) {
+            (builderTabTrigger as HTMLElement).click();
+          }
+
+          // STEP 2: EXECUTE CORE RUNTIME HALT OVERRIDES WITHIN THE ACCELERATED MEMORY STATE
+          setTimeout(() => {
+            let engineStopped = false;
+
+            try {
+              const coreApp = globalWin.derivRunner || globalWin.DBot || globalWin.Blockly?.derivWorkspace;
+              if (coreApp && typeof coreApp.stopBot === 'function') {
+                coreApp.stopBot();
+                engineStopped = true;
+                console.log("🎯 [CIRCUIT BREAKER] Core software halted cleanly after forced tab mount.");
+              } else if (globalWin.interpreter && globalWin.interpreter.stop) {
+                globalWin.interpreter.stop();
+                engineStopped = true;
+              }
+            } catch (e) {
+              console.error("Direct framework freeze failed:", e);
+            }
+
+            if (!engineStopped) {
+              const controlButtonsList = Array.from(document.querySelectorAll('button.dc-btn--danger, button.btn-stop, .bot-builder-stop-btn, button'));
+              const preciseStopBtn = controlButtonsList.find(btn => {
+                const innerLabel = btn.textContent?.trim() || "";
+                return innerLabel === 'Stop' || innerLabel === 'STOP' || btn.classList.contains('dc-btn--danger');
+              });
+
+              if (preciseStopBtn) {
+                (preciseStopBtn as HTMLElement).click();
+                console.log("🎯 [CIRCUIT BREAKER] Fallback visual button layout tap executed.");
+              }
+            }
+
+            this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
+
+            this.monitoredTakeProfit = 0;
+            this.monitoredStopLoss = 0;
+            this.consecutiveLossesCount = 0; 
+          }, 150); 
+        }
+      }
+    };
+
+    const metricsObserver = new MutationObserver(evaluateSessionMetrics);
+    metricsObserver.observe(document.body, { childList: true, subtree: true });
   }
-// scannerBridge.ts - PART 4: Universal Direct-Field Parameter Mapping & Canvas Closer
+// scannerBridge.ts - PART 6: Block Parameter Mapping & Noise Gate Injection
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
     
-    // 🎯 SHIELD LAYER ASSIGNMENT: Instantly locks parameters straight into engine class runtime memory.
-    // This arms your WebSocket data feed layer checkers even if the canvas workspace tab is out of focus.
-    this.monitoredStopLoss = parseFloat(params.stopLoss as any) || 4.00;
-    this.monitoredTakeProfit = parseFloat(params.takeProfit as any) || 8.00;
+    this.monitoredStopLoss = parseFloat(params.stopLoss as any) || 0;
+    this.monitoredTakeProfit = parseFloat(params.takeProfit as any) || 0;
     this.baseStake = parseFloat(params.stake as any) || 3.00;
 
-    console.log(`📡 [NETWORK SHIELD ARMED] Take Profit: $${this.monitoredTakeProfit} | Stop Loss: $${this.monitoredStopLoss} | Stake Base: $${this.baseStake}`);
+    globalWin.tredaPendingParams = {
+      targetSymbol: params.targetSymbol,
+      contractType: params.contractType,
+      direction: params.direction,
+      stake: params.stake,
+      stopLoss: params.stopLoss,
+      takeProfit: params.takeProfit
+    };
 
-    globalWin.tredaPendingParams = { ...params };
     let workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
+    if (!workspace || workspace.getAllBlocks(false).length === 0) {
+      console.warn("⚠️ [INJECTOR] Blockly layout workspace out of focus. Deploying tab switcher fallback...");
+      const allDashboardTabs = Array.from(document.querySelectorAll('div, span, li, a, p, button'));
+      const botBuilderTab = allDashboardTabs.find(tab => tab.textContent?.trim() === 'Bot Builder');
+      if (botBuilderTab) {
+        (botBuilderTab as HTMLElement).click(); 
+      }
+    }
+
     setTimeout(() => {
       workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
+      
       if (!workspace) {
-        console.warn("⚠️ [INJECTOR CONFIGURATION] Active workspace context dropped focus. Memory shields remain active.");
+        alert("⚠️ Blockly canvas is loading. Please select the Bot Builder tab manually to finish injection.");
         return;
       }
 
@@ -354,40 +421,90 @@ export class DerivScannerBridge {
         let blockInjectionCounter = 0;
 
         allBlocks.forEach((block: any) => {
-          // Fallback 1: Universal Direct-Field String Match (Bypasses hardcoded block.type limitations entirely)
-          const allFields = block.getFields ? block.getFields() : [];
-          allFields.forEach((field: any) => {
-            const fieldName = (field.name || "").toUpperCase().trim();
-            
-            // Forces Stake directly into any block field matching AMOUNT or STAKE
-            if (fieldName === 'AMOUNT' || fieldName === 'STAKE_LIST' || fieldName === 'STAKE') {
-              field.setValue(Number(cachedParams.stake).toFixed(2));
+          if (block.type === 'trade_definition_market') {
+            const symbolField = block.getField('SYMBOL_LIST');
+            if (symbolField) {
+              let systemSymbol = cachedParams.targetSymbol.toUpperCase().trim();
+              if (systemSymbol === 'R_10') systemSymbol = '1HZ10V';
+              if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
+              if (systemSymbol === 'R_50') systemSymbol = '1HZ50V';
+              if (systemSymbol === 'R_75') systemSymbol = '1HZ75V';
+              if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
+              
+              symbolField.setValue(systemSymbol);
               blockInjectionCounter++;
             }
-          });
+          }
 
-          // Fallback 2: Universal Variable Map Scanner
-          if (block.type === 'variables_set' || (block.type && block.type.includes('variable'))) {
-            const fieldVar = block.getField('VAR') || block.getField('VARIABLE') || block.getField('FIELD');
+          if (block.type === 'trade_definition_contracttype') {
+            const contractTypeField = block.getField('CONTRACT_TYPE_LIST');
+            if (contractTypeField) {
+              let mappedValue = 'both'; 
+              const normalizedType = cachedParams.contractType.toUpperCase().trim();
+              if (normalizedType === 'RISE_FALL' || normalizedType === 'RISE FALL') mappedValue = 'risefall';
+              if (normalizedType === 'OVER_UNDER' || normalizedType === 'OVER UNDER') mappedValue = 'digits';
+              if (normalizedType === 'TOUCH_NO_TOUCH' || normalizedType === 'TOUCH NO TOUCH') mappedValue = 'touchnotouch';
+              if (normalizedType === 'ACCUMULATOR') mappedValue = 'accumulator';
+              
+              contractTypeField.setValue(mappedValue);
+              blockInjectionCounter++;
+            }
+          }
+
+          if (block.type === 'purchase') {
+            const purchaseField = block.getField('PURCHASE_LIST');
+            if (purchaseField) {
+              // --- ORIGINAL INTENDED ENGINE DIRECTION ROUTER ---
+              // Up signal buys CALL (Rise), Down signal buys PUT (Fall)
+              purchaseField.setValue(cachedParams.direction.toUpperCase() === 'UP' ? 'CALL' : 'PUT');
+              console.log("📈 [SIGNAL CONFIG] Original direction strategy routing actively deployed.");
+              blockInjectionCounter++;
+            }
+          }
+
+          if (block.type === 'trade_definition_tradeoptions') {
+            // --- NOISE ISOLATION CLAMPING GATE SECURED ---
+            const durationField = block.getField('DURATION');
+            if (durationField) {
+              durationField.setValue("5"); 
+            }
+            
+            const amountInput = block.getInput('AMOUNT');
+            if (amountInput && amountInput.connection) {
+              const targetBlock = amountInput.connection.targetBlock();
+              if (targetBlock) {
+                const numField = targetBlock.getField('NUM');
+                if (numField) {
+                  numField.setValue(Number(cachedParams.stake).toFixed(2));
+                  blockInjectionCounter++;
+                }
+              }
+            }
+          }
+
+          if (block.type === 'variables_set') {
+            const fieldVar = block.getField('VAR');
             if (fieldVar) {
-              const variableName = fieldVar.getText().toLowerCase().trim();
-              const valueInput = block.getInput('VALUE') || block.getInput('INPUT');
+              const variableName = fieldVar.getText();
+              const valueInput = block.getInput('VALUE');
               
               if (valueInput && valueInput.connection) {
                 const targetBlock = valueInput.connection.targetBlock();
                 if (targetBlock) {
-                  const numField = targetBlock.getField('NUM') || targetBlock.getField('VALUE') || targetBlock.getField('TEXT');
+                  const numField = targetBlock.getField('NUM');
                   if (numField) {
-                    if (variableName.includes('stake') || variableName === 'maxstake' || variableName.includes('amount')) {
+                    const normalizedVar = variableName.toLowerCase().trim();
+                    
+                    if (normalizedVar === 'maxstake' || normalizedVar.includes('stake') || normalizedVar === 'initialstake' || normalizedVar === 'defaultstake') {
                       numField.setValue(Number(cachedParams.stake).toFixed(2));
                       blockInjectionCounter++;
                     }
-                    else if (variableName.includes('loss') || variableName === 'sl' || variableName.includes('stop')) {
-                      numField.setValue(Number(cachedParams.stopLoss).toFixed(2));
+                    else if (normalizedVar.includes('loss') || normalizedVar.includes('threshold') || normalizedVar.includes('stop') || normalizedVar === 'sl') {
+                      numField.setValue(Number(params.stopLoss).toFixed(2));
                       blockInjectionCounter++;
                     }
-                    else if (variableName.includes('profit') || variableName === 'tp' || variableName.includes('take')) {
-                      numField.setValue(Number(cachedParams.takeProfit).toFixed(2));
+                    else if (normalizedVar.includes('profit') || normalizedVar.includes('target') || normalizedVar.includes('take') || normalizedVar === 'tp') {
+                      numField.setValue(Number(params.takeProfit).toFixed(2));
                       blockInjectionCounter++;
                     }
                   }
@@ -395,33 +512,20 @@ export class DerivScannerBridge {
               }
             }
           }
-
-          // Fallback 3: Asset Marker Dropdowns Matcher (Updates Market & Volatility configurations cleanly)
-          if (block.type && block.type.includes('market')) {
-            const symbolField = block.getField('SYMBOL_LIST') || block.getField('MARKET_LIST');
-            if (symbolField) {
-              let systemSymbol = cachedParams.targetSymbol.toUpperCase().trim();
-              if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
-              if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
-              symbolField.setValue(systemSymbol);
-              blockInjectionCounter++;
-            }
-          }
         });
 
-        if (workspace && typeof workspace.render === 'function') workspace.render();
-        console.log(`🏁 [INJECTOR SUMMARY] Successfully synchronized ${blockInjectionCounter} block values.`);
-        if (blockInjectionCounter > 0) globalWin.tredaPendingParams = null;
-      } catch (err) {
-        console.error("⛔ [INJECTOR CRASH EXCEPTION]", err);
-      }
-    }, 450); 
-  }
+        if (workspace && typeof workspace.render === 'function') {
+          workspace.render();
+        }
 
-  public closePipeline(): void {
-    if (this.ws && this.boundMessageHandler) {
-      try { this.ws.removeEventListener('message', this.boundMessageHandler); } catch (e) {}
-      this.boundMessageHandler = null;
-    }
+        if (blockInjectionCounter > 0) {
+          alert(`✅ Strategy Configuration Loaded!\n\n• Domain Ref: tredascore.pro\n• Active Stake: $${Number(cachedParams.stake).toFixed(2)}\n• Noise Gate: Clamped at 5 Ticks\n• Stop Loss: $${Number(cachedParams.stopLoss).toFixed(2)}\n• Take Profit: $${Number(cachedParams.takeProfit).toFixed(2)}`);
+          globalWin.tredaPendingParams = null;
+        }
+
+      } catch (err) {
+        console.error("Blockly Input Mapping Failure:", err);
+      }
+    }, 300); 
   }
-} // 🏁 FIXED SEALS: This final bracket seals the entire bridge module architecture flawlessly!
+  }
