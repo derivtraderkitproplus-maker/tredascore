@@ -322,7 +322,7 @@ export class DerivScannerBridge {
 
     // 🎯 REFACTOR FIX: Parameters are no longer cleared back to 0 here to keep them persistent for back-to-back runs!
   }
-// scannerBridge.ts - PART 4: Bulletproof Direct-Field Parameter Mapping
+// scannerBridge.ts - PART 4: Professional Universal Direct-Field Parameter Mapping
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
@@ -348,21 +348,34 @@ export class DerivScannerBridge {
         console.log(`🚀 [INJECTOR START] Processing ${allBlocks.length} workspace canvas blocks...`);
 
         allBlocks.forEach((block: any) => {
-          // Fallback 1: Direct-Field String Match (Bypasses hardcoded block.type limitations entirely)
+          // 🎯 UNIVERSAL FIELD OVERRIDE GATEWAY (Matches your original effortless layout engine)
+          // Loops directly through individual block text fields, bypassing hardcoded block.type checks entirely
           const allFields = block.getFields ? block.getFields() : [];
           allFields.forEach((field: any) => {
             const fieldName = (field.name || "").toUpperCase().trim();
             
-            // Forces Stake directly into any block field matching AMOUNT or STAKE
+            // 1. Direct Stake Mapping
             if (fieldName === 'AMOUNT' || fieldName === 'STAKE_LIST' || fieldName === 'STAKE') {
               field.setValue(Number(cachedParams.stake).toFixed(2));
               blockInjectionCounter++;
             }
+            
+            // 2. Direct Stop Loss / Target Protection Mapping
+            else if (fieldName === 'LOSS' || fieldName === 'SL' || fieldName === 'STOP_LOSS') {
+              field.setValue(Number(cachedParams.stopLoss).toFixed(2));
+              blockInjectionCounter++;
+            }
+            
+            // 3. Direct Take Profit / Target Milestone Mapping
+            else if (fieldName === 'PROFIT' || fieldName === 'TP' || fieldName === 'TAKE_PROFIT') {
+              field.setValue(Number(cachedParams.takeProfit).toFixed(2));
+              blockInjectionCounter++;
+            }
           });
 
-          // Fallback 2: Universal Variable Map Scanner
+          // Universal Variable Connection Node Scanner Fallback
           if (block.type === 'variables_set' || (block.type && block.type.includes('variable'))) {
-            const fieldVar = block.getField('VAR') || block.getField('VARIABLE') || block.getField('FIELD');
+            const fieldVar = block.getField('VAR') || block.getField('VARIABLE');
             if (fieldVar) {
               const variableName = fieldVar.getText().toLowerCase().trim();
               const valueInput = block.getInput('VALUE') || block.getInput('INPUT');
@@ -370,8 +383,7 @@ export class DerivScannerBridge {
               if (valueInput && valueInput.connection) {
                 const targetBlock = valueInput.connection.targetBlock();
                 if (targetBlock) {
-                  // Scans both raw numeric blocks and nested connection nodes
-                  const numField = targetBlock.getField('NUM') || targetBlock.getField('VALUE') || targetBlock.getField('TEXT');
+                  const numField = targetBlock.getField('NUM') || targetBlock.getField('VALUE');
                   if (numField) {
                     if (variableName.includes('stake') || variableName === 'maxstake' || variableName.includes('amount')) {
                       numField.setValue(Number(cachedParams.stake).toFixed(2));
@@ -391,7 +403,7 @@ export class DerivScannerBridge {
             }
           }
 
-          // Fallback 3: Legacy structural asset marker mapping rules
+          // Native Market Dropdown Asset Matcher
           if (block.type && block.type.includes('market')) {
             const symbolField = block.getField('SYMBOL_LIST') || block.getField('MARKET_LIST');
             if (symbolField) {
@@ -404,14 +416,14 @@ export class DerivScannerBridge {
           }
         });
 
-        // Force a total layout repaint to sync changes visually on your screen
+        // Force a crisp layout repaint to sync changes visually on your screen layout
         if (workspace && typeof workspace.render === 'function') workspace.render();
-        console.log(`🏁 [INJECTOR COMPLETE] Successfully forced ${blockInjectionCounter} parameter fields down onto the interface.`);
+        console.log(`🏁 [INJECTOR COMPLETE] Successfully forced ${blockInjectionCounter} parameters down into Blockly.`);
         if (blockInjectionCounter > 0) globalWin.tredaPendingParams = null;
       } catch (err) {
         console.error("⛔ [INJECTOR CRASH] Critical boundary mapping failure:", err);
       }
-    }, 450); // Extended timeout slightly to make sure slower browser frame changes finish rendering first
+    }, 400); // 400ms buffer window ensures the canvas memory tree is fully unpacked in mobile views
   }
 
   public closePipeline(): void {
@@ -420,4 +432,4 @@ export class DerivScannerBridge {
       this.boundMessageHandler = null;
     }
   }
-} // 🏁 FIXED: This final bracket seals the entire bridge module class container loop perfectly!
+} // 🏁 SEALS: This final bracket seals the entire bridge module class architecture flawlessly!
