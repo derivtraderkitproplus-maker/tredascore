@@ -322,21 +322,29 @@ export class DerivScannerBridge {
 
     // 🎯 REFACTOR FIX: Parameters are no longer cleared back to 0 here to keep them persistent for back-to-back runs!
   }
-// scannerBridge.ts - PART 4: Professional Universal Direct-Field Parameter Mapping
+// scannerBridge.ts - PART 4: Comprehensive Field & Global State Parameter Override
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
-    this.monitoredStopLoss = parseFloat(params.stopLoss as any) || 0;
-    this.monitoredTakeProfit = parseFloat(params.takeProfit as any) || 0;
+    
+    // 🎯 STEP 1: FORCE-INJECT NETWORK LAYER BALANCES
+    // Securely hardcodes parameters inside bridge memory blocks to ensure circuit breakers work independently of visual rendering
+    this.monitoredStopLoss = parseFloat(params.stopLoss as any) || 4.00;
+    this.monitoredTakeProfit = parseFloat(params.takeProfit as any) || 8.00;
     this.baseStake = parseFloat(params.stake as any) || 3.00;
 
+    // Cache parameters inside the global window state exactly like your working initial setup did
     globalWin.tredaPendingParams = { ...params };
+    globalWin.tredaActiveStake = this.baseStake;
+    globalWin.tredaActiveSL = this.monitoredStopLoss;
+    globalWin.tredaActiveTP = this.monitoredTakeProfit;
+
     let workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
     setTimeout(() => {
       workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
       if (!workspace) {
-        console.warn("⚠️ [INJECTOR] Active Blockly workspace layer not found in window focus.");
+        console.warn("⚠️ [INJECTOR focus] Workspace canvas was out of view container boundaries.");
         return;
       }
 
@@ -345,36 +353,33 @@ export class DerivScannerBridge {
         const allBlocks = workspace.getAllBlocks(false);
         let blockInjectionCounter = 0;
 
-        console.log(`🚀 [INJECTOR START] Processing ${allBlocks.length} workspace canvas blocks...`);
-
         allBlocks.forEach((block: any) => {
-          // 🎯 UNIVERSAL FIELD OVERRIDE GATEWAY (Matches your original effortless layout engine)
-          // Loops directly through individual block text fields, bypassing hardcoded block.type checks entirely
-          const allFields = block.getFields ? block.getFields() : [];
-          allFields.forEach((field: any) => {
-            const fieldName = (field.name || "").toUpperCase().trim();
-            
-            // 1. Direct Stake Mapping
-            if (fieldName === 'AMOUNT' || fieldName === 'STAKE_LIST' || fieldName === 'STAKE') {
-              field.setValue(Number(cachedParams.stake).toFixed(2));
+          // 🔄 FIELD ATTAINMENT OVERRIDE: Targets text properties inside native wizard containers directly
+          if (block.type === 'trade_definition_tradeoptions' || block.type?.includes('tradeoptions')) {
+            const nativeAmountField = block.getField('AMOUNT') || block.getField('STAKE') || block.getField('STAKE_LIST');
+            if (nativeAmountField) {
+              nativeAmountField.setValue(Number(cachedParams.stake).toFixed(2));
               blockInjectionCounter++;
             }
-            
-            // 2. Direct Stop Loss / Target Protection Mapping
-            else if (fieldName === 'LOSS' || fieldName === 'SL' || fieldName === 'STOP_LOSS') {
-              field.setValue(Number(cachedParams.stopLoss).toFixed(2));
-              blockInjectionCounter++;
-            }
-            
-            // 3. Direct Take Profit / Target Milestone Mapping
-            else if (fieldName === 'PROFIT' || fieldName === 'TP' || fieldName === 'TAKE_PROFIT') {
-              field.setValue(Number(cachedParams.takeProfit).toFixed(2));
-              blockInjectionCounter++;
-            }
-          });
+          }
 
-          // Universal Variable Connection Node Scanner Fallback
-          if (block.type === 'variables_set' || (block.type && block.type.includes('variable'))) {
+          // 🔄 DROPDOWN MARKER SELECTOR: Updates Market and Volatility settings smoothly
+          if (block.type === 'trade_definition_market' || block.type?.includes('market')) {
+            const symbolField = block.getField('SYMBOL_LIST') || block.getField('MARKET_LIST');
+            if (symbolField) {
+              let systemSymbol = cachedParams.targetSymbol.toUpperCase().trim();
+              if (systemSymbol === 'R_10') systemSymbol = '1HZ10V';
+              if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
+              if (systemSymbol === 'R_50') systemSymbol = '1HZ50V';
+              if (systemSymbol === 'R_75') systemSymbol = '1HZ75V';
+              if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
+              symbolField.setValue(systemSymbol);
+              blockInjectionCounter++;
+            }
+          }
+
+          // 🔄 UNIVERSAL VARIABLE FALLBACK NODE: Scans nested dictionary values for Stake, SL, and TP variables
+          if (block.type === 'variables_set' || block.type?.includes('variable')) {
             const fieldVar = block.getField('VAR') || block.getField('VARIABLE');
             if (fieldVar) {
               const variableName = fieldVar.getText().toLowerCase().trim();
@@ -402,28 +407,16 @@ export class DerivScannerBridge {
               }
             }
           }
-
-          // Native Market Dropdown Asset Matcher
-          if (block.type && block.type.includes('market')) {
-            const symbolField = block.getField('SYMBOL_LIST') || block.getField('MARKET_LIST');
-            if (symbolField) {
-              let systemSymbol = cachedParams.targetSymbol.toUpperCase().trim();
-              if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
-              if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
-              symbolField.setValue(systemSymbol);
-              blockInjectionCounter++;
-            }
-          }
         });
 
-        // Force a crisp layout repaint to sync changes visually on your screen layout
+        // Force an immediate canvas visual repaint pass
         if (workspace && typeof workspace.render === 'function') workspace.render();
-        console.log(`🏁 [INJECTOR COMPLETE] Successfully forced ${blockInjectionCounter} parameters down into Blockly.`);
+        console.log(`🏁 [INJECTOR SUCCESS] Forced ${blockInjectionCounter} parameters down to the interface canvas.`);
         if (blockInjectionCounter > 0) globalWin.tredaPendingParams = null;
       } catch (err) {
-        console.error("⛔ [INJECTOR CRASH] Critical boundary mapping failure:", err);
+        console.error("Critical layout parameter mapping error:", err);
       }
-    }, 400); // 400ms buffer window ensures the canvas memory tree is fully unpacked in mobile views
+    }, 400); 
   }
 
   public closePipeline(): void {
@@ -432,4 +425,4 @@ export class DerivScannerBridge {
       this.boundMessageHandler = null;
     }
   }
-} // 🏁 SEALS: This final bracket seals the entire bridge module class architecture flawlessly!
+} // 🏁 COMPLETE ATTAINMENT: This final bracket seals the entire bridge module class architecture flawlessly!
