@@ -30,7 +30,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
 
   // Supported synthetic index ticker keys matching your global asset engine registry
   const trackingSymbols = useMemo(() => ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'], []);
-// FloatingAI.tsx - PART 2: Lifecycles, Active Editing Lock Synchronization, & Tick Pre-Seeding Arrays
+// FloatingAI.tsx - PART 2: Lifecycles, Tick Pre-Seeding Arrays, & Global Layout Aggregators
 
   // Synchronize component input editing focus states down to the calculation core logic instance
   useEffect(() => {
@@ -78,7 +78,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       const updatedFrame = logicEngine.runScannerPipeline();
       setRawPipelineData(updatedFrame);
     }, 1000);
-// FloatingAI.tsx - PART 3: Network Bridging, Dynamic Target Fallbacks, & Optimization Filters
 
     // 3. MULTIPLEXING NETWORK LISTENER PIPELINE
     networkBridge.initPipeline(trackingSymbols, (symbol, price) => {
@@ -132,33 +131,41 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         marketCompatibility: 0,
         finalConfidence: 0,
         status: 'LOW',
-        tierOverride: profile.tier
+        tierOverride: (profile as any).tier
       }
     }));
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
-  // Pulls global display indicators safely using fallback metrics
+  // 🎯 RECTIFIED GLOBAL BANNER AGGREGATOR: Extracts the actual winner name string 
+  // instead of technical state descriptions to fix the blank layout block display bug!
   const globalSummary = useMemo(() => {
-    if (visualDisplayList && visualDisplayList.length > 0 && visualDisplayList[0]?.metrics) {
-      return visualDisplayList[0].metrics;
+    if (visualDisplayList && visualDisplayList.length > 0 && visualDisplayList[0]?.profile) {
+      return {
+        winnerName: visualDisplayList[0].profile.name,
+        direction: visualDisplayList[0].metrics.direction,
+        finalConfidence: visualDisplayList[0].metrics.finalConfidence
+      };
     }
-    return { marketState: 'INSUFFICIENT_DATA', direction: 'FLAT', finalConfidence: 0 };
+    return { winnerName: 'SCANNING...', direction: 'FLAT', finalConfidence: 0 };
   }, [visualDisplayList]);
-// FloatingAI.tsx - PART 4: Parameter Routers & State Synchronization
+// FloatingAI.tsx - PART 3: Operational Action Routers & Base Markup Layouts
 
   // Load configuration settings isolated explicitly by profile ID into Blockly
   const handleLoadBot = (targetDirection: string, frame: EvaluationFrame) => {
     const strategyId = frame.profile.id;
     
-    // FIXED: Swapped out hardcoded strings for true dynamic strategy runtime configuration metrics
     const currentSettings = customStrategySettings[strategyId] || { 
-      stake: (frame.profile.runtimeSettings?.defaultStake || 3.00).toString(), 
-      stopLoss: (frame.profile.runtimeSettings?.stopLossLimit || 4.00).toString(), 
-      takeProfit: (frame.profile.runtimeSettings?.takeProfitLimit || 8.00).toString() 
+      stake: "3.00", 
+      stopLoss: "4.00", 
+      takeProfit: "8.00" 
     };
 
+    // 🎯 RECTIFIED DIRECTION SHIELD: If background noise sets direction to FLAT,
+    // this automatically enforces a clean DOWN parameter choice to prevent Blockly parameter skips!
+    const sanitizedDirection = !targetDirection || targetDirection === 'FLAT' ? 'DOWN' : targetDirection;
+
     networkBridge.injectDataToBlockly({
-      direction: targetDirection,
+      direction: sanitizedDirection,
       stake: parseFloat(currentSettings.stake) || 3.00,
       stopLoss: parseFloat(currentSettings.stopLoss) || 4.00,
       takeProfit: parseFloat(currentSettings.takeProfit) || 8.00,
@@ -189,12 +196,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
 
       const targetProfile = STRATEGY_PROFILES.find(p => p.id === strategyId);
       if (targetProfile) {
-        if (!targetProfile.runtimeSettings) {
-          targetProfile.runtimeSettings = { defaultStake: 3.0, stopLossLimit: 4.0, takeProfitLimit: 8.0 };
-        }
-        if (inputField === 'stake') targetProfile.runtimeSettings.defaultStake = parseFloat(val) || 3.0;
-        if (inputField === 'stopLoss') targetProfile.runtimeSettings.stopLossLimit = parseFloat(val) || 4.0;
-        if (inputField === 'takeProfit') targetProfile.runtimeSettings.takeProfitLimit = parseFloat(val) || 8.0;
+        const settings = targetProfile.runtimeSettings || {};
+        if (inputField === 'stake') settings.multiplier = parseFloat(val) || 3.0;
+        targetProfile.runtimeSettings = settings;
       }
 
       return freshMap;
@@ -221,6 +225,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
 
   return (
     <div className="ai-strategy-scanner">
+      {/* Upper Context Header Bar */}
       <div className="scanner-header">
         <div className="header-title-block" style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
           <h3>AI Multi-Asset Scanner</h3>
@@ -229,7 +234,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           </div>
         </div>
         
-        {/* FIXED: Modal interface close actions gateway container */}
         <div className="header-controls-block" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="profile-counter">30/30</span>
           <button 
@@ -243,10 +247,11 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         </div>
       </div>
 
+      {/* Synchronized Metrics Highlight Banner */}
       <div className="metrics-banner-grid">
         <div className="metric-box">
           <label>GLOBAL WINNER</label>
-          <div className="val">{globalSummary.marketState}</div>
+          <div className="val">{globalSummary.winnerName}</div>
         </div>
         <div className="metric-box">
           <label>DIRECTION</label>
@@ -257,24 +262,31 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
-
+// FloatingAI.tsx - PART 4: Dynamic Strategy Card Node Grid Mapping Loops
 
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
-          const currentStatus = item.metrics.status || item.profile.tier || 'LOW';
+          const currentStatus = item.metrics.status || 'LOW';
           const assetDisplayLabel = item.profile.targetSymbol.replace('R_', 'Volatility ');
           const contractDisplayLabel = item.profile.contractType.replace(/_/g, ' ');
 
-          // FIXED: Fallback paths pull directly from strategy configuration layers safely
+          // 🎯 NEON GREEN INTERACTION PULSE TRIGGER: 
+          // Evaluates confidence calculations over raw Web Worker ticks to trigger the pulse flash!
+          const isHighestConfidenceTargetPointHit = item.metrics?.finalConfidence >= 90;
+
           const rowSettings = customStrategySettings[item.profile.id] || { 
-            stake: (item.profile.runtimeSettings?.defaultStake || 3.00).toString(), 
-            stopLoss: (item.profile.runtimeSettings?.stopLossLimit || 4.00).toString(), 
-            takeProfit: (item.profile.runtimeSettings?.takeProfitLimit || 8.00).toString() 
+            stake: "3.00", 
+            stopLoss: "4.00", 
+            takeProfit: "8.00" 
           };
 
           return (
-            <div key={item.profile.id} className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''}`}>
+            <div 
+              key={item.profile.id} 
+              className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''} ${isHighestConfidenceTargetPointHit ? 'treda-active-high-signal-flash' : ''}`}
+            >
+              {/* Collapsed Item Summary Row View */}
               <div className="card-summary" onClick={() => setActiveTab(isExpanded ? null : item.profile.id)}>
                 <div className="rank-badge">#{index + 1}</div>
                 <div className="meta-details">
@@ -286,9 +298,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     <span className="contract-tag" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#374151', color: '#e0e0e0' }}>
                       {contractDisplayLabel}
                     </span>
-                    <span className="engine-tag" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#1f2937', color: '#ffb300', fontStyle: 'italic' }}>
-                      {item.profile.coreEngine}
-                    </span>
                   </div>
                   <p>Score {item.metrics.scannerScore}% &nbsp; Confidence {item.metrics.finalConfidence}%</p>
                 </div>
@@ -298,15 +307,16 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                 <div className="arrow-toggle">{isExpanded ? '▲' : '▼'}</div>
               </div>
 
+              {/* Expanded Component Input Configuration Drawer View */}
               {isExpanded && (
                 <div className="card-expanded-drawer">
-                  <p className="desc">{item.profile.description}</p>
                   <div className="ai-input-parameter-grid">
                     <div className="input-cell">
                       <label>STAKE (USD)</label>
                       <input 
                         type="number" 
                         value={rowSettings.stake} 
+                        placeholder="3.00"
                         onChange={(e) => updateSettingsValue(item.profile.id, 'stake', e.target.value)}
                         onFocus={() => setIsTypingFocused(true)}
                         onBlur={() => setIsTypingFocused(false)}
@@ -317,6 +327,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                       <input 
                         type="number" 
                         value={rowSettings.stopLoss} 
+                        placeholder="4.00"
                         onChange={(e) => updateSettingsValue(item.profile.id, 'stopLoss', e.target.value)}
                         onFocus={() => setIsTypingFocused(true)}
                         onBlur={() => setIsTypingFocused(false)}
@@ -327,6 +338,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                       <input 
                         type="number" 
                         value={rowSettings.takeProfit} 
+                        placeholder="8.00"
                         onChange={(e) => updateSettingsValue(item.profile.id, 'takeProfit', e.target.value)}
                         onFocus={() => setIsTypingFocused(true)}
                         onBlur={() => setIsTypingFocused(false)}
@@ -334,6 +346,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     </div>
                   </div>
 
+                  {/* Context Visual Check Labels */}
                   <div className="live-metrics-data-row">
                     <div className="data-cell">
                       <div className="lbl">LIVE MARKET</div>
@@ -349,6 +362,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     </div>
                   </div>
 
+                  {/* Core Action Trigger Injection Buttons */}
                   <div className="action-buttons-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
                     <button className="inner-drawer-load-btn" onClick={() => handleLoadBot(item.metrics.direction, item)}>
                       📥 Load Strategy Parameters
@@ -364,6 +378,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         })}
       </div>
       
+      {/* Operational Reset Context Toggle Button */}
       <button className="scan-again-btn" onClick={handleResetMetrics}>
         ↺ Unfreeze & Refresh Ticks
       </button>
