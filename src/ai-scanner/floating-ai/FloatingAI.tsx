@@ -184,7 +184,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     alert(`📢 Manual Broadcast Sent!\nPushed ${frame.profile.name} directly to your channel.`);
   };
 
-  const updateSettingsValue = (strategyId: string, inputField: 'stake' | 'stopLoss' | 'takeProfit', val: string) => {
+    const updateSettingsValue = (strategyId: string, inputField: 'stake' | 'stopLoss' | 'takeProfit', val: string) => {
     setCustomStrategySettings(prev => {
       const freshMap = {
         ...prev,
@@ -225,7 +225,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
 
   return (
     <div className="ai-strategy-scanner">
-      {/* Upper Context Header Bar */}
+      {/* 🌐 A. SCANNER PANEL CONTEXT HEADER BAR */}
       <div className="scanner-header">
         <div className="header-title-block" style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
           <h3>AI Multi-Asset Scanner</h3>
@@ -247,7 +247,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         </div>
       </div>
 
-      {/* Synchronized Metrics Highlight Banner */}
+      {/* 🌐 B. METRICS SUMMARY HIGHLIGHT BANNER */}
       <div className="metrics-banner-grid">
         <div className="metric-box">
           <label>GLOBAL WINNER</label>
@@ -262,8 +262,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           <div className="val">{globalSummary.finalConfidence}%</div>
         </div>
       </div>
-// FloatingAI.tsx - PART 4: Dynamic Strategy Card Node Grid Mapping Loops
 
+      {/* 🌐 C. DYNAMIC STRATEGY CARD SCROLL LIST GRID */}
       <div className="strategy-scroll-list">
         {visualDisplayList.map((item, index) => {
           const isExpanded = activeTab === item.profile.id;
@@ -271,8 +271,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
           const assetDisplayLabel = item.profile.targetSymbol.replace('R_', 'Volatility ');
           const contractDisplayLabel = item.profile.contractType.replace(/_/g, ' ');
 
-          // 🎯 NEON GREEN INTERACTION PULSE TRIGGER: 
-          // Evaluates confidence calculations over raw Web Worker ticks to trigger the pulse flash!
+          // 🎯 NEON GREEN HARDWARE UI FLASH RING PULSE OVERRIDE: 
+          // Dynamically targets your peak 90%+ confidence macro-synchronized expansion waves!
           const isHighestConfidenceTargetPointHit = item.metrics?.finalConfidence >= 90;
 
           const rowSettings = customStrategySettings[item.profile.id] || { 
@@ -286,7 +286,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
               key={item.profile.id} 
               className={`strategy-card-node ${isExpanded ? 'card-node--frozen' : ''} ${isHighestConfidenceTargetPointHit ? 'treda-active-high-signal-flash' : ''}`}
             >
-              {/* Collapsed Item Summary Row View */}
+              {/* Card Summary Title Bar Block */}
               <div className="card-summary" onClick={() => setActiveTab(isExpanded ? null : item.profile.id)}>
                 <div className="rank-badge">#{index + 1}</div>
                 <div className="meta-details">
@@ -307,7 +307,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                 <div className="arrow-toggle">{isExpanded ? '▲' : '▼'}</div>
               </div>
 
-              {/* Expanded Component Input Configuration Drawer View */}
+              {/* Card Expanded Custom Param Inputs Drawer */}
               {isExpanded && (
                 <div className="card-expanded-drawer">
                   <div className="ai-input-parameter-grid">
@@ -346,7 +346,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     </div>
                   </div>
 
-                  {/* Context Visual Check Labels */}
+                  {/* Network Feeds Status Matrix Labels */}
                   <div className="live-metrics-data-row">
                     <div className="data-cell">
                       <div className="lbl">LIVE MARKET</div>
@@ -362,7 +362,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     </div>
                   </div>
 
-                  {/* Core Action Trigger Injection Buttons */}
+                  {/* Operational Launch Options Buttons */}
                   <div className="action-buttons-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
                     <button className="inner-drawer-load-btn" onClick={() => handleLoadBot(item.metrics.direction, item)}>
                       📥 Load Strategy Parameters
@@ -378,7 +378,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         })}
       </div>
       
-      {/* Operational Reset Context Toggle Button */}
+      {/* Queue Refresh Context Action Trigger */}
       <button className="scan-again-btn" onClick={handleResetMetrics}>
         ↺ Unfreeze & Refresh Ticks
       </button>
