@@ -322,7 +322,7 @@ export class DerivScannerBridge {
 
     // 🎯 REFACTOR FIX: Parameters are no longer cleared back to 0 here to keep them persistent for back-to-back runs!
   }
-// scannerBridge.ts - PART 4: Blockly Parameter Mapping & Pipeline Closer
+// scannerBridge.ts - PART 4: Bulletproof Direct-Field Parameter Mapping
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
@@ -335,47 +335,53 @@ export class DerivScannerBridge {
     
     setTimeout(() => {
       workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
-      if (!workspace) return;
+      if (!workspace) {
+        console.warn("⚠️ [INJECTOR] Active Blockly workspace layer not found in window focus.");
+        return;
+      }
 
       try {
         const cachedParams = globalWin.tredaPendingParams || params;
         const allBlocks = workspace.getAllBlocks(false);
         let blockInjectionCounter = 0;
 
+        console.log(`🚀 [INJECTOR START] Processing ${allBlocks.length} workspace canvas blocks...`);
+
         allBlocks.forEach((block: any) => {
-          if (block.type === 'trade_definition_market') {
-            const symbolField = block.getField('SYMBOL_LIST');
-            if (symbolField) {
-              let systemSymbol = cachedParams.targetSymbol.toUpperCase().trim();
-              if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
-              if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
-              symbolField.setValue(systemSymbol);
+          // Fallback 1: Direct-Field String Match (Bypasses hardcoded block.type limitations entirely)
+          const allFields = block.getFields ? block.getFields() : [];
+          allFields.forEach((field: any) => {
+            const fieldName = (field.name || "").toUpperCase().trim();
+            
+            // Forces Stake directly into any block field matching AMOUNT or STAKE
+            if (fieldName === 'AMOUNT' || fieldName === 'STAKE_LIST' || fieldName === 'STAKE') {
+              field.setValue(Number(cachedParams.stake).toFixed(2));
               blockInjectionCounter++;
             }
-          }
+          });
 
-          if (block.type === 'variables_set') {
-            const fieldVar = block.getField('VAR');
+          // Fallback 2: Universal Variable Map Scanner
+          if (block.type === 'variables_set' || (block.type && block.type.includes('variable'))) {
+            const fieldVar = block.getField('VAR') || block.getField('VARIABLE') || block.getField('FIELD');
             if (fieldVar) {
-              const variableName = fieldVar.getText();
-              const valueInput = block.getInput('VALUE');
+              const variableName = fieldVar.getText().toLowerCase().trim();
+              const valueInput = block.getInput('VALUE') || block.getInput('INPUT');
               
               if (valueInput && valueInput.connection) {
                 const targetBlock = valueInput.connection.targetBlock();
                 if (targetBlock) {
-                  const numField = targetBlock.getField('NUM');
+                  // Scans both raw numeric blocks and nested connection nodes
+                  const numField = targetBlock.getField('NUM') || targetBlock.getField('VALUE') || targetBlock.getField('TEXT');
                   if (numField) {
-                    const normalizedVar = variableName.toLowerCase().trim();
-                    // FIXED: Scope isolation targets using cachedParams exclusively
-                    if (normalizedVar.includes('stake') || normalizedVar === 'maxstake') {
+                    if (variableName.includes('stake') || variableName === 'maxstake' || variableName.includes('amount')) {
                       numField.setValue(Number(cachedParams.stake).toFixed(2));
                       blockInjectionCounter++;
                     }
-                    else if (normalizedVar.includes('loss') || normalizedVar === 'sl') {
+                    else if (variableName.includes('loss') || variableName === 'sl' || variableName.includes('stop')) {
                       numField.setValue(Number(cachedParams.stopLoss).toFixed(2));
                       blockInjectionCounter++;
                     }
-                    else if (normalizedVar.includes('profit') || normalizedVar === 'tp') {
+                    else if (variableName.includes('profit') || variableName === 'tp' || variableName.includes('take')) {
                       numField.setValue(Number(cachedParams.takeProfit).toFixed(2));
                       blockInjectionCounter++;
                     }
@@ -384,14 +390,28 @@ export class DerivScannerBridge {
               }
             }
           }
+
+          // Fallback 3: Legacy structural asset marker mapping rules
+          if (block.type && block.type.includes('market')) {
+            const symbolField = block.getField('SYMBOL_LIST') || block.getField('MARKET_LIST');
+            if (symbolField) {
+              let systemSymbol = cachedParams.targetSymbol.toUpperCase().trim();
+              if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
+              if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
+              symbolField.setValue(systemSymbol);
+              blockInjectionCounter++;
+            }
+          }
         });
 
+        // Force a total layout repaint to sync changes visually on your screen
         if (workspace && typeof workspace.render === 'function') workspace.render();
+        console.log(`🏁 [INJECTOR COMPLETE] Successfully forced ${blockInjectionCounter} parameter fields down onto the interface.`);
         if (blockInjectionCounter > 0) globalWin.tredaPendingParams = null;
       } catch (err) {
-        console.error(err);
+        console.error("⛔ [INJECTOR CRASH] Critical boundary mapping failure:", err);
       }
-    }, 300); 
+    }, 450); // Extended timeout slightly to make sure slower browser frame changes finish rendering first
   }
 
   public closePipeline(): void {
@@ -400,4 +420,4 @@ export class DerivScannerBridge {
       this.boundMessageHandler = null;
     }
   }
-} // 🏁 FIXED: This final bracket seals the entire bridge module architecture flawlessly!
+} // 🏁 FIXED: This final bracket seals the entire bridge module class container loop perfectly!
