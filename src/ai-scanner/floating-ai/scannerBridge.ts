@@ -79,7 +79,7 @@ export class DerivScannerBridge {
       }
     };
   }
-// scannerBridge.ts - PART 2: Real-Time Web Socket Pipeline Router & Immediate Orders
+// scannerBridge.ts - PART 2: Real-Time Web Socket Pipeline Router & Ledger Accumulator
 
   private normalizeSymbolString(s: string): string {
     const term = s.toUpperCase().trim();
@@ -101,7 +101,7 @@ export class DerivScannerBridge {
     this.activeSymbols = symbols;
     this.extractSystemSocket();
 
-    // 🎯 REFACTOR TYPE FIX: Resets your session profit ledger buffer back to $0.00 at the start of a brand new run
+    // 🎯 INITIALIZATION RESET: Resets your session profit buffer back to $0.00 at the start of every brand new run
     this.runningSessionAccumulatedPnL = 0;
     console.log("🏁 [ENGINE INITIALIZED] Session profit balance reset to $0.00 for this run.");
 
@@ -124,7 +124,6 @@ export class DerivScannerBridge {
             }
           }
 
-          // FIXED: Successfully bounds evaluation layers cleanly to incomingFrame context vectors
           if (incomingFrame.msg_type === 'proposal_open_contract') {
             const contract = incomingFrame.proposal_open_contract;
             if (contract && (contract.is_expired || contract.status !== 'open')) {
@@ -141,7 +140,7 @@ export class DerivScannerBridge {
   public handleContractSettlementEvent(contractNode: any): void {
     if (!contractNode) return;
 
-    // 🎯 REFACTORED LOCK RELEASE: Releases the thread lock instantly upon trade resolution to allow next signals
+    // Release the thread execution lock immediately to clear data pathways for upcoming ticks
     this.liveExecutionLock = false;
 
     const individualContractPnL = parseFloat(contractNode.profit) || 0;
@@ -150,10 +149,11 @@ export class DerivScannerBridge {
     // Upgrades tracking logic to compute true net returns across all consecutive cycles
     this.runningSessionAccumulatedPnL += individualContractPnL;
     
-    console.log(`📊 [ACCOUNT AUDIT] Total Session Ledger: $${this.runningSessionAccumulatedPnL.toFixed(2)}`);
+    console.log(`📊 [ACCOUNT AUDIT] Total Session Ledger PnL: $${this.runningSessionAccumulatedPnL.toFixed(2)}`);
 
     // FAIL-SAFE TAKE PROFIT CIRCUIT BREAKER
     if (this.monitoredTakeProfit > 0 && this.runningSessionAccumulatedPnL >= this.monitoredTakeProfit) {
+      console.log(`🎯 [TAKE PROFIT HIT] Reached $${this.runningSessionAccumulatedPnL.toFixed(2)} >= Target of $${this.monitoredTakeProfit.toFixed(2)}`);
       this.triggerTopTierAlertOverlay('PROFIT', this.runningSessionAccumulatedPnL, this.monitoredTakeProfit, activeRunsCount);
       this.emergencyHaltOperations();
       return;
@@ -165,6 +165,7 @@ export class DerivScannerBridge {
       const configuredStopLossLimit = Math.abs(this.monitoredStopLoss);
 
       if (activeRunningDrawdown >= configuredStopLossLimit) {
+        console.log(`🛑 [STOP LOSS HIT] Drawdown hit $${activeRunningDrawdown.toFixed(2)} >= Protection Limit of $${configuredStopLossLimit.toFixed(2)}`);
         this.triggerTopTierAlertOverlay('LOSS', this.runningSessionAccumulatedPnL, this.monitoredStopLoss, activeRunsCount);
         this.emergencyHaltOperations();
         return;
@@ -178,11 +179,14 @@ export class DerivScannerBridge {
     this.liveExecutionLock = true;
     console.log(`🚀 [ENGINE DISPATCH] Outbound transaction message packet sent for: ${signal.strategyName}`);
 
+    // Dynamic fallback check prioritizes class memory configurations safely
+    const activeExecutionStake = signal.executionPayload?.stake || this.baseStake;
+
     const brokerPayload = {
       buy: 1,
-      price: signal.executionPayload?.stake || this.baseStake,
+      price: activeExecutionStake,
       parameters: {
-        amount: signal.executionPayload?.stake || this.baseStake,
+        amount: activeExecutionStake,
         basis: "stake",
         contract_type: signal.recommendedAction === 'UP' ? 'CALL' : 'PUT',
         currency: "USD",
@@ -304,7 +308,6 @@ export class DerivScannerBridge {
       localStorage.setItem('EDASCORE_SYSTEM_RUN_TERMINATED', 'true');
     }
 
-    // A. Native framework execution shutdown handler
     try {
       const coreApp = globalWin.derivRunner || globalWin.DBot || globalWin.Blockly?.derivWorkspace;
       if (coreApp && typeof coreApp.stopBot === 'function') coreApp.stopBot();
@@ -320,31 +323,28 @@ export class DerivScannerBridge {
       if (stopActionButton) (stopActionButton as HTMLElement).click();
     }, 50);
 
-    // 🎯 REFACTOR FIX: Parameters are no longer cleared back to 0 here to keep them persistent for back-to-back runs!
+    // 🎯 PERSISTENCE FIX: Parameters are preserved across runs to prevent reset back-to-back locks
   }
-// scannerBridge.ts - PART 4: Comprehensive Field & Global State Parameter Override
+// scannerBridge.ts - PART 4: Universal Direct-Field Parameter Mapping & Canvas Closer
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
     
-    // 🎯 STEP 1: FORCE-INJECT NETWORK LAYER BALANCES
-    // Securely hardcodes parameters inside bridge memory blocks to ensure circuit breakers work independently of visual rendering
+    // 🎯 SHIELD LAYER ASSIGNMENT: Instantly locks parameters straight into engine class runtime memory.
+    // This arms your WebSocket data feed layer checkers even if the canvas workspace tab is out of focus.
     this.monitoredStopLoss = parseFloat(params.stopLoss as any) || 4.00;
     this.monitoredTakeProfit = parseFloat(params.takeProfit as any) || 8.00;
     this.baseStake = parseFloat(params.stake as any) || 3.00;
 
-    // Cache parameters inside the global window state exactly like your working initial setup did
-    globalWin.tredaPendingParams = { ...params };
-    globalWin.tredaActiveStake = this.baseStake;
-    globalWin.tredaActiveSL = this.monitoredStopLoss;
-    globalWin.tredaActiveTP = this.monitoredTakeProfit;
+    console.log(`📡 [NETWORK SHIELD ARMED] Take Profit: $${this.monitoredTakeProfit} | Stop Loss: $${this.monitoredStopLoss} | Stake Base: $${this.baseStake}`);
 
+    globalWin.tredaPendingParams = { ...params };
     let workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
     setTimeout(() => {
       workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
       if (!workspace) {
-        console.warn("⚠️ [INJECTOR focus] Workspace canvas was out of view container boundaries.");
+        console.warn("⚠️ [INJECTOR CONFIGURATION] Active workspace context dropped focus. Memory shields remain active.");
         return;
       }
 
@@ -354,33 +354,21 @@ export class DerivScannerBridge {
         let blockInjectionCounter = 0;
 
         allBlocks.forEach((block: any) => {
-          // 🔄 FIELD ATTAINMENT OVERRIDE: Targets text properties inside native wizard containers directly
-          if (block.type === 'trade_definition_tradeoptions' || block.type?.includes('tradeoptions')) {
-            const nativeAmountField = block.getField('AMOUNT') || block.getField('STAKE') || block.getField('STAKE_LIST');
-            if (nativeAmountField) {
-              nativeAmountField.setValue(Number(cachedParams.stake).toFixed(2));
+          // Fallback 1: Universal Direct-Field String Match (Bypasses hardcoded block.type limitations entirely)
+          const allFields = block.getFields ? block.getFields() : [];
+          allFields.forEach((field: any) => {
+            const fieldName = (field.name || "").toUpperCase().trim();
+            
+            // Forces Stake directly into any block field matching AMOUNT or STAKE
+            if (fieldName === 'AMOUNT' || fieldName === 'STAKE_LIST' || fieldName === 'STAKE') {
+              field.setValue(Number(cachedParams.stake).toFixed(2));
               blockInjectionCounter++;
             }
-          }
+          });
 
-          // 🔄 DROPDOWN MARKER SELECTOR: Updates Market and Volatility settings smoothly
-          if (block.type === 'trade_definition_market' || block.type?.includes('market')) {
-            const symbolField = block.getField('SYMBOL_LIST') || block.getField('MARKET_LIST');
-            if (symbolField) {
-              let systemSymbol = cachedParams.targetSymbol.toUpperCase().trim();
-              if (systemSymbol === 'R_10') systemSymbol = '1HZ10V';
-              if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
-              if (systemSymbol === 'R_50') systemSymbol = '1HZ50V';
-              if (systemSymbol === 'R_75') systemSymbol = '1HZ75V';
-              if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
-              symbolField.setValue(systemSymbol);
-              blockInjectionCounter++;
-            }
-          }
-
-          // 🔄 UNIVERSAL VARIABLE FALLBACK NODE: Scans nested dictionary values for Stake, SL, and TP variables
-          if (block.type === 'variables_set' || block.type?.includes('variable')) {
-            const fieldVar = block.getField('VAR') || block.getField('VARIABLE');
+          // Fallback 2: Universal Variable Map Scanner
+          if (block.type === 'variables_set' || (block.type && block.type.includes('variable'))) {
+            const fieldVar = block.getField('VAR') || block.getField('VARIABLE') || block.getField('FIELD');
             if (fieldVar) {
               const variableName = fieldVar.getText().toLowerCase().trim();
               const valueInput = block.getInput('VALUE') || block.getInput('INPUT');
@@ -388,7 +376,7 @@ export class DerivScannerBridge {
               if (valueInput && valueInput.connection) {
                 const targetBlock = valueInput.connection.targetBlock();
                 if (targetBlock) {
-                  const numField = targetBlock.getField('NUM') || targetBlock.getField('VALUE');
+                  const numField = targetBlock.getField('NUM') || targetBlock.getField('VALUE') || targetBlock.getField('TEXT');
                   if (numField) {
                     if (variableName.includes('stake') || variableName === 'maxstake' || variableName.includes('amount')) {
                       numField.setValue(Number(cachedParams.stake).toFixed(2));
@@ -407,16 +395,27 @@ export class DerivScannerBridge {
               }
             }
           }
+
+          // Fallback 3: Asset Marker Dropdowns Matcher (Updates Market & Volatility configurations cleanly)
+          if (block.type && block.type.includes('market')) {
+            const symbolField = block.getField('SYMBOL_LIST') || block.getField('MARKET_LIST');
+            if (symbolField) {
+              let systemSymbol = cachedParams.targetSymbol.toUpperCase().trim();
+              if (systemSymbol === 'R_25') systemSymbol = '1HZ25V';
+              if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
+              symbolField.setValue(systemSymbol);
+              blockInjectionCounter++;
+            }
+          }
         });
 
-        // Force an immediate canvas visual repaint pass
         if (workspace && typeof workspace.render === 'function') workspace.render();
-        console.log(`🏁 [INJECTOR SUCCESS] Forced ${blockInjectionCounter} parameters down to the interface canvas.`);
+        console.log(`🏁 [INJECTOR SUMMARY] Successfully synchronized ${blockInjectionCounter} block values.`);
         if (blockInjectionCounter > 0) globalWin.tredaPendingParams = null;
       } catch (err) {
-        console.error("Critical layout parameter mapping error:", err);
+        console.error("⛔ [INJECTOR CRASH EXCEPTION]", err);
       }
-    }, 400); 
+    }, 450); 
   }
 
   public closePipeline(): void {
@@ -425,4 +424,4 @@ export class DerivScannerBridge {
       this.boundMessageHandler = null;
     }
   }
-} // 🏁 COMPLETE ATTAINMENT: This final bracket seals the entire bridge module class architecture flawlessly!
+} // 🏁 FIXED SEALS: This final bracket seals the entire bridge module architecture flawlessly!
