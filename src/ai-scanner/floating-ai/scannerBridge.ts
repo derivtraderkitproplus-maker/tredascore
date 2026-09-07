@@ -33,10 +33,10 @@ export class DerivScannerBridge {
   private monitoredStopLoss: number = 0;
   private monitoredTakeProfit: number = 0;
 
-  // DYNAMIC RISK BALANCES
+  // DYNAMIC RISK BALANCES & SESSION LEDGERS
   private baseStake: number = 0.35;
-  private consecutiveLossesCount: number = 0;
   public liveExecutionLock: boolean = false;
+  private runningSessionAccumulatedPnL: number = 0;
 
   constructor(private appCtx: any) {
     this.extractSystemSocket();
@@ -101,6 +101,10 @@ export class DerivScannerBridge {
     this.activeSymbols = symbols;
     this.extractSystemSocket();
 
+    // 🎯 REFACTOR TYPE FIX: Resets your session profit ledger buffer back to $0.00 at the start of a brand new run
+    this.runningSessionAccumulatedPnL = 0;
+    console.log("🏁 [ENGINE INITIALIZED] Session profit balance reset to $0.00 for this run.");
+
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.boundMessageHandler = (event: MessageEvent) => {
         try {
@@ -137,19 +141,34 @@ export class DerivScannerBridge {
   public handleContractSettlementEvent(contractNode: any): void {
     if (!contractNode) return;
 
-    const currentFloatingPnL = parseFloat(contractNode.profit) || 0;
-    const activeRunsCount = contractNode.transaction_ids?.length || 8;
-
     // 🎯 REFACTORED LOCK RELEASE: Releases the thread lock instantly upon trade resolution to allow next signals
     this.liveExecutionLock = false;
 
-    if (this.monitoredTakeProfit > 0 && currentFloatingPnL >= this.monitoredTakeProfit) {
-      this.triggerTopTierAlertOverlay('PROFIT', currentFloatingPnL, this.monitoredTakeProfit, activeRunsCount);
+    const individualContractPnL = parseFloat(contractNode.profit) || 0;
+    const activeRunsCount = contractNode.transaction_ids?.length || 8;
+
+    // Upgrades tracking logic to compute true net returns across all consecutive cycles
+    this.runningSessionAccumulatedPnL += individualContractPnL;
+    
+    console.log(`📊 [ACCOUNT AUDIT] Total Session Ledger: $${this.runningSessionAccumulatedPnL.toFixed(2)}`);
+
+    // FAIL-SAFE TAKE PROFIT CIRCUIT BREAKER
+    if (this.monitoredTakeProfit > 0 && this.runningSessionAccumulatedPnL >= this.monitoredTakeProfit) {
+      this.triggerTopTierAlertOverlay('PROFIT', this.runningSessionAccumulatedPnL, this.monitoredTakeProfit, activeRunsCount);
       this.emergencyHaltOperations();
+      return;
     } 
-    else if (this.monitoredStopLoss > 0 && currentFloatingPnL <= -Math.abs(this.monitoredStopLoss)) {
-      this.triggerTopTierAlertOverlay('LOSS', currentFloatingPnL, this.monitoredStopLoss, activeRunsCount);
-      this.emergencyHaltOperations();
+
+    // FAIL-SAFE STOP LOSS CIRCUIT BREAKER (Evaluates absolute parameters to stop boundary skipping)
+    if (this.monitoredStopLoss > 0 && this.runningSessionAccumulatedPnL < 0) {
+      const activeRunningDrawdown = Math.abs(this.runningSessionAccumulatedPnL);
+      const configuredStopLossLimit = Math.abs(this.monitoredStopLoss);
+
+      if (activeRunningDrawdown >= configuredStopLossLimit) {
+        this.triggerTopTierAlertOverlay('LOSS', this.runningSessionAccumulatedPnL, this.monitoredStopLoss, activeRunsCount);
+        this.emergencyHaltOperations();
+        return;
+      }
     }
   }
 
@@ -301,7 +320,7 @@ export class DerivScannerBridge {
       if (stopActionButton) (stopActionButton as HTMLElement).click();
     }, 50);
 
-    this.monitoredTakeProfit = 0; this.monitoredStopLoss = 0;
+    // 🎯 REFACTOR FIX: Parameters are no longer cleared back to 0 here to keep them persistent for back-to-back runs!
   }
 // scannerBridge.ts - PART 4: Blockly Parameter Mapping & Pipeline Closer
 
