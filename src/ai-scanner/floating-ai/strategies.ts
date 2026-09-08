@@ -29,6 +29,7 @@ export interface StrategyResult {
   finalConfidence: number;
   tierOverride: 'HIGH' | 'MEDIUM' | 'LOW';
   status?: 'HIGH' | 'MEDIUM' | 'LOW';
+  liveAccuracyPercentage?: number;
   
   executionPayload?: {
     stake: number;
@@ -70,40 +71,73 @@ export function calculateVolatility(prices: number[]): number {
 // strategies.ts - PART 2: Global Configuration Strategy Registry Array Map
 
 export const STRATEGY_PROFILES: StrategyProfile[] = [
-  { id: 'STRATEGY_1_3_2_6', name: '1-3-2-6 System', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 68, description: 'Fixed progressive staking sequence.', targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
-  { id: 'ACC_DALEMBERT', name: `Accumulator D'Alembert`, tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Equilibrium based staking scale.', targetSymbol: 'R_25', contractType: 'ACCUMULATOR', coreEngine: 'DALEMBERT' },
-  { id: 'ACC_MARTINGALE', name: 'Accumulator Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 75, description: 'Aggressive recovery multiplier sequence.', targetSymbol: 'R_50', contractType: 'ACCUMULATOR', coreEngine: 'MARTINGALE' },
-  { id: 'ACC_REVERSE', name: 'Accumulator Reverse', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 64, description: 'Anti-equilibrium progression pattern.', targetSymbol: 'R_75', contractType: 'ACCUMULATOR', coreEngine: 'PROGRESSIVE' },
-  { id: 'ACC_REVERSE_MARTINGALE', name: 'Accumulator Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 78, description: 'Paroli-style compounding trend rider.', targetSymbol: 'R_100', contractType: 'ACCUMULATOR', coreEngine: 'MARTINGALE' },
-  { id: 'AI_ACC_FLOW', name: 'AI Accumulator Flow', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 70, description: 'Neural momentum tracking array.', targetSymbol: 'R_10', contractType: 'ACCUMULATOR', coreEngine: 'NEURAL_FLOW' },
-  { id: 'AI_ADAPTIVE', name: 'AI Adaptive', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 60, description: 'Dynamic lookback structural variant.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
-  { id: 'AI_BALANCED', name: 'AI Balanced', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Risk-adjusted baseline trend filter.', targetSymbol: 'R_50', contractType: 'OVER_UNDER', coreEngine: 'PROGRESSIVE' },
-  { id: 'AI_CONSERVATIVE', name: 'AI Conservative', tier: 'LOW', requiredTicks: 100, confidenceGate: 55, description: 'High-threshold protective entry evaluation.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
-  { id: 'AI_TREND_PRINTER', name: 'AI Trend Printer', tier: 'HIGH', requiredTicks: 100, confidenceGate: 82, description: 'Continuous micro-trend printing scanner.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
-  { id: 'DALEMBERT_CLASSIC', name: `D'Alembert Classic`, tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 60, description: 'Classic addition/subtraction unit formula.', targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' },
-  { id: 'MARTINGALE_CLASSIC', name: 'Martingale Classic', tier: 'HIGH', requiredTicks: 100, confidenceGate: 75, description: 'Standard linear loss doubling matrix.', targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
-  { id: 'OSCARS_GRIND', name: `Oscar's Grind`, tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 62, description: 'Targeted single-unit win progression tracking.', targetSymbol: 'R_50', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
-  { id: 'REVERSE_DALEMBERT', name: `Reverse D'Alembert`, tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 61, description: 'Inverted risk distribution progression.', targetSymbol: 'R_75', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' },
-  { id: 'REVERSE_MARTINGALE', name: 'Reverse Martingale', tier: 'HIGH', requiredTicks: 100, confidenceGate: 76, description: 'Compounded profit maximizing pipeline.', targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
-  { id: 'AI_ALPHA_V16', name: 'AI Alpha Engine v16', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 66, description: 'Predictive neural trend optimization layer.', targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'NEURAL_FLOW' },
-  { id: 'AI_ALPHA_V17', name: 'AI Alpha Engine v17', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 67, description: 'Dynamic multi-asset lookback tracking matrix.', targetSymbol: 'R_25', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
-  { id: 'AI_ALPHA_V18', name: 'AI Alpha Engine v18', tier: 'LOW', requiredTicks: 100, confidenceGate: 58, description: 'High-frequency variance boundary check core.', targetSymbol: 'R_50', contractType: 'ACCUMULATOR', coreEngine: 'NEURAL_FLOW' },
-  { id: 'AI_ALPHA_V19', name: 'AI Alpha Engine v19', tier: 'HIGH', requiredTicks: 100, confidenceGate: 79, description: 'Deep learning classification vector processor.', targetSymbol: 'R_75', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' },
-  { id: 'AI_ALPHA_V20', name: 'AI Alpha Engine v20', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 70, description: 'Neural momentum delta tracking array node.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'NEURAL_FLOW' },
-  { id: 'AI_QUANT_V21', name: 'AI Quant Matrix v21', tier: 'HIGH', requiredTicks: 100, confidenceGate: 81, description: 'Statistical boundary exhaustion trend filter.', targetSymbol: 'R_10', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
-  { id: 'AI_QUANT_V22', name: 'AI Quant Matrix v22', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 64, description: 'Volatility range consolidation index scanner.', targetSymbol: 'R_25', contractType: 'ACCUMULATOR', coreEngine: 'PROGRESSIVE' },
-  { id: 'AI_QUANT_V23', name: 'AI Quant Matrix v23', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 69, description: 'Micro-fractal price velocity calculation network.', targetSymbol: 'R_50', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
-  { id: 'AI_QUANT_V24', name: 'AI Quant Matrix v24', tier: 'LOW', requiredTicks: 100, confidenceGate: 56, description: 'Moving average convergence divergence tracking.', targetSymbol: 'R_75', contractType: 'OVER_UNDER', coreEngine: 'PROGRESSIVE' },
-  { id: 'AI_QUANT_V25', name: 'AI Quant Matrix v25', tier: 'HIGH', requiredTicks: 100, confidenceGate: 77, description: 'Explosive micro-breakout trend vector tracker.', targetSymbol: 'R_100', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' },
-  { id: 'HYPER_SCALPER_V26', name: 'Hyper Scalper Engine v26', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 65, description: 'Sub-second structural tick execution array.', targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' },
-  { id: 'HYPER_SCALPER_V27', name: 'Hyper Scalper Engine v27', tier: 'HIGH', requiredTicks: 100, confidenceGate: 78, description: 'Aggressive rapid price velocity spike scanner.', targetSymbol: 'R_25', contractType: 'OVER_UNDER', coreEngine: 'MARTINGALE' },
-  { id: 'TREND_SHIELD_V28', name: 'Trend Shield Pro v28', tier: 'HIGH', requiredTicks: 100, confidenceGate: 80, description: 'Counter-trend entry denial asset protector.', targetSymbol: 'R_50', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' },
-  { id: 'BAYESIAN_V29', name: 'Bayesian Tracker v29', tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 71, description: 'Conditional probability distribution network.', targetSymbol: 'R_75', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'NEURAL_FLOW' },
-  { id: 'CHOP_ZONE_V30', name: 'Chop Zone Indexer v30', tier: 'LOW', requiredTicks: 100, confidenceGate: 50, description: 'Sideways market phase identifier.', targetSymbol: 'R_100', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' }
-];
-// strategies.ts - PART 3: Algorithmic Strategy Evaluator & Execution Main Pipeline Closer
+  // --- 📈 RISE / FALL (Trend & Momentum) ---
+  { 
+    id: 'AI_TREND_PRINTER', 
+    name: 'AI Trend Printer', 
+    tier: 'HIGH', requiredTicks: 100, confidenceGate: 85, 
+    description: 'Continuous micro-trend printing scanner.', 
+    targetSymbol: 'R_100', contractType: 'RISE_FALL', coreEngine: 'NEURAL_FLOW' 
+  },
+  { 
+    id: 'MARTINGALE_CLASSIC', 
+    name: 'Martingale Classic', 
+    tier: 'HIGH', requiredTicks: 80, confidenceGate: 82, 
+    description: 'Standard linear loss doubling mean-reversion matrix.', 
+    targetSymbol: 'R_25', contractType: 'RISE_FALL', coreEngine: 'MARTINGALE' 
+  },
+  { 
+    id: 'STRATEGY_1_3_2_6', 
+    name: '1-3-2-6 System', 
+    tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 72, 
+    description: 'Fixed risk progressive staking cycle.', 
+    targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' 
+  },
 
-export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): StrategyResult {
+  // --- 🧮 OVER / UNDER (Sideways & Boundaries) ---
+  { 
+    id: 'DALEMBERT_CLASSIC', 
+    name: `D'Alembert Classic`, 
+    tier: 'MEDIUM', requiredTicks: 100, confidenceGate: 70, 
+    description: 'Classic equilibrium addition/subtraction unit formula.', 
+    targetSymbol: 'R_10', contractType: 'OVER_UNDER', coreEngine: 'DALEMBERT' 
+  },
+  { 
+    id: 'AI_BALANCED', 
+    name: 'AI Balanced Over/Under', 
+    tier: 'MEDIUM', requiredTicks: 90, confidenceGate: 75, 
+    description: 'Risk-adjusted baseline trend filter.', 
+    targetSymbol: 'R_50', contractType: 'OVER_UNDER', coreEngine: 'PROGRESSIVE' 
+  },
+
+  // --- 🎯 TOUCH / NO TOUCH (Volatility Breakouts) ---
+  { 
+    id: 'AI_QUANT_V21', 
+    name: 'AI Quant Matrix v21', 
+    tier: 'HIGH', requiredTicks: 120, confidenceGate: 84, 
+    description: 'Statistical boundary exhaustion breakout filter.', 
+    targetSymbol: 'R_10', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' 
+  },
+
+  // --- 🔋 ACCUMULATOR (Compounding Ranges) ---
+  { 
+    id: 'AI_ACC_FLOW', 
+    name: 'AI Accumulator Flow', 
+    tier: 'HIGH', requiredTicks: 100, confidenceGate: 80, 
+    description: 'Neural momentum tracking consolidation array.', 
+    targetSymbol: 'R_100', contractType: 'ACCUMULATOR', coreEngine: 'NEURAL_FLOW' 
+  },
+  { 
+    id: 'ACC_MARTINGALE', 
+    name: 'Accumulator Martingale', 
+    tier: 'HIGH', requiredTicks: 100, confidenceGate: 85, 
+    description: 'Aggressive recovery multiplier sequence.', 
+    targetSymbol: 'R_50', contractType: 'ACCUMULATOR', coreEngine: 'MARTINGALE' 
+  }
+];
+// strategies.ts - PART 3: Algorithmic Strategy Evaluator Engine
+
+export function evaluateStrategy(profile: StrategyProfile, ticks: number[], lossStreak: number = 0): StrategyResult {
   const currentCount = ticks.length;
   
   if (currentCount < profile.requiredTicks) {
@@ -122,12 +156,15 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   const rsiValue = calculateRSI(ticks, 14);
   const volatility = calculateVolatility(ticks.slice(-30));
 
+  // ADAPTIVE VOLATILITY GATEWAY: Replaces hardcoded 0.02 to scale dynamically across Vol 25 to 100
+  const baseMultiplier = isFastAsset ? 0.35 : 0.18;
+  const adaptiveThreshold = Math.max(0.01, volatility * baseMultiplier);
+
   let marketDirection = 'FLAT';
   const priceSpread = fastEma - slowEma;
-  const threshold = 0.02;
 
-  if (priceSpread > threshold) marketDirection = 'UP';
-  else if (priceSpread < -threshold) marketDirection = 'DOWN';
+  if (priceSpread > adaptiveThreshold) marketDirection = 'UP';
+  else if (priceSpread < -adaptiveThreshold) marketDirection = 'DOWN';
 
   // 🎯 HIGH-WIN OPTIMIZATION GATEWAY: Evaluates real-time price cascades across a 5-tick array window
   const lastFiveTicks = ticks.slice(-5);
@@ -155,17 +192,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
         scannerScore = strongTrendMomentum && stableRsiRange ? 92 : 40;
         marketCompatibility = stableRsiRange ? 88 : 42;
       }
-    } else if (profile.id === 'AI_ALPHA_V19') {
-      const isCleanUpwardRun = marketDirection === 'UP' && rsiValue < 60;
-      const isCleanDownwardRun = marketDirection === 'DOWN' && rsiValue > 40;
-      
-      if (marketDirection === 'UP' && isActivelyCrashing) {
-        scannerScore = 35; marketCompatibility = 35;
-      } else {
-        scannerScore = isCleanUpwardRun || isCleanDownwardRun ? 88 : 35;
-        marketCompatibility = volatility > 0.8 ? 85 : 55;
-      }
-    } else if (profile.id === 'MARTINGALE_CLASSIC' || profile.id === 'REVERSE_MARTINGALE') {
+    } else if (profile.id === 'MARTINGALE_CLASSIC') {
       const isMicroOverbought = rsiValue >= 65 && marketDirection === 'UP';
       const isMicroOversold = rsiValue <= 35 && marketDirection === 'DOWN';
       const isMomentumExhausted = Math.abs(priceSpread) < (volatility * 0.25);
@@ -173,40 +200,38 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
 
       scannerScore = highMeanReversionProbability ? 95 : 35;
       marketCompatibility = volatility > 0.4 ? 92 : 45;
-    } else {
-      const rsiDistanceFactor = Math.abs(rsiValue - 50);
-      const structuralTrendStrength = Math.min(15, Math.floor((Math.abs(priceSpread) / (volatility || 1)) * 100));
-      
-      if (marketDirection !== 'FLAT') {
-        scannerScore = Math.floor(75 - rsiDistanceFactor + structuralTrendStrength);
-        marketCompatibility = rsiValue >= 40 && rsiValue <= 60 ? 85 : 60;
-      } else {
-        scannerScore = 40; marketCompatibility = 40;
-      }
+    } else if (profile.id === 'STRATEGY_1_3_2_6') {
+      const isConfidentTrend = marketDirection !== 'FLAT' && rsiValue >= 40 && rsiValue <= 60;
+      scannerScore = isConfidentTrend ? 86 : 45;
+      marketCompatibility = volatility > 0.3 ? 84 : 50;
     }
   } else if (profile.contractType === 'OVER_UNDER') {
     if (profile.id === 'DALEMBERT_CLASSIC') {
       scannerScore = marketDirection === 'FLAT' && volatility < 0.6 ? 88 : 35;
       marketCompatibility = rsiValue >= 48 && rsiValue <= 52 ? 90 : 40;
-    } else {
+    } else if (profile.id === 'AI_BALANCED') {
       scannerScore = marketDirection === 'FLAT' && volatility < 0.8 ? 84 : 40;
       marketCompatibility = rsiValue >= 45 && rsiValue <= 55 ? 82 : 45;
     }
   } else if (profile.contractType === 'TOUCH_NO_TOUCH') {
-    const isExtremeVolatilitySpike = volatility > 1.45 && (rsiValue > 72 || rsiValue < 28);
-    scannerScore = isExtremeVolatilitySpike ? 92 : 35;
-    marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 86 : 45;
+    if (profile.id === 'AI_QUANT_V21') {
+      const isExtremeVolatilitySpike = volatility > 1.45 && (rsiValue > 72 || rsiValue < 28);
+      scannerScore = isExtremeVolatilitySpike ? 92 : 35;
+      marketCompatibility = rsiValue > 65 || rsiValue < 35 ? 86 : 45;
+    }
   } else if (profile.contractType === 'ACCUMULATOR') {
     const isSideways = marketDirection === 'FLAT';
     const withinTightRange = rsiValue >= 48 && rsiValue <= 52; 
     const lowCrashingRisk = volatility < 0.50; 
 
     if (isSideways && withinTightRange && lowCrashingRisk) {
-      scannerScore = 95; marketCompatibility = 90;
+      scannerScore = profile.id === 'ACC_MARTINGALE' ? 95 : 90; 
+      marketCompatibility = 90;
     } else {
       scannerScore = 35; marketCompatibility = 35;
     }
   }
+  // ... (Pasted directly beneath Part 3)
 
   scannerScore = Math.min(96, Math.max(35, scannerScore));
   marketCompatibility = Math.min(96, Math.max(35, marketCompatibility));
@@ -217,8 +242,9 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   if (finalConfidence >= 82) tierOverride = 'HIGH';
   else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
 
+  // MICRO-ACCOUNT FENCE: Defend the user bankroll using strict $0.35 base staking constraints
   const baselineStake = profile.runtimeSettings?.defaultStake && profile.runtimeSettings.defaultStake > 0 
-    ? profile.runtimeSettings.defaultStake : 0.35; // Standard baseline test size
+    ? profile.runtimeSettings.defaultStake : 0.35; 
     
   const activeTP = profile.runtimeSettings?.takeProfitLimit && profile.runtimeSettings.takeProfitLimit > 0
     ? profile.runtimeSettings.takeProfitLimit : 8.00;
@@ -229,18 +255,38 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[]): Str
   const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
   let activeStake = baselineStake;
   
-  if (typeof window !== 'undefined' && window.localStorage) {
-    const activeStreakCount = parseInt(localStorage.getItem('EDASCORE_CONSECUTIVE_LOSS_COUNT') || '0', 10);
-    if (activeStreakCount > 0 && (profile.coreEngine === 'MARTINGALE' || profile.coreEngine === 'NEURAL_FLOW')) {
-      activeStake = baselineStake * Math.pow(2.15, activeStreakCount);
-      const safetyCeilingLimit = 25.00; 
-      if (activeStake > safetyCeilingLimit) activeStake = safetyCeilingLimit;
-    }
+  // Safe calculation loop using the direct lossStreak variable passed from background thread context
+  if (lossStreak > 0 && (profile.coreEngine === 'MARTINGALE' || profile.coreEngine === 'NEURAL_FLOW')) {
+    activeStake = baselineStake * Math.pow(2.15, lossStreak);
+    const safetyCeilingLimit = 25.00; 
+    if (activeStake > safetyCeilingLimit) activeStake = safetyCeilingLimit;
   }
 
   return {
-    profileId: profile.id, ticksLoaded: currentCount, marketState: 'READY', direction: marketDirection,
-    scannerScore, marketCompatibility, finalConfidence, tierOverride,
-    executionPayload: { stake: parseFloat(activeStake.toFixed(2)), takeProfit: activeTP, stopLoss: activeSL, growthRate: activeGrowth }
+    profileId: profile.id, 
+    ticksLoaded: currentCount, 
+    marketState: volatility > 1.2 ? 'HIGH_VOLATILITY_RUN' : 'READY', 
+    direction: marketDirection,
+    scannerScore, 
+    marketCompatibility, 
+    finalConfidence, 
+    tierOverride,
+    status: tierOverride,
+    
+    executionPayload: { 
+      stake: parseFloat(activeStake.toFixed(2)), 
+      takeProfit: activeTP, 
+      stopLoss: activeSL, 
+      growthRate: activeGrowth 
+    }
   };
-} // 🏁 FIXED SEALS: Perfectly closes and balances structural array paths.
+} 
+
+/**
+ * Utility helper to perform bulk snapshot array runs across the elite strategy matrix
+ */
+export function evaluateRegistrySnapshot(ticks: number[], lossStreak: number = 0): StrategyResult[] {
+  if (!ticks || ticks.length === 0) return [];
+  return STRATEGY_PROFILES.map((profile) => evaluateStrategy(profile, ticks, lossStreak))
+    .sort((a, b) => b.finalConfidence - a.finalConfidence);
+}
