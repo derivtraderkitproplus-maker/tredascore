@@ -1,5 +1,5 @@
-// src/ai-scanner/scanner.worker.ts - UPGRADED INFRASTRUCTURE FRAME
-import { ScannerLogicEngine } from './scannerLogic.ts'; // ✅ Explicitly include file extension if your bundler strictly enforces it
+// src/ai-scanner/scanner.worker.ts - COMPILATION SAFE BACKGROUND CHUNK FILE
+import { ScannerLogicEngine } from './scannerLogic'; // ✅ FIXED: Removed the restricted '.ts' extension string completely!
 
 const backgroundProcessorEngine = new ScannerLogicEngine();
 
@@ -7,7 +7,7 @@ self.onmessage = (messageEvent: MessageEvent) => {
   const { action, symbol, price } = messageEvent.data;
 
   if (action === 'INFLOW_TICK') {
-    if (!symbol || price === undefined) return; // Prevent parsing errors from crashing the isolate thread
+    if (!symbol || price === undefined) return; // Prevent parsing errors from crashing the thread channel
     
     backgroundProcessorEngine.injectTick(symbol, price);
     const calculatedFrames = backgroundProcessorEngine.runScannerPipeline();
