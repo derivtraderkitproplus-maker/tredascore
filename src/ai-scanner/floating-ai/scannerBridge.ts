@@ -35,6 +35,12 @@ export class DerivScannerBridge {
     this.extractSystemSocket();
     this.initializeNativeWorkerThread(onScannerResultsReceived);
     this.initializeAutomatedPerformanceWatcher();
+
+    // 🎯 THE GLOBAL ANCHOR SHORTCUT: 
+    // Exposes the bridge singleton instance to global memory so the UI can load parameters seamlessly!
+    if (typeof window !== 'undefined') {
+      (window as any).tredaBridgeInstance = this;
+    }
   }
 
   /**
@@ -121,8 +127,14 @@ export class DerivScannerBridge {
       // Subscribe directly to your parent platform's live network transmission streams
       const liveStreamSubscription = globalWin.api_base.api.onMessage().subscribe((res: any) => {
         try {
-          if (res && res.msg_type === 'tick' && res.tick) {
-            const { symbol, quote } = res.tick;
+          if (!res) return;
+
+          // ✅ THE FIXED PACKET UNWRAPPER: Maps the nested .data payload layer cleanly
+          // This strips away the sandbox dictionary wrapper to deliver raw data straight to your indicators!
+          const networkPacket = res.data || res;
+
+          if (networkPacket && networkPacket.msg_type === 'tick' && networkPacket.tick) {
+            const { symbol, quote } = networkPacket.tick;
             const matchedSymbol = this.activeSymbols.find(s => this.checkSymbolMatch(symbol, s));
 
             if (matchedSymbol) {
@@ -316,7 +328,7 @@ export class DerivScannerBridge {
       const payoutMatch = globalTextContent.match(/Total payout\s+([\d.]+)/i);
 
       if (stakeMatch && payoutMatch) {
-        sessionNetBalance = parseFloat(payoutMatch[1]) - parseFloat(stakeMatch[1]); 
+        sessionNetBalance = parseFloat(payoutMatch) - parseFloat(stakeMatch); 
         hasMetrics = true;
       }
 
