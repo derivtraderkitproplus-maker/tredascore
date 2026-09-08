@@ -1,6 +1,6 @@
 // scannerBridge.ts - PART 1: Core Module Registries & Type Definitions
 
-import { ScannerLogicEngine } from './scannerLogic'; // ✅ ES6 Standard Import to preserve your genuine analytics math
+import { ScannerLogicEngine } from './scannerLogic'; // ✅ Preserves genuine math calculations natively
 
 export type TickCallback = (symbol: string, tick: number) => void;
 
@@ -26,7 +26,7 @@ export class DerivScannerBridge {
   private monitoredTakeProfit: number = 0;
 
   // DYNAMIC RISK PROGRESSION BALANCES
-  private baseStake: number = 0.35; // Protected micro-stakes baseline
+  private baseStake: number = 0.35; // Protected micro-stakes testing size baseline
   private currentMartingaleMultiplier: number = 1.0; 
   private consecutiveLossesCount: number = 0;
   private maximumRecoveryStepsAllowed: number = 5;
@@ -98,6 +98,11 @@ export class DerivScannerBridge {
     this.closePipeline();
     this.activeSymbols = symbols;
     this.extractSystemSocket();
+
+    // Force create a direct local strategy calculation engine wrapper fallback link if missing
+    if (!(this as any).localFallbackEngine) {
+      (this as any).localFallbackEngine = new ScannerLogicEngine();
+    }
 
     // 🔗 ROUTE 1: GENUINE LIVE INTERCEPT CHANNELS HOOKED TO THE BROKER
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
