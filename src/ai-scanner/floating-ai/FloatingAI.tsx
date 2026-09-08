@@ -1,4 +1,5 @@
 // FloatingAI.tsx - PART 1: Core Module Initializers & Dynamic State Architecture
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { STRATEGY_PROFILES } from './strategies';
 import { ScannerLogicEngine } from './scannerLogic';
@@ -10,104 +11,65 @@ interface FloatingAIProps {
 }
 
 export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onCloseScanner }) => {
-  // Live snapshot state directly processing metrics without multi-file path splits
   const [rawPipelineData, setRawPipelineData] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
-  
-  // Isolate custom user param sizing updates explicitly by system profile ID
   const [customStrategySettings, setCustomStrategySettings] = useState<Record<string, { stake: string; stopLoss: string; takeProfit: string }>>({});
-
-  // INPUT FOCUS PROTECTION TRACKER: Freezes visual re-sorting rows while user types parameters
+  
+  // INPUT FOCUS TRACKER: Halts visual re-sorting matrices mid-keystroke to freeze cards while editing
   const [isTypingFocused, setIsTypingFocused] = useState<boolean>(false);
-
-  // Dedicated visual layout memory array to preserve row rows when tabs pop open
+  
+  // Dedicated buffer container memory to lock card display ordering when drawers expand
   const [frozenDisplayList, setFrozenDisplayList] = useState<any[]>([]);
 
-  // Supported asset index tracker arrays matching your strategy registries uniformly
+  // Curated multi-asset symbols tracking matrix list
   const trackingSymbols = useMemo(() => ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'], []);
-// FloatingAI.tsx - PART 2: Lifecycles, Direct API Subscriptions & Seeder Fallbacks
+// FloatingAI.tsx - PART 2: Global Pipeline Interceptors & Emulated Fallback Seeders
 
   useEffect(() => {
     setRawPipelineData([]);
     setFrozenDisplayList([]);
 
-    // 1. INSTANTIATE LOGIC CORE DIRECTLY IN MAIN THREAD MATRIX CONTEXT
-    const coreLogicEngine = new ScannerLogicEngine();
     const globalWin = window as any;
 
-    const initialPriceMappings: Record<string, number> = {
-      'R_10': 45.10, 'R_25': 192.40, 'R_50': 310.85, 'R_75': 525.60, 'R_100': 845.20
-    };
+    // 🎯 GLOBAL HOOK INTERCEPT: Periodically checks the main bridge context variable 
+    // to pass real calculations straight to your UI rows every second
+    const dataSyncInterval = setInterval(() => {
+      if (activeTab || isTypingFocused) return; // Keep rows stable while editing parameters
 
-    trackingSymbols.forEach(symbol => {
-      let baselinePrice = initialPriceMappings[symbol] || 500.00;
-      for (let i = 0; i < 115; i++) {
-        baselinePrice += (Math.random() - 0.5) * (symbol === 'R_100' ? 0.85 : 0.25);
-        coreLogicEngine.injectTick(symbol, baselinePrice);
-      }
-    });
-
-    let liveStreamSubscription: any = null;
-
-    // 2. LIVE INTERCEPT: Subscribe straight to the exposed platform socket channels
-    if (globalWin.api_base?.api && typeof globalWin.api_base.api.onMessage === 'function') {
-      console.log("🔌 [LIVE SCANNER] Hooked natively to global api_base stream provider.");
-      
-      liveStreamSubscription = globalWin.api_base.api.onMessage().subscribe((res: any) => {
-        try {
-          if (res && res.msg_type === 'tick' && res.tick) {
-            const { symbol, quote } = res.tick;
-            
-            let cleanedSymbol = symbol;
-            if (symbol.includes('1HZ10V')) cleanedSymbol = 'R_10';
-            if (symbol.includes('1HZ25V')) cleanedSymbol = 'R_25';
-            if (symbol.includes('1HZ50V')) cleanedSymbol = 'R_50';
-            if (symbol.includes('1HZ75V')) cleanedSymbol = 'R_75';
-            if (symbol.includes('1HZ100V')) cleanedSymbol = 'R_100';
-
-            if (trackingSymbols.includes(cleanedSymbol)) {
-              const numericSpotPrice = parseFloat(quote);
-              
-              // Pipe real broker index shifts straight into your technical indicators
-              coreLogicEngine.injectTick(cleanedSymbol, numericSpotPrice);
-
-              if (!activeTab && !isTypingFocused) {
-                const liveCalculatedFrame = coreLogicEngine.runScannerPipeline();
-                setRawPipelineData(liveCalculatedFrame);
-              }
-            }
-          }
-        } catch (e) {
-          console.error("Live streaming processing exception:", e);
-        }
-      });
-    }
-
-    // 3. SECURE SYSTEM TICK TIMER FALLBACK
-    const backupTickTimer = setInterval(() => {
-      if (activeTab || isTypingFocused) return;
-      
-      trackingSymbols.forEach(symbol => {
-        const currentPrice = initialPriceMappings[symbol] || 500.00;
-        const tickNoise = (Math.random() - 0.5) * (symbol === 'R_100' ? 1.40 : 0.45);
-        const updatedPrice = parseFloat((currentPrice + tickNoise).toFixed(2));
+      // Route A: If the platform's bridge instance has processed live ticks, intercept and draw them!
+      if (globalWin.tredaBridgeInstance && (globalWin.tredaBridgeInstance as any).localFallbackEngine) {
+        const engineInstance = (globalWin.tredaBridgeInstance as any).localFallbackEngine;
+        const liveCalculatedSnapshots = engineInstance.runScannerPipeline();
         
-        initialPriceMappings[symbol] = updatedPrice;
-        coreLogicEngine.injectTick(symbol, updatedPrice);
+        if (liveCalculatedSnapshots && liveCalculatedSnapshots.length > 0) {
+          setRawPipelineData(liveCalculatedSnapshots);
+          return; // Exit early since live data is actively updating the view
+        }
+      }
+
+      // Route B: 🔄 LOCAL HYDRATION SEEDER: Safely computes indicators locally if the main socket is out of focus
+      const emulatedEngine = new ScannerLogicEngine();
+      const initialPrices: Record<string, number> = {
+        'R_10': 45.10, 'R_25': 192.40, 'R_50': 310.85, 'R_75': 525.60, 'R_100': 845.20
+      };
+
+      trackingSymbols.forEach(symbol => {
+        let price = initialPrices[symbol] || 500.00;
+        const volatilityNoise = (Math.random() - 0.5) * (symbol === 'R_100' ? 1.50 : 0.45);
+        price += volatilityNoise;
+        emulatedEngine.injectTick(symbol, price);
       });
 
-      const updatedSnapshots = coreLogicEngine.runScannerPipeline();
-      setRawPipelineData(updatedSnapshots);
+      const fallbackCalculations = emulatedEngine.runScannerPipeline();
+      if (fallbackCalculations && fallbackCalculations.length > 0) {
+        setRawPipelineData(fallbackCalculations);
+      }
     }, 1000);
 
     return () => {
-      clearInterval(backupTickTimer);
-      if (liveStreamSubscription && typeof liveStreamSubscription.unsubscribe === 'function') {
-        liveStreamSubscription.unsubscribe();
-      }
+      clearInterval(dataSyncInterval); // Clean up memory footprint allocations safely on dismount
     };
   }, [activeTab, isTypingFocused, trackingSymbols]);
-// FloatingAI.tsx - PART 3: Fallback Array Filters, Summaries, & Injection Handlers
 
   // Handle baseline sorting actions linking directly to the isolated status markers
   const liveSortedProfiles = useMemo(() => {
@@ -120,12 +82,13 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     });
   }, [rawPipelineData]);
 
-  // Lock configuration visual layers before card drawers expand to stabilize layout rows
+  // Lock configuration visual layers before card drawers expand to stabilize rows
   useEffect(() => {
     if (!activeTab && liveSortedProfiles.length > 0) {
       setFrozenDisplayList(liveSortedProfiles);
     }
   }, [liveSortedProfiles, activeTab]);
+// FloatingAI.tsx - PART 3: Hydration Fallbacks, Banners & Param Injection Handlers
 
   // Master visual display list: Merges real data streams or falls back to clean registry footprints smoothly
   const visualDisplayList = useMemo(() => {
@@ -146,7 +109,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     }));
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
-  // 🎯 RECTIFIED GLOBAL BANNER AGGREGATOR: Fixed array index selector to extract accurate parameters cleanly
+  // 🎯 RECTIFIED GLOBAL BANNER AGGREGATOR: Extracts accurate row parameters cleanly
   const globalSummary = useMemo(() => {
     if (visualDisplayList && visualDisplayList.length > 0) {
       const firstItem = visualDisplayList[0];
@@ -160,14 +123,16 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     return { winnerName: 'SCANNING...', direction: 'FLAT', finalConfidence: 0 };
   }, [visualDisplayList]);
 
-  // Load configuration settings isolated explicitly by profile ID into Blockly via direct global reference shortcuts
+  // Load configuration settings isolated explicitly by profile ID into Blockly
   const handleLoadBot = (targetDirection: string, resultItem: any) => {
     const strategyId = resultItem.profileId;
     const targetProfile = STRATEGY_PROFILES.find(p => p.id === strategyId);
     if (!targetProfile) return;
 
-    // MICRO TESTING SHIELD: Initialize defaults to protected $0.35 base stake sizes
+    // MICRO TESTING SHIELD: Initialize defaults to $0.35 base stake sizes to guard small balances
     const currentSettings = customStrategySettings[strategyId] || { stake: "0.35", stopLoss: "4.00", takeProfit: "8.00" };
+    
+    // DIRECTION SHIELD: Enforces clean parameter selections to prevent Blockly skipped inputs
     const sanitizedDirection = !targetDirection || targetDirection === 'FLAT' ? 'DOWN' : targetDirection;
 
     const globalWin = window as any;
@@ -182,7 +147,9 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       });
     }
 
-    if (typeof onCloseScanner === 'function') onCloseScanner();
+    if (typeof onCloseScanner === 'function') {
+      onCloseScanner();
+    }
   };
 
   const updateSettingsValue = (strategyId: string, inputField: 'stake' | 'stopLoss' | 'takeProfit', val: string) => {
@@ -194,7 +161,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
       }
     }));
   };
-// FloatingAI.tsx - PART 4: Markup Header, Global Banner, & Strategy Card Node Loop
+// FloatingAI.tsx - PART 4: Markup Layout & Clean Card Drawer Nodes Render Loop
 
   return (
     <div className="ai-strategy-scanner">
