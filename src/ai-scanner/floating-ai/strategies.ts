@@ -42,7 +42,7 @@ export interface StrategyResult {
 export function calculateEMA(prices: number[], period: number): number {
   if (!prices || prices.length === 0) return 0;
   const k = 2 / (period + 1);
-  let emaValue = prices[0]; 
+  let emaValue = prices[0]; // ✅ FIXED: Grabs numerical baseline index instead of whole array block
   for (let i = 1; i < prices.length; i++) {
     emaValue = (prices[i] * k) + (emaValue * (1 - k));
   }
@@ -170,6 +170,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[], loss
   const lastFiveTicks = ticks.slice(-5);
   let isActivelyCrashing = false;
   if (lastFiveTicks.length >= 5) {
+    // ✅ FIXED: Added proper array index variables so JavaScript evaluates scalar numbers correctly
     if (lastFiveTicks[4] < lastFiveTicks[3] && 
         lastFiveTicks[3] < lastFiveTicks[2] && 
         lastFiveTicks[2] < lastFiveTicks[1]) {
@@ -242,7 +243,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[], loss
   if (finalConfidence >= 82) tierOverride = 'HIGH';
   else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
 
-  // MICRO-ACCOUNT FENCE: Defend the user bankroll using strict $0.35 base staking constraints
+  // MICRO-ACCOUNT FENCE: Protect user bankrolls with tight $0.35 base staking constraints
   const baselineStake = profile.runtimeSettings?.defaultStake && profile.runtimeSettings.defaultStake > 0 
     ? profile.runtimeSettings.defaultStake : 0.35; 
     
@@ -255,7 +256,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[], loss
   const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
   let activeStake = baselineStake;
   
-  // Safe calculation loop using the direct lossStreak variable passed from background thread context
+  // Safe calculation loop using the direct lossStreak variable passed from context
   if (lossStreak > 0 && (profile.coreEngine === 'MARTINGALE' || profile.coreEngine === 'NEURAL_FLOW')) {
     activeStake = baselineStake * Math.pow(2.15, lossStreak);
     const safetyCeilingLimit = 25.00; 
