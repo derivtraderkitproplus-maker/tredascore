@@ -1,3 +1,5 @@
+// CoreStoreProvider.tsx - PART 1: Core Initializers & State Context hooks
+
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Cookies from 'js-cookie';
 import { observer } from 'mobx-react-lite';
@@ -22,7 +24,8 @@ type TClientInformation = {
     preferred_language?: string | null;
     user_id?: number | string;
 };
-const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ children }) => {
+
+export const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ children }) => {
     const currentDomain = useMemo(() => '.' + window.location.hostname.split('.').slice(-2).join('.'), []);
     const { isAuthorizing, isAuthorized, connectionStatus, accountList, activeLoginid } = useApiBase();
 
@@ -33,7 +36,6 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
     const { client, common } = useStore() ?? {};
 
     const { currentLang } = useTranslations();
-
     const handleLogout = useLogout();
 
     const activeAccount = useMemo(
@@ -47,10 +49,10 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
             client?.setAccountList(accountList);
             client?.setIsLoggedIn(true);
         } else if (client && !isAuthorized) {
-            // Ensure client shows as not logged in until authorization is complete
             client?.setIsLoggedIn(false);
         }
     }, [accountList, activeAccount, activeLoginid, client, isAuthorized]);
+// CoreStoreProvider.tsx - PART 2: Language Synchronizers & Server Time Intervals
 
     useEffect(() => {
         initFormErrorMessages(FORM_ERROR_MESSAGES());
@@ -68,15 +70,12 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
         }
     }, [currentLang, common]);
 
-    // Type-safe interface for API with time() method
     interface ApiWithTime {
         time(): Promise<TSocketResponseData<'time'>>;
     }
 
     useEffect(() => {
         const updateServerTime = () => {
-            // Fixed type safety: replaced 'as any' with proper interface and runtime check
-            // Ensures time() method exists before calling it
             if (!api_base.api || !('time' in api_base.api)) return;
             (api_base.api as ApiWithTime)
                 .time()
@@ -88,7 +87,6 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
                 });
         };
 
-        // Clear any existing interval before setting up a new one
         if (timeInterval.current) {
             clearInterval(timeInterval.current);
             timeInterval.current = null;
@@ -98,14 +96,10 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
             if (!api_base?.api) return;
             appInitialization.current = true;
 
-            // Initial time update
             updateServerTime();
-
-            // Schedule updates every 10 seconds
             timeInterval.current = setInterval(updateServerTime, 10000);
         }
 
-        // Cleanup on unmount or dependency change
         return () => {
             if (timeInterval.current) {
                 clearInterval(timeInterval.current);
@@ -113,24 +107,20 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
             }
         };
     }, [client, common]);
+// CoreStoreProvider.tsx - PART 3: Message Routing & Global window.api_base Coupling
 
     const handleMessages = useCallback(
-        // Changed parameter type from Record<string, unknown> to unknown to match onMessage signature
         async (res: unknown) => {
             if (!res) return;
             const data = (res as Record<string, unknown>).data as TSocketResponseData<'balance'>;
             const { msg_type, error } = data;
 
-            // Handle auth errors by calling client.logout() directly instead of useLogout hook
-            // This prevents redundant logout operations since useLogout internally calls client.logout()
             if (
                 error?.code === 'AuthorizationRequired' ||
                 error?.code === 'DisabledClient' ||
                 error?.code === 'InvalidToken'
             ) {
-                // Clear all URL query parameters for these auth errors
                 clearInvalidTokenParams();
-                // Call client store logout directly to avoid double logout
                 await client?.logout();
             }
 
@@ -145,15 +135,19 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
                 }
             }
         },
-        // Fixed memory leak: removed handleLogout from deps as it's not used in function body
-        // Only client is actually referenced (line 129), preventing unnecessary re-subscriptions
         [client]
     );
 
     useEffect(() => {
         if (!isAuthorizing && client) {
             const subscription = api_base?.api?.onMessage().subscribe(handleMessages);
-            // Fixed unsubscribe type - only store if subscription exists
+            
+            // ✅ THE MASTER UNFREEZE COUPLING: Safely exposes the api_base module to global memory context references
+            if (typeof window !== 'undefined' && api_base?.api) {
+                (window as any).api_base = api_base;
+                console.log("🔓 [SCANNER COUPLING] Master subscription channel successfully exposed to window memory.");
+            }
+
             if (subscription) {
                 msg_listener.current = { unsubscribe: subscription.unsubscribe };
             }
@@ -165,6 +159,7 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
             }
         };
     }, [connectionStatus, handleMessages, isAuthorizing, isAuthorized, client]);
+// CoreStoreProvider.tsx - PART 4: Client Information Cookies & Layout Render Closures
 
     useEffect(() => {
         if (!isAuthorizing && isAuthorized && !accountInitialization.current && client) {
