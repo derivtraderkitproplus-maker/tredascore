@@ -8,19 +8,18 @@ interface HistoricalTradeOutcome {
 }
 
 export class ScannerLogicEngine {
-  // Store a rolling memory ring-buffer of raw historical price ticks for each unique asset symbol
+  // Store rolling price buffers for distinct continuous assets
   private tickHistoryRegistry: Map<string, number[]> = new Map();
   
-  // Track consecutive drawdown streaks locally within the background thread state isolate
+  // Track consecutive drawdown streaks locally inside the background worker thread state isolate
   private continuousLossTrackers: Map<string, number> = new Map();
   
-  // High-performance cache tracking rolling historical win/loss outcomes per strategy profile
+  // Performance cache tracking rolling historical win/loss outcomes per strategy profile
   private strategyPerformanceLogs: Map<string, HistoricalTradeOutcome[]> = new Map();
 // scannerLogic.ts - PART 2: Inflow Streaming Actions & Performance Logs
 
   /**
    * Appends incoming price feeds to their respective asset data streams.
-   * Enforces a sliding lookback performance window automatically.
    */
   public injectTick(symbol: string, price: number): void {
     if (!this.tickHistoryRegistry.has(symbol)) {
@@ -30,7 +29,7 @@ export class ScannerLogicEngine {
     const stream = this.tickHistoryRegistry.get(symbol)!;
     stream.push(price);
 
-    // Enforce an upper performance horizon bound limit to manage worker memory footprints
+    // Enforce sliding performance boundary window limits
     if (stream.length > 150) {
       stream.shift();
     }
@@ -38,7 +37,6 @@ export class ScannerLogicEngine {
 
   /**
    * Updates loss streak variables dynamically based on main-thread execution signals.
-   * This bridges the thread separation layer when loss events settle.
    */
   public updateLossStreak(symbol: string, runningStreakCount: number): void {
     this.continuousLossTrackers.set(symbol, runningStreakCount);
@@ -55,7 +53,6 @@ export class ScannerLogicEngine {
     const logs = this.strategyPerformanceLogs.get(strategyId)!;
     logs.push({ wasWin: isWin, timestamp: Date.now() });
 
-    // Clamp tracking array memory allocations strictly to the last 20 operations
     if (logs.length > 20) {
       logs.shift();
     }
@@ -67,7 +64,7 @@ export class ScannerLogicEngine {
    */
   private calculateRollingWinRate(strategyId: string): number {
     const logs = this.strategyPerformanceLogs.get(strategyId) || [];
-    if (logs.length === 0) return 0.50; // Return a clean 50% baseline if no trade outcomes exist yet
+    if (logs.length === 0) return 0.50; 
     
     const wins = logs.filter(trade => trade.wasWin).length;
     return wins / logs.length;
@@ -84,28 +81,23 @@ export class ScannerLogicEngine {
       const currentPriceHistory = this.tickHistoryRegistry.get(symbolKey) || [];
       const currentStreak = this.continuousLossTrackers.get(symbolKey) || 0;
 
-      // 1. Calculate the core analytical and math technical data frame indicators
+      // Calculate indicators safely across thread lines
       const baseEvaluation = evaluateStrategy(profile, currentPriceHistory, currentStreak);
-      
-      // 2. Extract real-world rolling performance data accuracy metrics
       const currentRealWinRate = this.calculateRollingWinRate(profile.id);
 
-      // 3. PERFORMANCE ACCURACY PENALTY GATE: If real historical win rate decays below 45%, 
-      // reduce the confidence value so the strategy card drops out of the HIGH execution tier.
+      // PERFORMANCE DECAY PROTECTION: Demote strategy if real win rate hits dangerous lows
       if (currentRealWinRate < 0.45 && baseEvaluation.finalConfidence >= 82) {
         baseEvaluation.finalConfidence = Math.floor(baseEvaluation.finalConfidence * 0.75);
         baseEvaluation.tierOverride = 'MEDIUM';
         baseEvaluation.status = 'MEDIUM';
       }
 
-      // 4. Inject the calculated live metrics back into the final payload matrix
       rawAggregatedOutput.push({
         ...baseEvaluation,
         liveAccuracyPercentage: Math.floor(currentRealWinRate * 100)
       });
     }
 
-    // Sort snapshots uniformly from highest confidence tier down to lowest
     return rawAggregatedOutput.sort((a, b) => b.finalConfidence - a.finalConfidence);
   }
 // scannerLogic.ts - PART 4: Asset Lookup Resolution Map
@@ -124,4 +116,4 @@ export class ScannerLogicEngine {
     };
     return assetMap[target] || target;
   }
-} // 🏁 ENGINE SEALS COMPLETE: scannerLogic.ts matches the Elite 8 setup.
+} // 🏁 MASTER ENCLOSURE COMPLETE: scannerLogic.ts class fully synced.
