@@ -42,7 +42,7 @@ export interface StrategyResult {
 export function calculateEMA(prices: number[], period: number): number {
   if (!prices || prices.length === 0) return 0;
   const k = 2 / (period + 1);
-  let emaValue = prices[0]; // ✅ FIXED: Grabs numerical baseline index instead of whole array block
+  let emaValue = prices[0]; // FIXED: Access scalar index directly to prevent thread crashes
   for (let i = 1; i < prices.length; i++) {
     emaValue = (prices[i] * k) + (emaValue * (1 - k));
   }
@@ -71,7 +71,7 @@ export function calculateVolatility(prices: number[]): number {
 // strategies.ts - PART 2: Global Configuration Strategy Registry Array Map
 
 export const STRATEGY_PROFILES: StrategyProfile[] = [
-  // --- 📈 RISE / FALL (Trend & Momentum) ---
+  // --- RISE / FALL (Trend & Momentum) ---
   { 
     id: 'AI_TREND_PRINTER', 
     name: 'AI Trend Printer', 
@@ -94,7 +94,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
     targetSymbol: 'R_10', contractType: 'RISE_FALL', coreEngine: 'PROGRESSIVE' 
   },
 
-  // --- 🧮 OVER / UNDER (Sideways & Boundaries) ---
+  // --- OVER / UNDER (Sideways & Boundaries) ---
   { 
     id: 'DALEMBERT_CLASSIC', 
     name: `D'Alembert Classic`, 
@@ -110,7 +110,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
     targetSymbol: 'R_50', contractType: 'OVER_UNDER', coreEngine: 'PROGRESSIVE' 
   },
 
-  // --- 🎯 TOUCH / NO TOUCH (Volatility Breakouts) ---
+  // --- TOUCH / NO TOUCH (Volatility Breakouts) ---
   { 
     id: 'AI_QUANT_V21', 
     name: 'AI Quant Matrix v21', 
@@ -119,7 +119,7 @@ export const STRATEGY_PROFILES: StrategyProfile[] = [
     targetSymbol: 'R_10', contractType: 'TOUCH_NO_TOUCH', coreEngine: 'PROGRESSIVE' 
   },
 
-  // --- 🔋 ACCUMULATOR (Compounding Ranges) ---
+  // --- ACCUMULATOR (Compounding Ranges) ---
   { 
     id: 'AI_ACC_FLOW', 
     name: 'AI Accumulator Flow', 
@@ -156,7 +156,7 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[], loss
   const rsiValue = calculateRSI(ticks, 14);
   const volatility = calculateVolatility(ticks.slice(-30));
 
-  // ADAPTIVE VOLATILITY GATEWAY: Replaces hardcoded 0.02 to scale dynamically across Vol 25 to 100
+  // ATR adaptive threshold adjustments replacing old static values
   const baseMultiplier = isFastAsset ? 0.35 : 0.18;
   const adaptiveThreshold = Math.max(0.01, volatility * baseMultiplier);
 
@@ -166,15 +166,18 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[], loss
   if (priceSpread > adaptiveThreshold) marketDirection = 'UP';
   else if (priceSpread < -adaptiveThreshold) marketDirection = 'DOWN';
 
-  // 🎯 HIGH-WIN OPTIMIZATION GATEWAY: Evaluates real-time price cascades across a 5-tick array window
+  // FIXED NOISE GATE FILTER: Explicitly assign scalars to ensure zero copy errors across threads
   const lastFiveTicks = ticks.slice(-5);
   let isActivelyCrashing = false;
   if (lastFiveTicks.length >= 5) {
-    // ✅ FIXED: Added proper array index variables so JavaScript evaluates scalar numbers correctly
-    if (lastFiveTicks[4] < lastFiveTicks[3] && 
-        lastFiveTicks[3] < lastFiveTicks[2] && 
-        lastFiveTicks[2] < lastFiveTicks[1]) {
-      isActivelyCrashing = true; // Identifies a dangerous downward flush sequence
+    const t0 = lastFiveTicks[0];
+    const t1 = lastFiveTicks[1];
+    const t2 = lastFiveTicks[2];
+    const t3 = lastFiveTicks[3];
+    const t4 = lastFiveTicks[4];
+    
+    if (t4 < t3 && t3 < t2 && t2 < t1 && t1 < t0) {
+      isActivelyCrashing = true; 
     }
   }
 
@@ -186,7 +189,6 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[], loss
       const strongTrendMomentum = Math.abs(priceSpread) > (volatility * 0.4);
       const stableRsiRange = rsiValue >= 45 && rsiValue <= 65;
       
-      // CRITICAL BLOCK FILTER: If strategy tries to buy UP during a crash, drop score immediately
       if (marketDirection === 'UP' && isActivelyCrashing) {
         scannerScore = 35; marketCompatibility = 35;
       } else {
@@ -243,7 +245,6 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[], loss
   if (finalConfidence >= 82) tierOverride = 'HIGH';
   else if (finalConfidence >= 65) tierOverride = 'MEDIUM';
 
-  // MICRO-ACCOUNT FENCE: Protect user bankrolls with tight $0.35 base staking constraints
   const baselineStake = profile.runtimeSettings?.defaultStake && profile.runtimeSettings.defaultStake > 0 
     ? profile.runtimeSettings.defaultStake : 0.35; 
     
@@ -256,7 +257,6 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[], loss
   const activeGrowth = profile.runtimeSettings?.growthRate ?? 0.01;
   let activeStake = baselineStake;
   
-  // Safe calculation loop using the direct lossStreak variable passed from context
   if (lossStreak > 0 && (profile.coreEngine === 'MARTINGALE' || profile.coreEngine === 'NEURAL_FLOW')) {
     activeStake = baselineStake * Math.pow(2.15, lossStreak);
     const safetyCeilingLimit = 25.00; 
@@ -283,9 +283,6 @@ export function evaluateStrategy(profile: StrategyProfile, ticks: number[], loss
   };
 } 
 
-/**
- * Utility helper to perform bulk snapshot array runs across the elite strategy matrix
- */
 export function evaluateRegistrySnapshot(ticks: number[], lossStreak: number = 0): StrategyResult[] {
   if (!ticks || ticks.length === 0) return [];
   return STRATEGY_PROFILES.map((profile) => evaluateStrategy(profile, ticks, lossStreak))
