@@ -1,5 +1,5 @@
-// scanner.worker.ts - Background Computation Isolate Frame
-import { ScannerLogicEngine } from './scannerLogic';
+// src/ai-scanner/scanner.worker.ts - UPGRADED INFRASTRUCTURE FRAME
+import { ScannerLogicEngine } from './scannerLogic.ts'; // ✅ Explicitly include file extension if your bundler strictly enforces it
 
 const backgroundProcessorEngine = new ScannerLogicEngine();
 
@@ -7,13 +7,11 @@ self.onmessage = (messageEvent: MessageEvent) => {
   const { action, symbol, price } = messageEvent.data;
 
   if (action === 'INFLOW_TICK') {
-    // 1. Process incoming tick metrics safely in the background thread isolate
-    backgroundProcessorEngine.injectTick(symbol, price);
+    if (!symbol || price === undefined) return; // Prevent parsing errors from crashing the isolate thread
     
-    // 2. Compute all strategies and indicators away from the main thread loop
+    backgroundProcessorEngine.injectTick(symbol, price);
     const calculatedFrames = backgroundProcessorEngine.runScannerPipeline();
     
-    // 3. Post the structural batch arrays back to the bridge line instantly
     self.postMessage({
       action: 'SCANNER_BATCH_READY',
       payload: calculatedFrames
