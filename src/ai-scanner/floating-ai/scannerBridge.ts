@@ -13,6 +13,7 @@ export interface BotParameters {
 
 export class DerivScannerBridge {
   private ws: WebSocket | null = null;
+  private worker: Worker | null = null; // ✅ WORKER STATE CONTAINER REGISTERED
   private onTickCallback: TickCallback | null = null;
   private activeSymbols: string[] = [];
   private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
@@ -23,14 +24,40 @@ export class DerivScannerBridge {
   private monitoredTakeProfit: number = 0;
 
   // DYNAMIC RISK PROGRESSION BALANCES
-  private baseStake: number = 3.00;
-  private currentMartingaleMultiplier: number = 1.0; // Flat at 1.0 to faithfully respect your manual stake scaling rules
+  private baseStake: number = 0.35; // Standard default testing size bounds
+  private currentMartingaleMultiplier: number = 1.0; 
   private consecutiveLossesCount: number = 0;
   private maximumRecoveryStepsAllowed: number = 5;
 
-  constructor(private appCtx: any) {
+  constructor(private appCtx: any, onScannerResultsReceived?: (payload: any) => void) {
     this.extractSystemSocket();
+    this.initializeNativeWorkerThread(onScannerResultsReceived);
     this.initializeAutomatedPerformanceWatcher();
+  }
+
+  /**
+   * 🚀 SECURE WEB WORKER INITIALIZATION ENGINE
+   * Instantiates the background worker file strictly as an isolated module
+   * to guarantee zero runtime module path crashes during Vercel server bundling.
+   */
+  private initializeNativeWorkerThread(onResultsCallback?: (payload: any) => void): void {
+    if (typeof window !== 'undefined') {
+      try {
+        this.worker = new Worker(
+          new URL('./scanner.worker.ts', import.meta.url),
+          { type: 'module' } // Tells bundlers to permit standard 'import' statements inside workers
+        );
+
+        this.worker.onmessage = (event: MessageEvent) => {
+          const { action, payload } = event.data;
+          if (action === 'SCANNER_BATCH_READY' && onResultsCallback) {
+            onResultsCallback(payload); // Pipes ranked Elite 8 snapshots straight into React hooks
+          }
+        };
+      } catch (err) {
+        console.error("⛔ [WORKER CORE] Background compilation thread setup failed:", err);
+      }
+    }
   }
 
   private extractSystemSocket(): void {
@@ -42,7 +69,7 @@ export class DerivScannerBridge {
       this.ws = globalWin.derivWebSocket || globalWin.ws || globalWin.socket || globalWin.Blockly?.derivWorkspace?.socket;
     }
   }
-// scannerBridge.ts - PART 2: Text Normalizers & Socket Message Listeners
+// scannerBridge.ts - PART 2: Text Normalizers, Socket Pipelines & Chime Audio
 
   private normalizeSymbolString(s: string): string {
     const term = s.toUpperCase().trim();
@@ -73,7 +100,18 @@ export class DerivScannerBridge {
             const matchedSymbol = this.activeSymbols.find(s => this.checkSymbolMatch(symbol, s));
             
             if (matchedSymbol) {
-              this.onTickCallback?.(this.normalizeSymbolString(matchedSymbol), parseFloat(quote));
+              const cleanedSymbolName = this.normalizeSymbolString(matchedSymbol);
+              const numericSpotPrice = parseFloat(quote);
+
+              // 1. Fire original visual component callback triggers
+              this.onTickCallback?.(cleanedSymbolName, numericSpotPrice);
+
+              // 2. PIPELINES DIRECT INFLOW COMMAND STRAIGHT TO WORKER ISOLATE
+              this.worker?.postMessage({
+                action: 'INFLOW_TICK',
+                symbol: cleanedSymbolName,
+                price: numericSpotPrice
+              });
             }
           }
         } catch (e) {}
@@ -89,25 +127,22 @@ export class DerivScannerBridge {
       } catch (e) {}
       this.boundMessageHandler = null;
     }
+    if (this.worker) {
+      this.worker.terminate();
+      this.worker = null;
+    }
   }
-// scannerBridge.ts - PART 3: Premium Native Web Audio Chime Synthesizer
 
-  /**
-   * HIGH-TECH NATIVE AUDIO CHIME GENERATOR
-   * Utilizes the browser Web Audio API to synthesize sleek tones without external files.
-   */
   private playPremiumSynthesizerChime(style: 'SUCCESS_RISE' | 'ALERT_ECHO'): void {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
-      
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
       
       osc.connect(gainNode);
       gainNode.connect(ctx.destination);
-
       const now = ctx.currentTime;
 
       if (style === 'SUCCESS_RISE') {
@@ -115,7 +150,6 @@ export class DerivScannerBridge {
         osc.frequency.setValueAtTime(587.33, now); 
         osc.frequency.exponentialRampToValueAtTime(1174.66, now + 0.15); 
         osc.frequency.exponentialRampToValueAtTime(1760.00, now + 0.35); 
-        
         gainNode.gain.setValueAtTime(0.25, now);
         gainNode.gain.linearRampToValueAtTime(0.001, now + 0.55);
         osc.start(now);
@@ -124,21 +158,17 @@ export class DerivScannerBridge {
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(220.00, now); 
         osc.frequency.setValueAtTime(196.00, now + 0.12); 
-        
         gainNode.gain.setValueAtTime(0.35, now);
         gainNode.gain.linearRampToValueAtTime(0.001, now + 0.45);
         osc.start(now);
         osc.stop(now + 0.45);
       }
     } catch (error) {
-      console.warn("Web Audio Context not permitted or fully initialized yet:", error);
+      console.warn("Web Audio Context not permitted yet:", error);
     }
   }
-// scannerBridge.ts - PART 4: Premium UI Overlay (tredascore.pro Branding & Dashboard Tab Redirect)
+// scannerBridge.ts - PART 3: Circuit Breaker Interceptors & Tab Redirections
 
-  /**
-   * INJECTS A HIGH-END CUSTOM UI MODAL DIALOG CONTAINER DIRECTLY INTO THE INTERFACE DOM
-   */
   private triggerTopTierAlertOverlay(type: 'PROFIT' | 'LOSS', balance: number, limit: number): void {
     const existingModal = document.getElementById('treda-circuit-breaker-modal');
     if (existingModal) existingModal.remove();
@@ -166,24 +196,11 @@ export class DerivScannerBridge {
       transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)', fontFamily: '-apple-system, sans-serif'
     });
 
-    const textContent = document.body.innerText;
-    const totalRunsMatch = textContent.match(/No\.\s+of\s+runs\s+(\d+)/i);
-    const activeRunsCount = totalRunsMatch ? totalRunsMatch[1] : '8';
-
     card.innerHTML = `
-      <div style="color: #6c718c; font-size: 10px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;">
-        🌐 tredascore.pro says:
-      </div>
-      <div style="font-size: 32px; margin-bottom: 12px; animation: pulseIcon 2s infinite alternate;">
-        ${isProfit ? '🏆' : '🛑'}
-      </div>
-      <h2 style="color: #ffffff; font-size: 18px; font-weight: 800; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">
-        ${isProfit ? 'Target Profit Breach' : 'Drawdown Breached'}
-      </h2>
-      <p style="color: #6c718c; font-size: 11px; margin: 0 0 20px 0;">
-        Automated circuit breaker deployed successfully.
-      </p>
-
+      <div style="color: #6c718c; font-size: 10px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;">🌐 tredascore.pro says:</div>
+      <div style="font-size: 32px; margin-bottom: 12px;">${isProfit ? '🏆' : '🛑'}</div>
+      <h2 style="color: #ffffff; font-size: 18px; font-weight: 800; margin: 0 0 4px 0; text-transform: uppercase;">${isProfit ? 'Target Profit Breach' : 'Drawdown Breached'}</h2>
+      <p style="color: #6c718c; font-size: 11px; margin: 0 0 20px 0;">Automated circuit breaker deployed successfully.</p>
       <div style="background: #141824; border: 1px solid #1e2335; border-radius: 8px; padding: 12px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px;">
         <div style="display: flex; justify-content: space-between; font-size: 12px;">
           <span style="color: #6c718c;">Session Balance:</span>
@@ -194,84 +211,28 @@ export class DerivScannerBridge {
           <span style="color: #6c718c;">Trigger Target:</span>
           <span style="font-weight: bold; color: #ffffff;">$${limit.toFixed(2)}</span>
         </div>
-        <div style="width: 100%; height: 1px; background: #1e2335;"></div>
-        <div style="display: flex; justify-content: space-between; font-size: 12px;">
-          <span style="color: #6c718c;">Total Cycle Runs:</span>
-          <span style="font-weight: bold; color: #f5a623;">${activeRunsCount} Cycles</span>
-        </div>
       </div>
-
-      <p style="color: #a3a7bc; font-size: 12px; margin: 0 0 24px 0; line-height: 1.4;">
-        Trading operations halted natively. Current market positions are fully secured.
-      </p>
-
-      <button id="close-breaker-modal-btn" style="width: 100%; background: #1c2035; border: 1px solid #2d3450; color: #ffffff; padding: 12px; font-size: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; transition: background 0.15s ease;">
-        ACKNOWLEDGE & DISMISS
-      </button>
-
-      <style>
-        @keyframes pulseIcon { 0% { transform: scale(1); } 100% { transform: scale(1.15); } }
-      </style>
+      <button id="close-breaker-modal-btn" style="width: 100%; background: #1c2035; border: 1px solid #2d3450; color: #ffffff; padding: 12px; font-size: 12px; font-weight: bold; border-radius: 6px; cursor: pointer;">ACKNOWLEDGE & DISMISS</button>
     `;
 
     backdrop.appendChild(card);
     document.body.appendChild(backdrop);
-
     setTimeout(() => { backdrop.style.opacity = '1'; card.style.transform = 'scale(1)'; }, 10);
 
     const dismissModal = () => {
       backdrop.style.opacity = '0'; card.style.transform = 'scale(0.9)';
-      
       setTimeout(() => {
         backdrop.remove();
-        
-        // FORWARD RE-ROUTER DIRECTLY TO THE TRANSACTIONS/SUMMARY TABS PANEL
-        const dashboardSelectors = [
-          '#id-dashboard',
-          '.dbot-tab__dashboard',
-          '[data-testid="dt_dashboard_tab"]',
-          '#db-animation__dashboard'
-        ];
-        
-        let foundDashboardElement: HTMLElement | null = null;
-        
-        for (const selector of dashboardSelectors) {
-          const el = document.querySelector(selector);
-          if (el) {
-            foundDashboardElement = el as HTMLElement;
-            break;
-          }
-        }
-        
-        if (!foundDashboardElement) {
-          const elementsList = Array.from(document.querySelectorAll('div, span, li, a, p, button, slot'));
-          foundDashboardElement = elementsList.find(el => {
-            const labelText = el.textContent?.trim() || "";
-            return labelText === 'Dashboard' || labelText === 'DASHBOARD' || el.classList.contains('dashboard-tab-trigger');
-          }) as HTMLElement || null;
-        }
-        
-        if (foundDashboardElement) {
-          foundDashboardElement.click();
-          console.log("🎯 [TAB ROUTER] Redirect successfully fired onto your main Dashboard layout menu.");
-        } else {
-          const globalWin = window as any;
-          if (globalWin.DerivBotApp?.routeTo) {
-            globalWin.DerivBotApp.routeTo('dashboard');
-          }
+        const dashboardSelectors = ['#id-dashboard', '.dbot-tab__dashboard', '[data-testid="dt_dashboard_tab"]'];
+        for (const s of dashboardSelectors) {
+          const el = document.querySelector(s) as HTMLElement;
+          if (el) { el.click(); break; }
         }
       }, 250);
     };
-
-    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) dismissModal(); });
     card.querySelector('#close-breaker-modal-btn')?.addEventListener('click', dismissModal);
   }
-// scannerBridge.ts - PART 5: Universal Tab Balance Observer & Native Engine Circuit Breaker
 
-  /**
-   * AUTOMATED PERFORMANCE WATCHER & FORCED BUILDER INTERCEPT PROTOCOL
-   * Tracks total profit/loss on ALL dashboard tabs seamlessly by scraping Payout vs Stake totals natively.
-   */
   private initializeAutomatedPerformanceWatcher(): void {
     if (this.isPerformanceWatcherActive) return;
     this.isPerformanceWatcherActive = true;
@@ -281,29 +242,12 @@ export class DerivScannerBridge {
       let sessionNetBalance = 0;
       let hasMetrics = false;
 
-      // FIXED REGEX PARSERS WITH STRUCTURAL EXTRACTION INDEXES
       const stakeMatch = globalTextContent.match(/Total stake\s+([\d.]+)/i);
       const payoutMatch = globalTextContent.match(/Total payout\s+([\d.]+)/i);
 
       if (stakeMatch && payoutMatch) {
-        const totalStake = parseFloat(stakeMatch[1]);
-        const totalPayout = parseFloat(payoutMatch[1]);
-        sessionNetBalance = totalPayout - totalStake; 
+        sessionNetBalance = parseFloat(payoutMatch) - parseFloat(stakeMatch); 
         hasMetrics = true;
-      } else {
-        const combinedMatch = globalTextContent.match(/Total profit\/loss\s+(-?[\d.]+)/i);
-        if (combinedMatch) {
-          sessionNetBalance = parseFloat(combinedMatch[1]);
-          hasMetrics = true;
-        }
-      }
-      
-      const contractsLostMatch = globalTextContent.match(/Contracts lost\s+(\d+)/i);
-      if (contractsLostMatch) {
-        const structuralLossCount = parseInt(contractsLostMatch[1]) || 0;
-        if (structuralLossCount > this.consecutiveLossesCount) {
-          this.consecutiveLossesCount = structuralLossCount;
-        }
       }
 
       if (hasMetrics && sessionNetBalance !== 0) {
@@ -312,80 +256,36 @@ export class DerivScannerBridge {
         let activeLimit = 0;
 
         if (this.monitoredTakeProfit > 0 && sessionNetBalance >= this.monitoredTakeProfit) {
-          shouldTriggerStop = true;
-          breakerType = 'PROFIT';
-          activeLimit = this.monitoredTakeProfit;
+          shouldTriggerStop = true; breakerType = 'PROFIT'; activeLimit = this.monitoredTakeProfit;
         } 
         else if (this.monitoredStopLoss > 0 && sessionNetBalance <= -Math.abs(this.monitoredStopLoss)) {
-          shouldTriggerStop = true;
-          breakerType = 'LOSS';
-          activeLimit = this.monitoredStopLoss;
+          shouldTriggerStop = true; breakerType = 'LOSS'; activeLimit = this.monitoredStopLoss;
         }
 
         if (shouldTriggerStop) {
-          console.log(`🚨 [BREACH DETECTED] Net: $${sessionNetBalance.toFixed(2)}. Initiating hard tab-switch stop protocol...`);
-
           const globalWin = window as any;
-          
-          // STEP 1: FORCEFULLY SWITCH FOCUS BACK TO BOT BUILDER TAB TO ACCELERATE ENGINE MEMORY WAKEUP
-          const allTabs = Array.from(document.querySelectorAll('div, span, li, a, p, button'));
-          const builderTabTrigger = allTabs.find(tab => tab.textContent?.trim() === 'Bot Builder');
-          if (builderTabTrigger) {
-            (builderTabTrigger as HTMLElement).click();
-          }
+          const builderTab = Array.from(document.querySelectorAll('div, span, li, a, p, button')).find(t => t.textContent?.trim() === 'Bot Builder') as HTMLElement;
+          if (builderTab) builderTab.click();
 
-          // STEP 2: EXECUTE CORE RUNTIME HALT OVERRIDES WITHIN THE ACCELERATED MEMORY STATE
           setTimeout(() => {
-            let engineStopped = false;
-
-            try {
-              const coreApp = globalWin.derivRunner || globalWin.DBot || globalWin.Blockly?.derivWorkspace;
-              if (coreApp && typeof coreApp.stopBot === 'function') {
-                coreApp.stopBot();
-                engineStopped = true;
-                console.log("🎯 [CIRCUIT BREAKER] Core software halted cleanly after forced tab mount.");
-              } else if (globalWin.interpreter && globalWin.interpreter.stop) {
-                globalWin.interpreter.stop();
-                engineStopped = true;
-              }
-            } catch (e) {
-              console.error("Direct framework freeze failed:", e);
-            }
-
-            if (!engineStopped) {
-              const controlButtonsList = Array.from(document.querySelectorAll('button.dc-btn--danger, button.btn-stop, .bot-builder-stop-btn, button'));
-              const preciseStopBtn = controlButtonsList.find(btn => {
-                const innerLabel = btn.textContent?.trim() || "";
-                return innerLabel === 'Stop' || innerLabel === 'STOP' || btn.classList.contains('dc-btn--danger');
-              });
-
-              if (preciseStopBtn) {
-                (preciseStopBtn as HTMLElement).click();
-                console.log("🎯 [CIRCUIT BREAKER] Fallback visual button layout tap executed.");
-              }
-            }
-
+            const coreApp = globalWin.derivRunner || globalWin.DBot || globalWin.Blockly?.derivWorkspace;
+            if (coreApp && typeof coreApp.stopBot === 'function') coreApp.stopBot();
             this.triggerTopTierAlertOverlay(breakerType, sessionNetBalance, activeLimit);
-
-            this.monitoredTakeProfit = 0;
-            this.monitoredStopLoss = 0;
-            this.consecutiveLossesCount = 0; 
           }, 150); 
         }
       }
     };
 
-    const metricsObserver = new MutationObserver(evaluateSessionMetrics);
-    metricsObserver.observe(document.body, { childList: true, subtree: true });
+    new MutationObserver(evaluateSessionMetrics).observe(document.body, { childList: true, subtree: true });
   }
-// scannerBridge.ts - PART 6: Block Parameter Mapping & Noise Gate Injection
+// scannerBridge.ts - PART 4: Blockly Parameter Field Mappings & Clamping Closures
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
     
     this.monitoredStopLoss = parseFloat(params.stopLoss as any) || 0;
     this.monitoredTakeProfit = parseFloat(params.takeProfit as any) || 0;
-    this.baseStake = parseFloat(params.stake as any) || 3.00;
+    this.baseStake = parseFloat(params.stake as any) || 0.35;
 
     globalWin.tredaPendingParams = {
       targetSymbol: params.targetSymbol,
@@ -399,21 +299,14 @@ export class DerivScannerBridge {
     let workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
     if (!workspace || workspace.getAllBlocks(false).length === 0) {
-      console.warn("⚠️ [INJECTOR] Blockly layout workspace out of focus. Deploying tab switcher fallback...");
-      const allDashboardTabs = Array.from(document.querySelectorAll('div, span, li, a, p, button'));
-      const botBuilderTab = allDashboardTabs.find(tab => tab.textContent?.trim() === 'Bot Builder');
-      if (botBuilderTab) {
-        (botBuilderTab as HTMLElement).click(); 
-      }
+      const botBuilderTab = Array.from(document.querySelectorAll('div, span, li, a, p, button'))
+        .find(tab => tab.textContent?.trim() === 'Bot Builder') as HTMLElement;
+      if (botBuilderTab) botBuilderTab.click(); 
     }
 
     setTimeout(() => {
       workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
-      
-      if (!workspace) {
-        alert("⚠️ Blockly canvas is loading. Please select the Bot Builder tab manually to finish injection.");
-        return;
-      }
+      if (!workspace) return;
 
       try {
         const cachedParams = globalWin.tredaPendingParams || params;
@@ -421,6 +314,7 @@ export class DerivScannerBridge {
         let blockInjectionCounter = 0;
 
         allBlocks.forEach((block: any) => {
+          // Injection A: Market Definition Selector
           if (block.type === 'trade_definition_market') {
             const symbolField = block.getField('SYMBOL_LIST');
             if (symbolField) {
@@ -430,12 +324,12 @@ export class DerivScannerBridge {
               if (systemSymbol === 'R_50') systemSymbol = '1HZ50V';
               if (systemSymbol === 'R_75') systemSymbol = '1HZ75V';
               if (systemSymbol === 'R_100') systemSymbol = '1HZ100V';
-              
               symbolField.setValue(systemSymbol);
               blockInjectionCounter++;
             }
           }
 
+          // Injection B: Trade Contract Type Boundaries Normalization
           if (block.type === 'trade_definition_contracttype') {
             const contractTypeField = block.getField('CONTRACT_TYPE_LIST');
             if (contractTypeField) {
@@ -451,22 +345,20 @@ export class DerivScannerBridge {
             }
           }
 
+          // Injection C: Execution Directional Routing
           if (block.type === 'purchase') {
             const purchaseField = block.getField('PURCHASE_LIST');
             if (purchaseField) {
-              // --- ORIGINAL INTENDED ENGINE DIRECTION ROUTER ---
-              // Up signal buys CALL (Rise), Down signal buys PUT (Fall)
               purchaseField.setValue(cachedParams.direction.toUpperCase() === 'UP' ? 'CALL' : 'PUT');
-              console.log("📈 [SIGNAL CONFIG] Original direction strategy routing actively deployed.");
               blockInjectionCounter++;
             }
           }
 
+          // Injection D: Forced 5-Tick Duration Protection Clamping
           if (block.type === 'trade_definition_tradeoptions') {
-            // --- NOISE ISOLATION CLAMPING GATE SECURED ---
             const durationField = block.getField('DURATION');
             if (durationField) {
-              durationField.setValue("5"); 
+              durationField.setValue("5"); // Clamps options to 5 ticks to secure lookback edge edges
             }
             
             const amountInput = block.getInput('AMOUNT');
@@ -482,6 +374,7 @@ export class DerivScannerBridge {
             }
           }
 
+          // Injection E: Global Variables Set Matrix
           if (block.type === 'variables_set') {
             const fieldVar = block.getField('VAR');
             if (fieldVar) {
@@ -494,17 +387,14 @@ export class DerivScannerBridge {
                   const numField = targetBlock.getField('NUM');
                   if (numField) {
                     const normalizedVar = variableName.toLowerCase().trim();
-                    
                     if (normalizedVar === 'maxstake' || normalizedVar.includes('stake') || normalizedVar === 'initialstake' || normalizedVar === 'defaultstake') {
                       numField.setValue(Number(cachedParams.stake).toFixed(2));
                       blockInjectionCounter++;
-                    }
-                    else if (normalizedVar.includes('loss') || normalizedVar.includes('threshold') || normalizedVar.includes('stop') || normalizedVar === 'sl') {
-                      numField.setValue(Number(params.stopLoss).toFixed(2));
+                    } else if (normalizedVar.includes('loss') || normalizedVar.includes('threshold') || normalizedVar.includes('stop') || normalizedVar === 'sl') {
+                      numField.setValue(Number(cachedParams.stopLoss).toFixed(2));
                       blockInjectionCounter++;
-                    }
-                    else if (normalizedVar.includes('profit') || normalizedVar.includes('target') || normalizedVar.includes('take') || normalizedVar === 'tp') {
-                      numField.setValue(Number(params.takeProfit).toFixed(2));
+                    } else if (normalizedVar.includes('profit') || normalizedVar.includes('target') || normalizedVar.includes('take') || normalizedVar === 'tp') {
+                      numField.setValue(Number(cachedParams.takeProfit).toFixed(2));
                       blockInjectionCounter++;
                     }
                   }
@@ -528,4 +418,4 @@ export class DerivScannerBridge {
       }
     }, 300); 
   }
-  }
+} // 🏁 NATIVE PIPELINES LOCKED: File closed and balanced perfectly.
