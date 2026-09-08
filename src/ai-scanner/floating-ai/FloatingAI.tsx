@@ -41,7 +41,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         const engineInstance = (globalWin.tredaBridgeInstance as any).localFallbackEngine;
         const liveCalculatedSnapshots = engineInstance.runScannerPipeline();
         
-        // ✅ PROPER ARRAY TARGETING: Checks the first entry index to confirm numbers exist
+        // ✅ CORRECTED OBJECT POINTER: Targets index 0 of the snapshot array to access the data schema properly
         if (liveCalculatedSnapshots && liveCalculatedSnapshots.length > 0 && liveCalculatedSnapshots[0].scannerScore > 0) {
           setRawPipelineData(liveCalculatedSnapshots);
           return; // Exit early since live data is actively updating the view
@@ -70,7 +70,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     return () => {
       clearInterval(dataSyncInterval); // Clean up memory footprint allocations safely on dismount
     };
-    // ✅ FIXED STABLE DEPENDENCIES: Removed rawPipelineData context references to stop the flashing loop entirely!
+    // ✅ STABILIZED DEPENDENCIES: Keeps loops active without triggering re-render loops
   }, [isTypingFocused, trackingSymbols]); 
 
   // Handle baseline sorting actions linking directly to the isolated status markers
