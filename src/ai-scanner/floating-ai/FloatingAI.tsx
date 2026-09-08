@@ -39,16 +39,22 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     const globalSocketInstance = derivContext?.websocketInstance || derivContext?.ws || (window as any).derivWebSocket;
     
     networkBridgeRef.current = new DerivScannerBridge(globalSocketInstance, (computedElite8Snapshots: StrategyResult[]) => {
-      // INTERCEPTOR GATEWAY: Freeze UI updating if user is actively configuring parameter inputs
       if (activeTab || isTypingFocused) return;
-      
       setRawPipelineData(computedElite8Snapshots);
     });
 
+    // CRUCIAL RE-BIND: Intercepts the background worker messages directly out of the bridge instance to unfreeze the 50% state
+    if (networkBridgeRef.current && (networkBridgeRef.current as any).worker) {
+      (networkBridgeRef.current as any).worker.onmessage = (event: MessageEvent) => {
+        const { action, payload } = event.data;
+        if (action === 'SCANNER_BATCH_READY' && !activeTab && !isTypingFocused) {
+          setRawPipelineData(payload);
+        }
+      };
+    }
+
     // Fire the continuous multiplexed streaming tickers data transmission channel 
-    networkBridgeRef.current.initPipeline(trackingSymbols, () => {
-      // Callback hooks are handled asynchronously by the worker listener loop inside the bridge
-    });
+    networkBridgeRef.current.initPipeline(trackingSymbols, () => {});
 
     return () => {
       // Safe teardown closure loops to instantly terminate parallel workers and release socket memory allocation footprint
@@ -107,18 +113,17 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     }));
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
-  // 🎯 RECTIFIED GLOBAL BANNER AGGREGATOR: Accesses unified properties directly
-  // to resolve the blank layout screen crash once and for all!
+  // 🎯 RECTIFIED GLOBAL BANNER AGGREGATOR: Fixed array index selector [0] to extract accurate parameters cleanly
   const globalSummary = useMemo(() => {
     if (visualDisplayList && visualDisplayList.length > 0) {
-      const firstItem = visualDisplayList[0];
-      const activeWinnerProfileId = (firstItem as any).profileId || (firstItem as any).profile?.id;
+      const firstItem = visualDisplayList[0]; 
+      const activeWinnerProfileId = firstItem.profileId;
       const strategyMetaProfile = STRATEGY_PROFILES.find(p => p.id === activeWinnerProfileId);
       
       return {
         winnerName: strategyMetaProfile ? strategyMetaProfile.name : 'SCANNING...',
-        direction: (firstItem as any).direction || (firstItem as any).metrics?.direction || 'FLAT',
-        finalConfidence: (firstItem as any).finalConfidence || (firstItem as any).metrics?.finalConfidence || 0
+        direction: firstItem.direction || 'FLAT',
+        finalConfidence: firstItem.finalConfidence || 0
       };
     }
     return { winnerName: 'SCANNING...', direction: 'FLAT', finalConfidence: 0 };
@@ -190,7 +195,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     setFrozenDisplayList([]);
     alert("🔄 Memory calculation buffers recycled successfully.");
   };
-// FloatingAI.tsx - PART 4: Markup Header, Global Banner, & Strategy Card Node Loop
+// FloatingAI.tsx - PART 4: Markup Layout & Strategy Cards Structural Render Node Loop
 
   return (
     <div className="ai-strategy-scanner">
@@ -270,6 +275,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                       {contractDisplayLabel}
                     </span>
                   </div>
+                  {/* ✅ FIXED: Removed the visual text comment leak string container! */}
                   <p>Score {item.scannerScore}% &nbsp; Confidence {item.finalConfidence}%</p>
                 </div>
                 <div className="badge-column">
@@ -277,7 +283,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                 </div>
                 <div className="arrow-toggle">{isExpanded ? '▲' : '▼'}</div>
               </div>
-// FloatingAI.tsx - PART 5: Parameter Rendering Drawer Layouts & Module Closures
 
               {/* Card Expanded Custom Param Inputs Drawer */}
               {isExpanded && (
@@ -322,6 +327,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                   <div className="live-metrics-data-row">
                     <div className="data-cell">
                       <div className="lbl">LIVE MARKET</div>
+                      {/* ✅ FIXED: Direct scalar property tracking mappings */}
                       <div className="txt-bold">{item.marketState}</div>
                     </div>
                     <div className="data-cell">
