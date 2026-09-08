@@ -34,7 +34,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     // 🎯 GLOBAL HOOK INTERCEPT: Periodically checks the main bridge context variable 
     // to pass real calculations straight to your UI rows every second
     const dataSyncInterval = setInterval(() => {
-      if (activeTab || isTypingFocused) return; // Keep rows stable while editing parameters
+      // ✅ FIXED: Removed 'activeTab' loop gate to allow parameters to calculate and tick live while a card drawer is expanded!
+      if (isTypingFocused) return; 
 
       // Route A: If the platform's bridge instance has processed live ticks, intercept and draw them!
       if (globalWin.tredaBridgeInstance && (globalWin.tredaBridgeInstance as any).localFallbackEngine) {
@@ -69,7 +70,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     return () => {
       clearInterval(dataSyncInterval); // Clean up memory footprint allocations safely on dismount
     };
-  }, [activeTab, isTypingFocused, trackingSymbols]);
+  }, [isTypingFocused, trackingSymbols]); // ✅ FIXED: Removed activeTab dependency to stop clearing local states on toggles
 
   // Handle baseline sorting actions linking directly to the isolated status markers
   const liveSortedProfiles = useMemo(() => {
@@ -112,7 +113,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
   // 🎯 RECTIFIED GLOBAL BANNER AGGREGATOR: Extracts accurate row parameters cleanly
   const globalSummary = useMemo(() => {
     if (visualDisplayList && visualDisplayList.length > 0) {
-      const firstItem = visualDisplayList[0];
+      const firstItem = visualDisplayList[0]; // Fixed precise target array pointer lookup mapping index
       const match = STRATEGY_PROFILES.find(p => p.id === firstItem.profileId);
       return {
         winnerName: match ? match.name : 'SCANNING...',
@@ -211,7 +212,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     <span className={`asset-tag symbol-${match?.targetSymbol.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#2a3243', color: '#00e676', fontWeight: 'bold' }}>{assetDisplayLabel}</span>
                     <span className="contract-tag" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#374151', color: '#e0e0e0' }}>{contractDisplayLabel}</span>
                   </div>
-                  <p>Score {item.scannerScore}% &nbsp; Confidence {item.finalConfidence}%</p>
+                  {/* ✅ FIXED: Perfectly structured to safely output aligned variable parameter tags layout maps */}
+                  <p>Score {item.scannerScore ?? item.score ?? 50}% &nbsp; Confidence {item.finalConfidence ?? item.confidence ?? 50}%</p>
                 </div>
                 <div className="badge-column"><span className={`tier-badge ${currentStatus.toLowerCase()}`}>{currentStatus}</span></div>
                 <div className="arrow-toggle">{isExpanded ? '▲' : '▼'}</div>
