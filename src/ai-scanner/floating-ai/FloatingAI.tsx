@@ -42,7 +42,8 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         const liveCalculatedSnapshots = engineInstance.runScannerPipeline();
         
         // ✅ CORRECTED OBJECT POINTER: Targets index 0 of the snapshot array to access the data schema properly
-        if (liveCalculatedSnapshots && liveCalculatedSnapshots.length > 0 && liveCalculatedSnapshots[0].scannerScore > 0) {
+        // 🎯 PASTE THIS ABSOLUTE CORRECTED INDICES CONTEXT POINTER IN ITS PLACE:
+if (liveCalculatedSnapshots && liveCalculatedSnapshots.length > 0 && Number(liveCalculatedSnapshots.scannerScore) > 0) {
           setRawPipelineData(liveCalculatedSnapshots);
           return; // Exit early since live data is actively updating the view
         }
