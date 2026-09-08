@@ -1,316 +1,127 @@
-// scannerLogic.ts - Production Version (Refactored for Low-Latency & Strict Routing)
-import { STRATEGY_PROFILES, evaluateStrategy } from './strategies';
+// scannerLogic.ts - PART 1: Core Engine State Structures & Logs
 
-export interface EvaluationFrame {
-  profile: {
-    id: string;
-    name: string;
-    targetSymbol: string;
-    contractType: string;
-  };
-  metrics: {
-    finalConfidence: number;
-    scannerScore: number;
-    direction: string;
-    status: string;
-    marketState?: string;
-    marketCompatibility?: number;
-    executionPayload?: {
-      stake: number;
-      takeProfit: number;
-      stopLoss: number;
-      growthRate: number;
-    };
-  };
-}
+import { STRATEGY_PROFILES, evaluateStrategy, StrategyResult } from './strategies';
 
-export interface HighConfidenceSignal {
-  strategyName: string;
-  assetName: string;
-  confidenceScore: number;
-  recommendedAction: string;
-  riskTier: 'LOW' | 'MEDIUM' | 'HIGH';
-  contractType: string;
-  executionLatencyMs: number;
-  executionPayload?: {
-    stake: number;
-    takeProfit: number;
-    stopLoss: number;
-    growthRate: number;
-  };
-}
-
-const TELEGRAM_BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN || "YOUR_TELEGRAM_BOT_API_TOKEN"; 
-const TELEGRAM_CHANNEL_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHANNEL_ID || "@your_public_channel_username"; 
-
-export const ACCOUNT_LIMITS = {
-  MAX_ALLOWED_SLIPPAGE_MS: 380,
-  RISK_PER_TRADE_PERCENT: 0.02 
-};
-
-export const STATE_KEYS = {
-  PnL: 'EDASCORE_CURRENT_RUN_PNL',
-  LOSS_STREAK: 'EDASCORE_CONSECUTIVE_LOSS_COUNT',
-  KILL_SWITCH: 'EDASCORE_SYSTEM_RUN_TERMINATED'
-};
-
-export function isClient(): boolean {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-}
-
-export function checkEngineStatus(): boolean {
-  if (!isClient()) return false;
-  return localStorage.getItem(STATE_KEYS.KILL_SWITCH) === 'true';
-}
-
-let masterActiveHighStrategyId: string | null = null;
-export let liveExecutionLock = false; 
-
-export const SYMBOL_BROKER_MAP: Record<string, string> = {
-  'R_10': '1HZ10V',
-  'R_25': '1HZ25V', 
-  'R_50': '1HZ50V',
-  'R_75': '1HZ75V',
-  'R_100': '1HZ100V'
-};
-
-export function resetMasterHighLock() { masterActiveHighStrategyId = null; }
-
-/** * REFACTORED: ULTRA LOW-LATENCY WEBSOCKET ROUTER * Sub-millisecond execution bypassing the generic HTTP fetch framework completely */
-export function executeBrokerTrade(signal: HighConfidenceSignal, activeWebSocketInstance: WebSocket) {
-  if (liveExecutionLock || checkEngineStatus()) return;
-  
-  const tradeData = signal.executionPayload;
-  if (!tradeData) return;
-
-  if (activeWebSocketInstance.readyState !== WebSocket.OPEN) {
-    console.error("🚨 Active WebSocket connection line is closed. Aborting order execution pipeline.");
-    return;
-  }
-
-  liveExecutionLock = true; 
-  console.log(`⚡ [EXECUTION INITIATED] Routing via WebSocket: ${signal.contractType} | Asset: ${signal.assetName}`);
-
-  const isAccumulator = signal.contractType === 'ACCUMULATOR';
-  
-  const brokerPayload = {
-    buy: 1,
-    price: tradeData.stake,
-    parameters: {
-      amount: tradeData.stake,
-      basis: "stake",
-      contract_type: isAccumulator ? "ACCU" : (signal.recommendedAction === 'UP' ? 'CALL' : 'PUT'),
-      currency: "USD",
-      symbol: SYMBOL_BROKER_MAP[signal.assetName] || '1HZ25V',
-      duration: 1,
-      duration_unit: "t", 
-      ...(isAccumulator && { growth_rate: tradeData.growthRate }) 
-    }
-  };
-
-  activeWebSocketInstance.send(JSON.stringify(brokerPayload));
-}
-
-/** * REFACTORED: FIXES TELEGRAM PATH INTERPOLATION AND API ENDPOINTS */
-export function dispatchTelegramNotification(messageString: string) {
-  const encodedText = encodeURIComponent(messageString);
-  const telegramApiEndPoint = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHANNEL_ID}&text=${encodedText}&parse_mode=Markdown`;
-
-  fetch(telegramApiEndPoint).catch((err) => 
-    console.error("🚨 System alert transmission pipeline failure:", err)
-  );
-}
-
-export function trackExecutedTradeResult(profitOrLoss: number) {
-  if (!isClient()) return;
-  
-  let currentPnl = parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00');
-  let lossStreak = parseInt(localStorage.getItem(STATE_KEYS.LOSS_STREAK) || '0', 10);
-  let isTerminated = false;
-  
-  currentPnl += profitOrLoss;
-  if (profitOrLoss < 0) {
-    lossStreak += 1;
-  } else {
-    lossStreak = 0; 
-  }
-
-  if (lossStreak >= 3) {
-    isTerminated = true;
-    console.error("🚨 [CRITICAL SHUTDOWN] 3 consecutive losses hit!");
-  } else if (currentPnl >= 30.00) { 
-    isTerminated = true;
-    console.log("🎯 Session financial profit goal reached. Shutting down.");
-  } else if (currentPnl <= -15.00) { 
-    isTerminated = true;
-  }
-
-  localStorage.setItem(STATE_KEYS.PnL, currentPnl.toString());
-  localStorage.setItem(STATE_KEYS.LOSS_STREAK, lossStreak.toString());
-  localStorage.setItem(STATE_KEYS.KILL_SWITCH, isTerminated.toString());
-
-  liveExecutionLock = false; 
-
-  if (isTerminated) {
-    dispatchTelegramNotification(`🛑 *AUTOMATED BOT RUN TERMINATED* 🛑\n\nReason: Session targets hit ($${currentPnl.toFixed(2)} PnL). Execution loops are locked down.`);
-  }
-}
-
-export function resetAccountSessionRun() {
-  if (!isClient()) return;
-  localStorage.removeItem(STATE_KEYS.PnL);
-  localStorage.removeItem(STATE_KEYS.LOSS_STREAK);
-  localStorage.removeItem(STATE_KEYS.KILL_SWITCH);
-  liveExecutionLock = false;
+interface HistoricalTradeOutcome {
+  wasWin: boolean;
+  timestamp: number;
 }
 
 export class ScannerLogicEngine {
-  private tickRegistry: Record<string, number[]> = {};
-  private tickTimestamps: Record<string, number> = {};
+  // Store a rolling memory ring-buffer of raw historical price ticks for each unique asset symbol
+  private tickHistoryRegistry: Map<string, number[]> = new Map();
+  
+  // Track consecutive drawdown streaks locally within the background thread state isolate
+  private continuousLossTrackers: Map<string, number> = new Map();
+  
+  // High-performance cache tracking rolling historical win/loss outcomes per strategy profile
+  private strategyPerformanceLogs: Map<string, HistoricalTradeOutcome[]> = new Map();
+// scannerLogic.ts - PART 2: Inflow Streaming Actions & Performance Logs
 
-  private currentTopStrategyId: string | null = null;
-  private lastLockTime: number = 0;
-  private lockDurationMs: number = 4000;       
-  private isEditingPaused: boolean = false;    
-  private lastEvaluatedFrames: any[] = [];
-  private lastTickReceivedTimestamp: number = 0;
-
-  private standardizeSymbol(s: string): string {
-    if (!s) return 'R_10';
-    const term = s.toUpperCase().trim();
-    if (term.includes('100') || term === 'R_100') return 'R_100';
-    if (term.includes('75') || term === 'R_75') return 'R_75';
-    if (term.includes('50') || term === 'R_50') return 'R_50';
-    if (term.includes('25') || term === 'R_25') return 'R_25';
-    if (term.includes('10') || term === 'R_10') return 'R_10';
-    return s;
-  }
-
+  /**
+   * Appends incoming price feeds to their respective asset data streams.
+   * Enforces a sliding lookback performance window automatically.
+   */
   public injectTick(symbol: string, price: number): void {
-    const normalizedSymbol = this.standardizeSymbol(symbol);
-    const currentTime = Date.now();
-
-    if (!this.tickRegistry[normalizedSymbol]) {
-      this.tickRegistry[normalizedSymbol] = [];
+    if (!this.tickHistoryRegistry.has(symbol)) {
+      this.tickHistoryRegistry.set(symbol, []);
     }
     
-    this.tickRegistry[normalizedSymbol].push(price);
-    this.lastTickReceivedTimestamp = currentTime;
-    this.tickTimestamps[normalizedSymbol] = currentTime;
+    const stream = this.tickHistoryRegistry.get(symbol)!;
+    stream.push(price);
 
-    if (this.tickRegistry[normalizedSymbol].length > 120) {
-      this.tickRegistry[normalizedSymbol].shift();
+    // Enforce an upper performance horizon bound limit to manage worker memory footprints
+    if (stream.length > 150) {
+      stream.shift();
     }
   }
 
-  public setEditingState(isEditing: boolean): void {
-    this.isEditingPaused = isEditing;
+  /**
+   * Updates loss streak variables dynamically based on main-thread execution signals.
+   * This bridges the thread separation layer when loss events settle.
+   */
+  public updateLossStreak(symbol: string, runningStreakCount: number): void {
+    this.continuousLossTrackers.set(symbol, runningStreakCount);
   }
 
-  public forceManualTelegramBroadcast(activeFrame: any): void {
-    if (!activeFrame || !activeFrame.profile || !activeFrame.metrics || checkEngineStatus()) return;
+  /**
+   * Logs a trade outcome into the data stream to compute current execution accuracy.
+   */
+  public logTradeOutcome(strategyId: string, isWin: boolean): void {
+    if (!this.strategyPerformanceLogs.has(strategyId)) {
+      this.strategyPerformanceLogs.set(strategyId, []);
+    }
     
-    const assetToken = this.standardizeSymbol(activeFrame.profile.targetSymbol);
-    const lastTickTime = this.tickTimestamps[assetToken] || Date.now();
-    const currentLatency = Date.now() - lastTickTime;
+    const logs = this.strategyPerformanceLogs.get(strategyId)!;
+    logs.push({ wasWin: isWin, timestamp: Date.now() });
 
-    // Call dynamic telegram broadcaster safely via refactored endpoint
-    const currentPnl = isClient() ? parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00') : 0.00;
-    const msg = `🚀 *MANUAL TELEGRAM SIGNAL ALERT* 🚀\n\n🤖 *Strategy:* ${activeFrame.profile.name}\n📊 *Asset:* ${assetToken}\n🎯 *Confidence:* ${activeFrame.metrics.finalConfidence}%\n⏱️ *Latency:* ${currentLatency}ms\n📈 *PnL:* $${currentPnl.toFixed(2)}`;
-    dispatchTelegramNotification(msg);
+    // Clamp tracking array memory allocations strictly to the last 20 operations
+    if (logs.length > 20) {
+      logs.shift();
+    }
+  }
+// scannerLogic.ts - PART 3: The Performance Filtering Pipeline
+
+  /**
+   * Calculates the true rolling statistical win percentage over the cached history window.
+   */
+  private calculateRollingWinRate(strategyId: string): number {
+    const logs = this.strategyPerformanceLogs.get(strategyId) || [];
+    if (logs.length === 0) return 0.50; // Return a clean 50% baseline if no trade outcomes exist yet
+    
+    const wins = logs.filter(trade => trade.wasWin).length;
+    return wins / logs.length;
   }
 
-  public runScannerPipeline(): any[] {
-    if (checkEngineStatus()) {
-      return this.lastEvaluatedFrames.map(frame => ({
-        ...frame,
-        metrics: { ...frame.metrics, marketState: 'ENGINE_TERMINATED', direction: 'FLAT', scannerScore: 0, finalConfidence: 0, status: 'LOW' }
-      }));
-    }
+  /**
+   * Loops through all registry profiles and calculates fresh real-time strategy matrix sheets.
+   */
+  public runScannerPipeline(): StrategyResult[] {
+    const rawAggregatedOutput: StrategyResult[] = [];
 
-    if (this.isEditingPaused && this.lastEvaluatedFrames.length > 0) {
-      return this.lastEvaluatedFrames;
-    }
+    for (const profile of STRATEGY_PROFILES) {
+      const symbolKey = this.resolveProfileSymbol(profile.targetSymbol);
+      const currentPriceHistory = this.tickHistoryRegistry.get(symbolKey) || [];
+      const currentStreak = this.continuousLossTrackers.get(symbolKey) || 0;
 
-    const currentTime = Date.now();
-    const timeSinceLastTick = currentTime - this.lastTickReceivedTimestamp;
-    
-    if (this.lastTickReceivedTimestamp > 0 && timeSinceLastTick > 2000) {
-      resetMasterHighLock();
-      return this.lastEvaluatedFrames.map(frame => ({
-        ...frame,
-        metrics: { ...frame.metrics, marketState: 'STALE_DATA', direction: 'FLAT', scannerScore: 0, finalConfidence: 0, status: 'LOW' }
-      }));
-    }
-    
-    const profiles = STRATEGY_PROFILES || [];
-    
-    const rawFrames = profiles.map(profile => {
-      const targetToken = this.standardizeSymbol(profile.targetSymbol);
-      const currentTicks = this.tickRegistry[targetToken] || [];
+      // 1. Calculate the core analytical and math technical data frame indicators
+      const baseEvaluation = evaluateStrategy(profile, currentPriceHistory, currentStreak);
       
-      const isolatedProfileCopy = {
-        ...profile,
-        runtimeSettings: profile.runtimeSettings ? { ...profile.runtimeSettings } : undefined
-      };
-      
-      const baseMetrics = evaluateStrategy ? evaluateStrategy(isolatedProfileCopy, currentTicks) : { finalConfidence: 0, scannerScore: 0, direction: 'FLAT', status: 'LOW' };
-      
-      return { profile: isolatedProfileCopy, metrics: { ...baseMetrics } };
-    });
+      // 2. Extract real-world rolling performance data accuracy metrics
+      const currentRealWinRate = this.calculateRollingWinRate(profile.id);
 
-    const sortedGlobalChallengers = [...rawFrames].sort((a, b) => {
-      const scoreA = (a.metrics?.scannerScore || 0) + (a.metrics?.finalConfidence || 0);
-      const scoreB = (b.metrics?.scannerScore || 0) + (b.metrics?.finalConfidence || 0);
-      return scoreB - scoreA;
-    });
-
-    const candidateWinner = sortedGlobalChallengers.length > 0 ? sortedGlobalChallengers[0] : null; 
-
-    const assetToken = candidateWinner ? this.standardizeSymbol(candidateWinner.profile.targetSymbol) : '';
-    const currentLatency = currentTime - (this.tickTimestamps[assetToken] || currentTime);
-
-    const strictEnforcedFrames = rawFrames.map(frame => {
-      const isAbsoluteGlobalWinner = candidateWinner && frame.profile.id === candidateWinner.profile.id;
-      const confidence = frame.metrics?.finalConfidence || 0;
-      const passesConfidenceThreshold = confidence > 80;
-
-      if (isAbsoluteGlobalWinner && passesConfidenceThreshold) {
-        frame.metrics.status = 'HIGH';
-      } else {
-        frame.metrics.status = confidence >= 65 ? 'MEDIUM' : 'LOW';
+      // 3. PERFORMANCE ACCURACY PENALTY GATE: If real historical win rate decays below 45%, 
+      // reduce the confidence value so the strategy card drops out of the HIGH execution tier.
+      if (currentRealWinRate < 0.45 && baseEvaluation.finalConfidence >= 82) {
+        baseEvaluation.finalConfidence = Math.floor(baseEvaluation.finalConfidence * 0.75);
+        baseEvaluation.tierOverride = 'MEDIUM';
+        baseEvaluation.status = 'MEDIUM';
       }
-      return frame;
-    });
 
-    const currentLeaderFrame = strictEnforcedFrames.find(f => f.profile.id === this.currentTopStrategyId);
-    const isLockExpired = (currentTime - this.lastLockTime) > this.lockDurationMs;
-    const currentWinnerStillViable = currentLeaderFrame && (currentLeaderFrame.metrics?.finalConfidence || 0) >= 78;
-    
-    let isCurrentWinnerDethronedByPerformance = false;
-    if (candidateWinner && currentLeaderFrame && candidateWinner.profile.id !== this.currentTopStrategyId) {
-      const leaderWeight = (currentLeaderFrame.metrics?.scannerScore || 0) + (currentLeaderFrame.metrics?.finalConfidence || 0);
-      const candidateWeight = (candidateWinner.metrics?.scannerScore || 0) + (candidateWinner.metrics?.finalConfidence || 0);
-      if (candidateWeight > (leaderWeight + 20)) {
-        isCurrentWinnerDethronedByPerformance = true;
-      }
+      // 4. Inject the calculated live metrics back into the final payload matrix
+      rawAggregatedOutput.push({
+        ...baseEvaluation,
+        liveAccuracyPercentage: Math.floor(currentRealWinRate * 100)
+      });
     }
 
-    if (isLockExpired || !this.currentTopStrategyId || isCurrentWinnerDethronedByPerformance || !currentWinnerStillViable) {
-      if (candidateWinner && (candidateWinner.metrics?.finalConfidence || 0) > 80) {
-        this.currentTopStrategyId = candidateWinner.profile.id;
-        this.lastLockTime = currentTime;
-        
-        const currentPnl = isClient() ? parseFloat(localStorage.getItem(STATE_KEYS.PnL) || '0.00') : 0.00;
-        const msg = `🚀 *HIGH-CONFIDENCE AUTO SIGNAL* 🚀\n\n🤖 *Strategy:* ${candidateWinner.profile.name}\n📊 *Asset:* ${assetToken}\n🎯 *Confidence:* ${candidateWinner.metrics.finalConfidence}%\n⏱️ *Latency:* ${currentLatency}ms\n📈 *PnL:* $${currentPnl.toFixed(2)}`;
-        dispatchTelegramNotification(msg);
-      } else {
-        resetMasterHighLock();
-      }
-    }
-
-    const finalViewOutput = [...strictEnforcedFrames].sort((a, b) => (b.metrics?.finalConfidence || 0) - (a.metrics?.finalConfidence || 0));
-    this.lastEvaluatedFrames = finalViewOutput;
-    return finalViewOutput;
+    // Sort snapshots uniformly from highest confidence tier down to lowest
+    return rawAggregatedOutput.sort((a, b) => b.finalConfidence - a.finalConfidence);
   }
-}
+// scannerLogic.ts - PART 4: Asset Lookup Resolution Map
+
+  /**
+   * Helper utility mapping code registry target string identifiers 
+   * directly onto the raw WebSocket incoming string label blocks.
+   */
+  private resolveProfileSymbol(target: string): string {
+    const assetMap: Record<string, string> = {
+      'R_10': 'Volatility 10',
+      'R_25': 'Volatility 25',
+      'R_50': 'Volatility 50',
+      'R_75': 'Volatility 75',
+      'R_100': 'Volatility 100'
+    };
+    return assetMap[target] || target;
+  }
+} // 🏁 ENGINE SEALS COMPLETE: scannerLogic.ts matches the Elite 8 setup.
