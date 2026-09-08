@@ -360,7 +360,19 @@ export class DerivScannerBridge {
 
     new MutationObserver(evaluateSessionMetrics).observe(document.body, { childList: true, subtree: true });
   }
-// scannerBridge.ts - PART 4: Blockly Parameter Field Mappings & Clamping Closures
+// scannerBridge.ts - PART 4: Parameter Injections, Main Data Bridges & Class Closures
+
+  /**
+   * 🎯 THE MULTI-THREAD DATA UNIFICATION BRIDGE
+   * Exposes the active main-thread indicator calculations directly to your floating layout cards,
+   * completely bypassing Vercel file bundling isolation rules to sync your metrics instantly!
+   */
+  public getLatestPipelineData(): any[] {
+    if ((this as any).localFallbackEngine) {
+      return (this as any).localFallbackEngine.runScannerPipeline();
+    }
+    return [];
+  }
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
