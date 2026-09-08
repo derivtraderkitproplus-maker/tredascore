@@ -41,38 +41,37 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
         const engineInstance = (globalWin.tredaBridgeInstance as any).localFallbackEngine;
         const liveCalculatedSnapshots = engineInstance.runScannerPipeline();
         
-        // Safety check to prevent blank initialized states from flashing over data
-        if (liveCalculatedSnapshots && liveCalculatedSnapshots.length > 0 && liveCalculatedSnapshots[0]?.scannerScore > 0) {
+        // ✅ PROPER ARRAY TARGETING: Checks the first entry index to confirm numbers exist
+        if (liveCalculatedSnapshots && liveCalculatedSnapshots.length > 0 && liveCalculatedSnapshots[0].scannerScore > 0) {
           setRawPipelineData(liveCalculatedSnapshots);
           return; // Exit early since live data is actively updating the view
         }
       }
 
       // Route B: 🔄 LOCAL HYDRATION SEEDER: Safely computes indicators locally if the main socket is out of focus
-      if (rawPipelineData.length === 0) {
-        const emulatedEngine = new ScannerLogicEngine();
-        const initialPrices: Record<string, number> = {
-          'R_10': 45.10, 'R_25': 192.40, 'R_50': 310.85, 'R_75': 525.60, 'R_100': 845.20
-        };
+      const emulatedEngine = new ScannerLogicEngine();
+      const initialPrices: Record<string, number> = {
+        'R_10': 45.10, 'R_25': 192.40, 'R_50': 310.85, 'R_75': 525.60, 'R_100': 845.20
+      };
 
-        trackingSymbols.forEach(symbol => {
-          let price = initialPrices[symbol] || 500.00;
-          const volatilityNoise = (Math.random() - 0.5) * (symbol === 'R_100' ? 1.50 : 0.45);
-          price += volatilityNoise;
-          emulatedEngine.injectTick(symbol, price);
-        });
+      trackingSymbols.forEach(symbol => {
+        let price = initialPrices[symbol] || 500.00;
+        const volatilityNoise = (Math.random() - 0.5) * (symbol === 'R_100' ? 1.50 : 0.45);
+        price += volatilityNoise;
+        emulatedEngine.injectTick(symbol, price);
+      });
 
-        const fallbackCalculations = emulatedEngine.runScannerPipeline();
-        if (fallbackCalculations && fallbackCalculations.length > 0) {
-          setRawPipelineData(fallbackCalculations);
-        }
+      const fallbackCalculations = emulatedEngine.runScannerPipeline();
+      if (fallbackCalculations && fallbackCalculations.length > 0) {
+        setRawPipelineData(fallbackCalculations);
       }
     }, 1000);
 
     return () => {
       clearInterval(dataSyncInterval); // Clean up memory footprint allocations safely on dismount
     };
-  }, [isTypingFocused, trackingSymbols, rawPipelineData.length]);
+    // ✅ FIXED STABLE DEPENDENCIES: Removed rawPipelineData context references to stop the flashing loop entirely!
+  }, [isTypingFocused, trackingSymbols]); 
 
   // Handle baseline sorting actions linking directly to the isolated status markers
   const liveSortedProfiles = useMemo(() => {
