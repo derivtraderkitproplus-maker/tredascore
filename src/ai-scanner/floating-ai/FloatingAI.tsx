@@ -29,7 +29,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
 
   // Curated multi-asset symbols tracking matrix list
   const trackingSymbols = useMemo(() => ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'], []);
-// FloatingAI.tsx - PART 2: Lifecycles, Background Worker Handshakes & Sorting Filters
+// FloatingAI.tsx - PART 2: Lifecycles, Resilient Background Worker Handshakes & Sorting Filters
 
   useEffect(() => {
     setRawPipelineData([]);
@@ -39,16 +39,25 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     const globalSocketInstance = derivContext?.websocketInstance || derivContext?.ws || (window as any).derivWebSocket;
     
     networkBridgeRef.current = new DerivScannerBridge(globalSocketInstance, (computedElite8Snapshots: StrategyResult[]) => {
-      if (activeTab || isTypingFocused) return;
-      setRawPipelineData(computedElite8Snapshots);
+      // Direct bridge fallback updater: Ensures that if the bridge bypasses standard message layers, data updates your UI hooks seamlessly
+      if (!activeTab && !isTypingFocused && computedElite8Snapshots && computedElite8Snapshots.length > 0) {
+        setRawPipelineData(computedElite8Snapshots);
+      }
     });
 
-    // CRUCIAL RE-BIND: Intercepts the background worker messages directly out of the bridge instance to unfreeze the 50% state
+    // UNIVERSAL WORKER THREAD BROADCAST CATCHER: Decodes both nested payload actions and raw arrays to unfreeze indicators
     if (networkBridgeRef.current && (networkBridgeRef.current as any).worker) {
-      (networkBridgeRef.current as any).worker.onmessage = (event: MessageEvent) => {
-        const { action, payload } = event.data;
-        if (action === 'SCANNER_BATCH_READY' && !activeTab && !isTypingFocused) {
-          setRawPipelineData(payload);
+      const activeWorker = (networkBridgeRef.current as any).worker;
+
+      activeWorker.onmessage = (event: MessageEvent) => {
+        const incomingData = event.data;
+        if (!incomingData) return;
+
+        const payloadData = incomingData.payload || incomingData.data || incomingData;
+
+        // Triggers the UI state machine to update cards immediately if the user isn't typing parameters
+        if (!activeTab && !isTypingFocused && Array.isArray(payloadData)) {
+          setRawPipelineData(payloadData);
         }
       };
     }
@@ -113,7 +122,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     }));
   }, [liveSortedProfiles, frozenDisplayList, activeTab]);
 
-  // 🎯 RECTIFIED GLOBAL BANNER AGGREGATOR: Fixed array index selector [0] to extract accurate parameters cleanly
+  // 🎯 RECTIFIED GLOBAL BANNER AGGREGATOR: Fixed array index selector to extract accurate parameters cleanly
   const globalSummary = useMemo(() => {
     if (visualDisplayList && visualDisplayList.length > 0) {
       const firstItem = visualDisplayList[0]; 
@@ -275,7 +284,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                       {contractDisplayLabel}
                     </span>
                   </div>
-                  {/* ✅ FIXED: Removed the visual text comment leak string container! */}
                   <p>Score {item.scannerScore}% &nbsp; Confidence {item.finalConfidence}%</p>
                 </div>
                 <div className="badge-column">
@@ -327,7 +335,6 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                   <div className="live-metrics-data-row">
                     <div className="data-cell">
                       <div className="lbl">LIVE MARKET</div>
-                      {/* ✅ FIXED: Direct scalar property tracking mappings */}
                       <div className="txt-bold">{item.marketState}</div>
                     </div>
                     <div className="data-cell">
