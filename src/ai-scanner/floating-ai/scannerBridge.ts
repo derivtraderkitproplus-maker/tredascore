@@ -1,4 +1,4 @@
-// scannerBridge.ts - PART 1: Core Module Registries & Type Definitions
+// scannerBridge.ts - PART 1: Core Module Registries, Types & Global Event Listeners
 
 import { ScannerLogicEngine } from './scannerLogic'; // ✅ Preserves genuine math calculations natively
 
@@ -36,10 +36,19 @@ export class DerivScannerBridge {
     this.initializeNativeWorkerThread(onScannerResultsReceived);
     this.initializeAutomatedPerformanceWatcher();
 
-    // 🎯 THE GLOBAL ANCHOR SHORTCUT: 
-    // Exposes the bridge singleton instance to global memory so the UI can load parameters seamlessly!
     if (typeof window !== 'undefined') {
       (window as any).tredaBridgeInstance = this;
+
+      // ✅ INDUSTRY-STANDARD NATIVE LISTENER HOOK
+      // Listens for your unique broadcast token globally, automatically intercepting 
+      // the payload to update your blocks without requiring direct element permissions!
+      window.addEventListener('TREDA_INJECT_BLOCKS', (e: Event) => {
+        const customEventPayload = (e as CustomEvent).detail;
+        if (customEventPayload) {
+          console.log("🔌 [BRIDGE EVENT CAUGHT] Injecting parameters into canvas blocks...");
+          this.injectDataToBlockly(customEventPayload);
+        }
+      });
     }
   }
 
@@ -68,7 +77,6 @@ export class DerivScannerBridge {
             onResultsCallback(payloadData); 
           }
         };
-        console.log("🚀 [BRIDGE CORE] Thread channel pipelines initialized successfully.");
       } catch (err) {
         console.warn("⚠️ [BRIDGE CORE] Worker file blocked by server environment layout definitions.");
       }
@@ -392,6 +400,26 @@ export class DerivScannerBridge {
 
     let workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
+    // ✅ SANDBOX RESILIENT DOM TRAVERSAL SEARCH ENGINE
+    // Exhaustively crawls through child iframe memory slots to extract the true Blockly engine context!
+    if (!workspace) {
+      try {
+        const platformIframes = document.querySelectorAll('iframe');
+        for (let i = 0; i < platformIframes.length; i++) {
+          const frameWindow = platformIframes[i].contentWindow as any;
+          if (frameWindow && frameWindow.Blockly) {
+            workspace = frameWindow.Blockly.derivWorkspace || frameWindow.Blockly.mainWorkspace;
+            if (workspace) {
+              console.log("🎯 [BRIDGE LINK MATCHED] Blockly extracted successfully from nested iframe node layer #", i);
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Cross-origin frame boundary access restricted by browser context security.");
+      }
+    }
+
     if (!workspace || workspace.getAllBlocks(false).length === 0) {
       const botBuilderTab = Array.from(document.querySelectorAll('div, span, li, a, p, button'))
         .find(tab => tab.textContent?.trim() === 'Bot Builder') as HTMLElement;
