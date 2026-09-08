@@ -13,7 +13,7 @@ export interface BotParameters {
 
 export class DerivScannerBridge {
   private ws: WebSocket | null = null;
-  private worker: Worker | null = null; 
+  private worker: Worker | null = null; // ✅ GLOBAL THREAD CONTAINER REGISTERED
   private onTickCallback: TickCallback | null = null;
   private activeSymbols: string[] = [];
   private boundMessageHandler: ((event: MessageEvent) => void) | null = null;
@@ -24,7 +24,7 @@ export class DerivScannerBridge {
   private monitoredTakeProfit: number = 0;
 
   // DYNAMIC RISK PROGRESSION BALANCES
-  private baseStake: number = 0.35; 
+  private baseStake: number = 0.35; // Protected micro-stakes testing baseline size
   private currentMartingaleMultiplier: number = 1.0; 
   private consecutiveLossesCount: number = 0;
   private maximumRecoveryStepsAllowed: number = 5;
@@ -36,26 +36,33 @@ export class DerivScannerBridge {
   }
 
   /**
-   * 🚀 SECURE WEB WORKER INITIALIZATION ENGINE
-   * Instantiates the background worker file strictly as an isolated module
-   * to guarantee zero runtime module path crashes during Vercel server bundling.
+   * 🚀 BUNDLER-SAFE MODULE CHUNKING THREAD INITIALIZATION
+   * Instantiates the background worker file strictly using URL constructors.
+   * Forces Vercel to compile the file into a separate modern ECMAScript chunk,
+   * preventing worker module path resolution panics in production environments.
    */
   private initializeNativeWorkerThread(onResultsCallback?: (payload: any) => void): void {
     if (typeof window !== 'undefined') {
       try {
         this.worker = new Worker(
           new URL('./scanner.worker.ts', import.meta.url),
-          { type: 'module' } 
+          { type: 'module' } // ✅ CRUCIAL: Instructs the bundler to compile worker imports natively
         );
 
         this.worker.onmessage = (event: MessageEvent) => {
-          const { action, payload } = event.data;
-          if (action === 'SCANNER_BATCH_READY' && onResultsCallback) {
-            onResultsCallback(payload); 
+          const incoming = event.data;
+          if (!incoming) return;
+
+          // Universal parser to read structured dictionary payloads seamlessly
+          const payloadData = incoming.payload || incoming.data || incoming;
+          
+          if (onResultsCallback && Array.isArray(payloadData)) {
+            onResultsCallback(payloadData); // Dynamically unfreezes the React UI list state!
           }
         };
+        console.log("🚀 [WORKER CORE] Native background module thread initialized successfully.");
       } catch (err) {
-        console.error("⛔ [WORKER CORE] Background compilation thread setup failed:", err);
+        console.error("⛔ [WORKER CORE] Native background worker module allocation failed:", err);
       }
     }
   }
@@ -91,7 +98,7 @@ export class DerivScannerBridge {
     this.activeSymbols = symbols;
     this.extractSystemSocket();
 
-    // 1. STANDARD INTERACTION HANDSHAKE PIPIELINE
+    // 1. STANDARD INTERACTION HANDSHAKE PIPELINE
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       console.log("🔌 [BRIDGE CONNECTED] Live Deriv WebSocket channel successfully intercepted.");
       
@@ -312,7 +319,7 @@ export class DerivScannerBridge {
 
     new MutationObserver(evaluateSessionMetrics).observe(document.body, { childList: true, subtree: true });
   }
-// scannerBridge.ts - PART 4: Blockly Input Canvas Mappings & Final Class Closures
+// scannerBridge.ts - PART 4: Blockly Parameter Field Mappings & Clamping Closures
 
   public injectDataToBlockly(params: BotParameters): void {
     const globalWin = window as any;
@@ -379,7 +386,7 @@ export class DerivScannerBridge {
             }
           }
 
-          // Injection C: Purchase Contract Directional Routing
+          // Injection C: Execution Directional Routing
           if (block.type === 'purchase') {
             const purchaseField = block.getField('PURCHASE_LIST');
             if (purchaseField) {
@@ -388,11 +395,11 @@ export class DerivScannerBridge {
             }
           }
 
-          // Injection D: Basic Trade Options & Forced 5-Tick Clamping Protection Gate
+          // Injection D: Forced 5-Tick Duration Protection Clamping
           if (block.type === 'trade_definition_tradeoptions') {
             const durationField = block.getField('DURATION');
             if (durationField) {
-              durationField.setValue("5"); // Clamps options to 5 ticks to secure lookback data edges
+              durationField.setValue("5"); // Clamps options to 5 ticks to secure lookback edge advantages
             }
             
             const amountInput = block.getInput('AMOUNT');
@@ -408,7 +415,7 @@ export class DerivScannerBridge {
             }
           }
 
-          // Injection E: Global System Runtime Target Variables Assignment
+          // Injection E: Global Variables Set Matrix
           if (block.type === 'variables_set') {
             const fieldVar = block.getField('VAR');
             if (fieldVar) {
@@ -438,12 +445,10 @@ export class DerivScannerBridge {
           }
         });
 
-        // Force canvas redraw refresh state
         if (workspace && typeof workspace.render === 'function') {
           workspace.render();
         }
 
-        // Fire user configuration loaded alert confirmation popup
         if (blockInjectionCounter > 0) {
           alert(`✅ Strategy Configuration Loaded!\n\n• Domain Ref: tredascore.pro\n• Active Stake: $${Number(cachedParams.stake).toFixed(2)}\n• Noise Gate: Clamped at 5 Ticks\n• Stop Loss: $${Number(cachedParams.stopLoss).toFixed(2)}\n• Take Profit: $${Number(cachedParams.takeProfit).toFixed(2)}`);
           globalWin.tredaPendingParams = null;
@@ -454,4 +459,4 @@ export class DerivScannerBridge {
       }
     }, 300); 
   }
-} // 🏁 BALANCED CLOSURE SEALS COMPLETE: scannerBridge.ts is 100% operational.
+} // 🏁 NATIVE PIPELINES LOCKED: File closed and balanced perfectly.
