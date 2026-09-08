@@ -1,7 +1,7 @@
 // FloatingAI.tsx - PART 1: Core Module Initializers & Dynamic State Architecture
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { STRATEGY_PROFILES } from '../strategies';
+import { STRATEGY_PROFILES } from './strategies';
 import { ScannerLogicEngine } from './scannerLogic';
 import './FloatingAI.css';
 
