@@ -69,16 +69,24 @@ export class DerivScannerBridge {
     }
   }
 
+  /**
+   * 🔗 AUTOMATIC SINK DISCOVERY HOOK
+   * Intercepts the parent framework's singleton instance directly from global window memory context definitions.
+   */
   private extractSystemSocket(): void {
     const globalWin = window as any;
-    if (this.appCtx) {
+    
+    if (globalWin.api_base?.api) {
+      this.ws = globalWin.api_base.api; 
+      console.log("🔗 [BRIDGE] Master api_base connection context successfully identified.");
+    } else if (this.appCtx) {
       this.ws = this.appCtx.websocketInstance || this.appCtx.ws || this.appCtx.socket;
     }
-    if (!this.ws) {
+    if (!this.ws && !globalWin.api_base?.api) {
       this.ws = globalWin.derivWebSocket || globalWin.ws || globalWin.socket || globalWin.Blockly?.derivWorkspace?.socket;
     }
   }
-// scannerBridge.ts - PART 2: Text Normalizers, Socket Pipelines & Hybrid Analytics
+// scannerBridge.ts - PART 2: Text Normalizers, Direct RxJS Intercepts & Fallbacks
 
   private normalizeSymbolString(s: string): string {
     const term = s.toUpperCase().trim();
@@ -99,51 +107,57 @@ export class DerivScannerBridge {
     this.activeSymbols = symbols;
     this.extractSystemSocket();
 
-    // Force create a direct local strategy calculation engine wrapper fallback link if missing
+    // Enforce local backup engine hydration layout checks
     if (!(this as any).localFallbackEngine) {
       (this as any).localFallbackEngine = new ScannerLogicEngine();
     }
 
-    // 🔗 ROUTE 1: GENUINE LIVE INTERCEPT CHANNELS HOOKED TO THE BROKER
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      console.log("🔌 [BRIDGE CONNECTED] Live Deriv WebSocket channel successfully intercepted.");
-      
-      this.boundMessageHandler = (event: MessageEvent) => {
+    const globalWin = window as any;
+
+    // 🔗 ROUTE 1: TRADERKIT PRO NATIVE SUBSCRIPTION CHANNEL HOOK
+    if (globalWin.api_base?.api && typeof globalWin.api_base.api.onMessage === 'function') {
+      console.log("🔌 [BRIDGE CONNECTED] Intercepting live api_base sub-channels natively.");
+
+      // Subscribe directly to your parent platform's live network transmission streams
+      const liveStreamSubscription = globalWin.api_base.api.onMessage().subscribe((res: any) => {
         try {
-          const data = JSON.parse(event.data);
-          if (data.msg_type === 'tick' && data.tick) {
-            const { symbol, quote } = data.tick;
+          if (res && res.msg_type === 'tick' && res.tick) {
+            const { symbol, quote } = res.tick;
             const matchedSymbol = this.activeSymbols.find(s => this.checkSymbolMatch(symbol, s));
-            
+
             if (matchedSymbol) {
               const cleanedSymbolName = this.normalizeSymbolString(matchedSymbol);
               const numericSpotPrice = parseFloat(quote);
 
-              // A. Push directly into your background worker thread file container
+              // 1. Pass live index ticks straight down to the background processing threads
               this.worker?.postMessage({
                 action: 'INFLOW_TICK',
                 symbol: cleanedSymbolName,
                 price: numericSpotPrice
               });
 
-              // B. DIRECT LOCAL INJECTION UNFREEZER: Executes math locally if background thread stalls
+              // 2. Process indicator math inside the backup main loop channel instantly
               if ((this as any).localFallbackEngine) {
                 (this as any).localFallbackEngine.injectTick(cleanedSymbolName, numericSpotPrice);
                 
                 if (onScannerResultsReceived) {
-                  const directCalculatedSnapshots = (this as any).localFallbackEngine.runScannerPipeline();
-                  onScannerResultsReceived(directCalculatedSnapshots); // Force immediate live card updates!
+                  const liveCalculatedSnapshots = (this as any).localFallbackEngine.runScannerPipeline();
+                  onScannerResultsReceived(liveCalculatedSnapshots); // Pushes genuine ticks to your UI cards!
                 }
               }
             }
           }
-        } catch (e) {}
-      };
-      this.ws.addEventListener('message', this.boundMessageHandler);
+        } catch (e) {
+          console.error("Inflow stream processing error:", e);
+        }
+      });
+
+      // Cache reference wrapper to permit clean pipeline disconnects on unmount
+      (this as any).nativeSubscriptionRef = liveStreamSubscription;
     } 
     // 🔗 ROUTE 2: AUTONOMOUS REAL-TIME STRATEGY EXECUTION CHANNEL FALLBACK
     else {
-      console.warn("⚠️ [BRIDGE] Shared socket silent. Activating local mathematical execution fallback...");
+      console.warn("⚠️ [BRIDGE] Core client context offline. Deploying local strategy execution loop...");
       
       const pricingMatrix: Record<string, number> = {
         'R_10': 45.10, 'R_25': 192.40, 'R_50': 310.85, 'R_75': 525.60, 'R_100': 845.20
@@ -164,7 +178,6 @@ export class DerivScannerBridge {
           }
         });
 
-        // Fire your clean EMA, RSI, and Volatility filters natively through the local instance
         if ((this as any).localFallbackEngine && onScannerResultsReceived) {
           const directCalculatedSnapshots = (this as any).localFallbackEngine.runScannerPipeline();
           onScannerResultsReceived(directCalculatedSnapshots);
@@ -176,14 +189,13 @@ export class DerivScannerBridge {
   }
 
   public closePipeline(): void {
+    if ((this as any).nativeSubscriptionRef && typeof (this as any).nativeSubscriptionRef.unsubscribe === 'function') {
+      (this as any).nativeSubscriptionRef.unsubscribe();
+      (this as any).nativeSubscriptionRef = null;
+    }
     if ((this as any).backupIntervalRef) {
       clearInterval((this as any).backupIntervalRef);
-    }
-    if (this.ws && this.boundMessageHandler) {
-      try {
-        this.ws.removeEventListener('message', this.boundMessageHandler);
-      } catch (e) {}
-      this.boundMessageHandler = null;
+      (this as any).backupIntervalRef = null;
     }
     if (this.worker) {
       this.worker.terminate();
@@ -304,7 +316,7 @@ export class DerivScannerBridge {
       const payoutMatch = globalTextContent.match(/Total payout\s+([\d.]+)/i);
 
       if (stakeMatch && payoutMatch) {
-        sessionNetBalance = parseFloat(payoutMatch) - parseFloat(stakeMatch); 
+        sessionNetBalance = parseFloat(payoutMatch[1]) - parseFloat(stakeMatch[1]); 
         hasMetrics = true;
       }
 
@@ -416,7 +428,7 @@ export class DerivScannerBridge {
           if (block.type === 'trade_definition_tradeoptions') {
             const durationField = block.getField('DURATION');
             if (durationField) {
-              durationField.setValue("5"); // Clamps options to 5 ticks to secure lookback edge advantages
+              durationField.setValue("5"); // Clamps options to 5 ticks to secure lookback data advantages
             }
             
             const amountInput = block.getInput('AMOUNT');
