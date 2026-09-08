@@ -34,43 +34,45 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
     // 🎯 GLOBAL HOOK INTERCEPT: Periodically checks the main bridge context variable 
     // to pass real calculations straight to your UI rows every second
     const dataSyncInterval = setInterval(() => {
-      // ✅ FIXED: Removed 'activeTab' loop gate to allow parameters to calculate and tick live while a card drawer is expanded!
-      if (isTypingFocused) return; 
+      if (isTypingFocused) return; // Keep rows stable while editing parameters
 
-      // Route A: If the platform's bridge instance has processed live ticks, intercept and draw them!
+      // Route A: Read calculations straight from the active global bridge pointer instance!
       if (globalWin.tredaBridgeInstance && (globalWin.tredaBridgeInstance as any).localFallbackEngine) {
         const engineInstance = (globalWin.tredaBridgeInstance as any).localFallbackEngine;
         const liveCalculatedSnapshots = engineInstance.runScannerPipeline();
         
-        if (liveCalculatedSnapshots && liveCalculatedSnapshots.length > 0) {
+        // Safety check to prevent blank initialized states from flashing over data
+        if (liveCalculatedSnapshots && liveCalculatedSnapshots.length > 0 && liveCalculatedSnapshots[0]?.scannerScore > 0) {
           setRawPipelineData(liveCalculatedSnapshots);
           return; // Exit early since live data is actively updating the view
         }
       }
 
       // Route B: 🔄 LOCAL HYDRATION SEEDER: Safely computes indicators locally if the main socket is out of focus
-      const emulatedEngine = new ScannerLogicEngine();
-      const initialPrices: Record<string, number> = {
-        'R_10': 45.10, 'R_25': 192.40, 'R_50': 310.85, 'R_75': 525.60, 'R_100': 845.20
-      };
+      if (rawPipelineData.length === 0) {
+        const emulatedEngine = new ScannerLogicEngine();
+        const initialPrices: Record<string, number> = {
+          'R_10': 45.10, 'R_25': 192.40, 'R_50': 310.85, 'R_75': 525.60, 'R_100': 845.20
+        };
 
-      trackingSymbols.forEach(symbol => {
-        let price = initialPrices[symbol] || 500.00;
-        const volatilityNoise = (Math.random() - 0.5) * (symbol === 'R_100' ? 1.50 : 0.45);
-        price += volatilityNoise;
-        emulatedEngine.injectTick(symbol, price);
-      });
+        trackingSymbols.forEach(symbol => {
+          let price = initialPrices[symbol] || 500.00;
+          const volatilityNoise = (Math.random() - 0.5) * (symbol === 'R_100' ? 1.50 : 0.45);
+          price += volatilityNoise;
+          emulatedEngine.injectTick(symbol, price);
+        });
 
-      const fallbackCalculations = emulatedEngine.runScannerPipeline();
-      if (fallbackCalculations && fallbackCalculations.length > 0) {
-        setRawPipelineData(fallbackCalculations);
+        const fallbackCalculations = emulatedEngine.runScannerPipeline();
+        if (fallbackCalculations && fallbackCalculations.length > 0) {
+          setRawPipelineData(fallbackCalculations);
+        }
       }
     }, 1000);
 
     return () => {
       clearInterval(dataSyncInterval); // Clean up memory footprint allocations safely on dismount
     };
-  }, [isTypingFocused, trackingSymbols]); // ✅ FIXED: Removed activeTab dependency to stop clearing local states on toggles
+  }, [isTypingFocused, trackingSymbols, rawPipelineData.length]);
 
   // Handle baseline sorting actions linking directly to the isolated status markers
   const liveSortedProfiles = useMemo(() => {
@@ -113,7 +115,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
   // 🎯 RECTIFIED GLOBAL BANNER AGGREGATOR: Extracts accurate row parameters cleanly
   const globalSummary = useMemo(() => {
     if (visualDisplayList && visualDisplayList.length > 0) {
-      const firstItem = visualDisplayList[0]; // Fixed precise target array pointer lookup mapping index
+      const firstItem = visualDisplayList[0]; // Precise target array pointer lookup mapping index
       const match = STRATEGY_PROFILES.find(p => p.id === firstItem.profileId);
       return {
         winnerName: match ? match.name : 'SCANNING...',
@@ -212,7 +214,7 @@ export const FloatingAI: React.FC<FloatingAIProps> = ({ derivContext = {}, onClo
                     <span className={`asset-tag symbol-${match?.targetSymbol.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#2a3243', color: '#00e676', fontWeight: 'bold' }}>{assetDisplayLabel}</span>
                     <span className="contract-tag" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#374151', color: '#e0e0e0' }}>{contractDisplayLabel}</span>
                   </div>
-                  {/* ✅ FIXED: Perfectly structured to safely output aligned variable parameter tags layout maps */}
+                  {/* ✅ ALIGNED ALGORITHMIC DATA PAYLOAD PROPERTIES */}
                   <p>Score {item.scannerScore ?? item.score ?? 50}% &nbsp; Confidence {item.finalConfidence ?? item.confidence ?? 50}%</p>
                 </div>
                 <div className="badge-column"><span className={`tier-badge ${currentStatus.toLowerCase()}`}>{currentStatus}</span></div>
