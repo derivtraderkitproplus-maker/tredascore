@@ -39,14 +39,14 @@ export class DerivScannerBridge {
     if (typeof window !== 'undefined') {
       (window as any).tredaBridgeInstance = this;
 
-      // ✅ INDUSTRY-STANDARD NATIVE LISTENER HOOK
-      // Listens for your unique broadcast token globally, automatically intercepting 
-      // the payload to update your blocks without requiring direct element permissions!
-      window.addEventListener('TREDA_INJECT_BLOCKS', (e: Event) => {
-        const customEventPayload = (e as CustomEvent).detail;
-        if (customEventPayload) {
-          console.log("🔌 [BRIDGE EVENT CAUGHT] Injecting parameters into canvas blocks...");
-          this.injectDataToBlockly(customEventPayload);
+      // ✅ INDUSTRY-STANDARD NATIVE EVENT LISTENER
+      // Securely catches parameters broadcast from the UI across window layers
+      // and routes them directly to the injection methods internally.
+      window.addEventListener('TREDA_INJECT_BLOCKLY_DATA', (event: Event) => {
+        const payloadData = (event as CustomEvent).detail;
+        if (payloadData) {
+          console.log("🔌 [BRIDGE EVENT CAUGHT] Processing external parameter sets...");
+          this.injectDataToBlockly(payloadData);
         }
       });
     }
@@ -128,7 +128,7 @@ export class DerivScannerBridge {
 
     const globalWin = window as any;
 
-    // 🔗 ROUTE 1: TRADERKIT PRO NATIVE SUBSCRIPTION CHANNEL HOOK
+    // 🔗 ROUTE 1: NATIVE SUBSCRIPTION CHANNEL HOOK
     if (globalWin.api_base?.api && typeof globalWin.api_base.api.onMessage === 'function') {
       console.log("🔌 [BRIDGE CONNECTED] Intercepting live api_base sub-channels natively.");
 
@@ -398,9 +398,9 @@ export class DerivScannerBridge {
       takeProfit: params.takeProfit
     };
 
-    // ✅ PRO-TIER MULTI-LAYER TREE SEARCH ENGINE:
-    // Exhaustively crawls current, parent, top window nodes, and document iFrames 
-    // to secure the authentic Blockly instance regardless of cross-origin browser sandboxes!
+    // ✅ PRO-TIER MULTI-LAYER TRAVERSAL CORE:
+    // Exhaustively crawls current, parent, top window layers, and nested DOM sub-frames
+    // to bypass same-origin browser policies and capture the true Blockly engine canvas!
     let workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
     
     if (!workspace) {
@@ -416,7 +416,10 @@ export class DerivScannerBridge {
           const frameWindow = (platformIframes[i] as any).contentWindow;
           if (frameWindow && frameWindow.Blockly) {
             workspace = frameWindow.Blockly.derivWorkspace || frameWindow.Blockly.mainWorkspace;
-            if (workspace) break;
+            if (workspace) {
+              console.log("🎯 [BRIDGE LINK MATCHED] Found Blockly instance inside iframe layer #", i);
+              break;
+            }
           }
         }
       } catch (e) {
@@ -431,9 +434,8 @@ export class DerivScannerBridge {
     }
 
     setTimeout(() => {
-      workspace = globalWin.Blockly?.derivWorkspace || globalWin.Blockly?.mainWorkspace;
+      // Re-evaluate context assignments via alternative DOM tree search pathways if initially blank
       if (!workspace) {
-        // Fallback context lookups if timeout re-assignment yields empty rows
         try {
           const elements = document.querySelectorAll('iframe, frame');
           for (let i = 0; i < elements.length; i++) {
@@ -453,14 +455,13 @@ export class DerivScannerBridge {
         let blockInjectionCounter = 0;
 
         allBlocks.forEach((block: any) => {
-          // ✅ FIXED RECTIFIED MARKET SELECTOR FIELD LOGIC KEYS
+          // ✅ FIXED: Maps asset symbols perfectly to match internal engine list text tokens
           if (block.type === 'trade_definition_market') {
             const symbolField = block.getField('SYMBOL_LIST');
             if (symbolField) {
               const systemSymbol = cachedParams.targetSymbol.toUpperCase().trim();
-              let normalizedFieldKey = 'volatility_10_1s'; // Platform standard safe initialization fallback
+              let normalizedFieldKey = '1HZ10V'; 
 
-              // Align symbol keys to match native underlying library list string maps flawlessly
               if (systemSymbol === 'R_10') normalizedFieldKey = '1HZ10V';
               else if (systemSymbol === 'R_25') normalizedFieldKey = '1HZ25V';
               else if (systemSymbol === 'R_50') normalizedFieldKey = '1HZ50V';
@@ -534,7 +535,7 @@ export class DerivScannerBridge {
                     if (normalizedVar === 'maxstake' || normalizedVar.includes('stake') || normalizedVar === 'initialstake' || normalizedVar === 'defaultstake') {
                       numField.setValue(Number(cachedParams.stake).toFixed(2));
                       blockInjectionCounter++;
-                    } else if (normalizedVar.includes('loss' ) || normalizedVar.includes('threshold') || normalizedVar.includes('stop') || normalizedVar === 'sl') {
+                    } else if (normalizedVar.includes('loss') || normalizedVar.includes('threshold') || normalizedVar.includes('stop') || normalizedVar === 'sl') {
                       numField.setValue(Number(cachedParams.stopLoss).toFixed(2));
                       blockInjectionCounter++;
                     } else if (normalizedVar.includes('profit') || normalizedVar.includes('target') || normalizedVar.includes('take') || normalizedVar === 'tp') {
